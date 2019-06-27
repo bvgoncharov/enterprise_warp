@@ -1,1 +1,0 @@
-name = "libstempo_tools"

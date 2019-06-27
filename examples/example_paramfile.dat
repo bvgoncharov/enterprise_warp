@@ -1,4 +1,4 @@
-datadir: examples/data/
+datadir: data/
 out: out/
 overwrite: True
 allpulsars: False
@@ -18,7 +18,6 @@ dm_model: none
 sn_model: default
 sn_lgApr: -20 -6
 sn_gpr: 0 14
-sn_fcpr: -10 -8
 custom_singlepsr: my_powerlaw event_j1713
 my_amp: 0 1e-15
 my_cc: 0 1e-7
