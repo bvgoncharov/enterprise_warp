@@ -1,14 +1,15 @@
-============
+==============
 Parameter file
-============
+==============
 
 To run Enterprise from a command line using a parameter file on a first pair of .par-.tim files in your data directory, please go to :code:`examples/` and run:
 .. code-block:: console
    `$ python run_example_paramfile.py --prfile example_paramfile.dat --num 0`
 
-## Parameter file for running Enterprise
-#. **{x} (a number in curly brackets)**: a separator, indicating that following parameters are only for model 'x'. If we specify more than one model, then Enterprise is launched in model comparison regime using :code:`class HyperModel` from `enterprise_extensions<https://github.com/stevertaylor/enterprise_extensions/>`.
-#. **datadir**: directory with .par and .tim files
+Parameter file for running Enterprise
+-------------------------------------
+- **{x} (a number in curly brackets)**: a separator, indicating that following parameters are only for model 'x'. If we specify more than one model, then Enterprise is launched in model comparison regime using :code:`class HyperModel` from `enterprise_extensions<https://github.com/stevertaylor/enterprise_extensions/>`.
+- **datadir**: directory with .par and .tim files
 #. **out**: output directory with Enterprise/Bilby results
 #. **overwrite**: option to overwrite overwrite an old Enterprise output
 #. **allpulsars**: whether to run analysis on all pulsars, or on a single pulsar (True/False)
@@ -29,7 +30,8 @@ Next, we define unifrom prior ranges for parameters. If there is only one number
 #. **dm_lgApr**: log10 DM-variation noise powerlaw amplitude
 #. **dm_gpr**: DM-variation noise powerlaw index
 
-#### Selection options for white noise
+Selection options for white noise
+=================================
 Selections allow us to estimate a certain white noise parameter in different splitting regimes, or how to define a constant white noise parameter:
 #. "no_selection" - for a single pulsar, without splitting
 #. "by_backend" - for each observing backend (using backend flags)
