@@ -3,6 +3,7 @@ Parameter file
 ==============
 
 To run Enterprise from a command line using a parameter file on a first pair of .par-.tim files in your data directory, please go to :code:`examples/` and run:
+
 .. code-block:: console
 
    $ python run_example_paramfile.py --prfile example_paramfile.dat --num 0
