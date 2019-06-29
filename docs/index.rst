@@ -23,14 +23,17 @@ Features
 --------
 
 - Wrapper for Enterprise that allows to run it from a configuration file. Custom models can be included too.
-  - Easy to paralellize separate pulsar analysis on a supercomputer
-  - Use the same configuration file to keep track of your input and output directories, plot results
+
+  + Easy to paralellize separate pulsar analysis on a supercomputer
+  + Use the same configuration file to keep track of your input and output directories, plot results
+
 - Wrap Enterprise likelihood and priors in `Bilby <https://git.ligo.org/lscsoft/bilby>`__
-  - use one interfance for multiple samplers: Nestle, Dynesty, Emcee, etc.
-  - pre-defined priors, including an option with periodic boundaries
-  - hyper PE
-  - easy access to a variety of Bayesian data analysis tools: P-P plots, prior volume, Occam factor, covariance matrix, etc.
-  - see Bilby's website for more options
+
+  + use one interfance for multiple samplers: Nestle, Dynesty, Emcee, etc.
+  + pre-defined priors, including an option with periodic boundaries
+  + hyper PE
+  + easy access to a variety of Bayesian data analysis tools: P-P plots, prior volume, Occam factor, covariance matrix, etc.
+  + see Bilby's website for more options
 
 Installation
 ------------
