@@ -8,9 +8,9 @@ To run Enterprise from a command line using a parameter file on a first pair of 
 
    $ python run_example_paramfile.py --prfile example_paramfile.dat --num 0
 
-Parameter file for running Enterprise
--------------------------------------
-- **{x} (a number in curly brackets)**: a separator, indicating that following parameters are only for model 'x'. If we specify more than one model, then Enterprise is launched in model comparison regime using :code:`class HyperModel` from `enterprise_extensions<https://github.com/stevertaylor/enterprise_extensions/>`.
+Parameter file options
+----------------------
+- **{x} (a number in curly brackets)**: a separator, indicating that following parameters are only for model 'x'. If we specify more than one model, then Enterprise is launched in model comparison regime using :code:`class HyperModel` from `enterprise_extensions <https://github.com/stevertaylor/enterprise_extensions/>`__.
 - **datadir**: directory with .par and .tim files
 - **out**: output directory with Enterprise/Bilby results
 - **overwrite**: option to overwrite overwrite an old Enterprise output
@@ -40,3 +40,13 @@ Selections allow us to estimate a certain white noise parameter in different spl
 - **no_selection** - for a single pulsar, without splitting
 - **by_backend** - for each observing backend (using backend flags)
 - **nanograv_backends** - for each observing backend, but only for NANOGrav pulsars (only using NANOGrav flags)
+
+Custom options and models for a parameter file
+----------------------------------------------
+
+One can add custom options for their own models in Enterprise by adding a python code with class that contains:
+
+- dictionary, as an instruction for reading a parameter file
+- function that takes in parameters from a dictionary, and outputs Enterprise signal object
+
+An example can be found in :code:`examples/custom_models.py`

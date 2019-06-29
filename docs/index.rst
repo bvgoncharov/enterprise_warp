@@ -18,8 +18,11 @@ enterprise_warp
 
 enterprise_warp includes a wrapper and a set of tools for `Nanograv's Enterprise <https://github.com/nanograv/enterprise/>`__.
 
-Look how easy it is to run from the command line::
-  python run_example_paramfile.py --prfile example_paramfile.dat --num 0
+Look how easy it is to run from the command line:
+
+.. code-block:: console
+
+   $ python run_example_paramfile.py --prfile example_paramfile.dat --num 0
 
 Features
 --------
