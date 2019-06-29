@@ -17,6 +17,7 @@ Parameter file for running Enterprise
 - **sampler**: in case of other sampler than PTMCMCSampler, we use Bilby
 
 Next, we define unifrom prior ranges for parameters. If there is a negative number, i.e. "-1", parameter is taken as a constant from .par file for each observing backend. If there is a positive number, it is taken as an actual and constant parameter.
+
 - **efacpr**: EFAC uniform prior range
 - **efacsel**: EFAC selection
 - **equadpr**: log10 EQUAD uniform prior range
@@ -33,6 +34,7 @@ Next, we define unifrom prior ranges for parameters. If there is a negative numb
 Selection options for white noise
 =================================
 Selections allow us to estimate a certain white noise parameter in different splitting regimes, or how to define a constant white noise parameter:
--  "no_selection" - for a single pulsar, without splitting
-- "by_backend" - for each observing backend (using backend flags)
-- "nanograv_backends" - for each observing backend, but only for NANOGrav pulsars (only using NANOGrav flags)
+
+- **no_selection** - for a single pulsar, without splitting
+- **by_backend** - for each observing backend (using backend flags)
+- **nanograv_backends** - for each observing backend, but only for NANOGrav pulsars (only using NANOGrav flags)

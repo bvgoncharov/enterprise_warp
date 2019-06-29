@@ -11,13 +11,15 @@ Welcome to enterprise_warp's documentation!
    :caption: Contents:
 
    paramfile
+   installation
 
 enterprise_warp
 ===============
 
 enterprise_warp includes a wrapper and a set of tools for `Nanograv's Enterprise <https://github.com/nanograv/enterprise/>`__.
 
-Look how easy it is to run from the command line: `python run_example_paramfile.py --prfile example_paramfile.dat --num 0`
+Look how easy it is to run from the command line::
+  python run_example_paramfile.py --prfile example_paramfile.dat --num 0
 
 Features
 --------
@@ -34,15 +36,6 @@ Features
   + hyper PE
   + easy access to a variety of Bayesian data analysis tools: P-P plots, prior volume, Occam factor, covariance matrix, etc.
   + see Bilby's website for more options
-
-Installation
-------------
-
-Install by:
-
-1. :code:`git clone https://github.com/bvgoncharov/enterprise_warp.git`
-2. :code:`cd enterprise_warp`
-3. :code:`python setup.py install --user`
 
 License
 -------
