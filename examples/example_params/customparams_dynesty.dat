@@ -1,0 +1,26 @@
+datadir: data/
+out: out/
+overwrite: True
+allpulsars: False
+sampler: dynesty
+gwb: none
+physephem: none
+efac: default
+efacpr: 0 10
+efacsel: no_selection
+equad: default
+equadpr: -10 -4
+equadsel: no_selection
+ecorrpr: -10 -4
+ecorrsel: no_selection
+dm_model: none
+{0}
+sn_model: default
+sn_lgApr: -20 -6
+sn_gpr: 0 14
+custom_singlepsr: my_powerlaw event_j1713
+my_amp: 0 1e-15
+my_cc: 0 1e-7
+event_j1713: 54500 54900
+{1}
+sn_model: none

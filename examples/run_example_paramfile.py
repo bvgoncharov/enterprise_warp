@@ -7,6 +7,7 @@ import custom_models
 import bilby
 from enterprise_warp import enterprise_warp
 from enterprise_warp import bilby_warp
+from enterprise_extensions import model_utils
 
 opts = enterprise_warp.parse_commandline()
 custom = custom_models.CustomModels
@@ -25,7 +26,7 @@ if params.sampler == 'ptmcmc':
   if len(params.models)==1:
     sampler = model_utils.setup_sampler(pta[0], resume=False, outdir=params.directory)
     x0 = np.hstack(p.sample() for p in pta[0].params)
-    sampler.sample(x0, pp.nsamp, SCAMweight=30, AMweight=15, DEweight=50)
+    sampler.sample(x0, params.nsamp, SCAMweight=30, AMweight=15, DEweight=50)
   else:
     super_model = model_utils.HyperModel(pta)
     print('Super model parameters: ', super_model.params)

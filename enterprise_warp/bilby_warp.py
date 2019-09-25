@@ -21,6 +21,7 @@ def get_bilby_prior_dict(pta):
           #priors[param.name] = bilby.core.prior.Uniform( \
           #    param._pmin, param._pmax, param.name)
           priors[param.name] = bilby.core.prior.Uniform( \
+              # param._pmin
               param.prior._defaults['pmin'], param.prior._defaults['pmax'], \
               param.name)
         elif param.type=='normal':

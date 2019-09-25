@@ -22,7 +22,7 @@ Look how easy it is to run from the command line:
 
 .. code-block:: console
 
-   $ python run_example_paramfile.py --prfile example_paramfile.dat --num 0
+   $ python run_example_paramfile.py --prfile example_params/customparams_dynesty.dat --num 0
 
 Features
 --------

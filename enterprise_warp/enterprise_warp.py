@@ -333,7 +333,6 @@ def init_pta(params_all):
   do parameter estimation for pulsar noise"""
 
   ptas = dict.fromkeys(params_all.models)
-
   for ii, params in params_all.models.items():
 
     models = list()
@@ -395,7 +394,7 @@ def init_pta(params_all):
       m += eph
   
     # Including parameters that can be separate for different pulsars
-    for ii, psr in enumerate(params_all.psrs):
+    for pnum, psr in enumerate(params_all.psrs):
       # Add constant parameters to PTA from .par files
       #if params.allpulsars == 'True':
       #  from_par_file.append( T2.tempopulsar(parfile=pulpar[ii],timfile=pultim[ii]) )
@@ -403,13 +402,16 @@ def init_pta(params_all):
       #  from_par_file.append( T2.tempopulsar(parfile=pulpar,timfile=pultim) )
     
       # Determine if ecorr is mentioned in par file
+      try:
+        for key,val in psr.t2pulsar.noisemodel.items():
+          if key.startswith('ecorr') or key.startswith('ECORR'):
+            ecorrexists[pnum]=True
+      except Exception as pint_problem:
+        print(pint_problem)
+        ecorrexists[pnum]=False  
 
-      for key,val in psr.t2pulsar.noisemodel.items():
-        if key.startswith('ecorr') or key.startswith('ECORR'):
-          ecorrexists[ii]=True
-  
       wnl = list()
-      if ecorrexists[ii]:
+      if ecorrexists[pnum]:
         ec = white_param_interpret(params.ecorrpr,params.ecorrsel,'ec')#,m)
         wnl.append(ec)
       if params.efac=='default':
@@ -498,7 +500,6 @@ def init_pta(params_all):
     print('Model',ii,'params order: ', pta.param_names)
     np.savetxt(params.directory+'/pars.txt', pta.param_names, fmt='%s')
     ptas[ii]=pta
-
   return ptas
 
 def checkifconstpar(params):
