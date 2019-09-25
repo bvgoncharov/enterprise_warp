@@ -1,0 +1,260 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Parameter file &mdash; enterprise_warp  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" />
+    <link rel="prev" title="Welcome to enterprise_warp’s documentation!" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> enterprise_warp
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Parameter file</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#parameter-file-options">Parameter file options</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#selection-options-for-white-noise">Selection options for white noise</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#custom-options-and-models-for-a-parameter-file">Custom options and models for a parameter file</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">enterprise_warp</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Parameter file</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/paramfile.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="parameter-file">
+<h1>Parameter file<a class="headerlink" href="#parameter-file" title="Permalink to this headline">¶</a></h1>
+<p>To run Enterprise from a command line using a parameter file on a first pair of .par-.tim files in your data directory, please go to <code class="code docutils literal notranslate"><span class="pre">examples/</span></code> and run:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python run_example_paramfile.py --prfile example_paramfile.dat --num <span class="m">0</span>
+</pre></div>
+</div>
+<div class="section" id="parameter-file-options">
+<h2>Parameter file options<a class="headerlink" href="#parameter-file-options" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><strong>{x} (a number in curly brackets)</strong>: a separator, indicating that following parameters are only for model ‘x’. If we specify more than one model, then Enterprise is launched in model comparison regime using <code class="code docutils literal notranslate"><span class="pre">class</span> <span class="pre">HyperModel</span></code> from <a class="reference external" href="https://github.com/stevertaylor/enterprise_extensions/">enterprise_extensions</a>.</p></li>
+<li><p><strong>datadir</strong>: directory with .par and .tim files</p></li>
+<li><p><strong>out</strong>: output directory with Enterprise/Bilby results</p></li>
+<li><p><strong>overwrite</strong>: option to overwrite overwrite an old Enterprise output</p></li>
+<li><p><strong>allpulsars</strong>: whether to run analysis on all pulsars, or on a single pulsar (True/False)</p></li>
+<li><p><strong>noisefiles</strong>: path to .json noise files if we are including fixed efac/equad</p></li>
+<li><p><strong>sampler</strong>: in case of other sampler than PTMCMCSampler, we use Bilby</p></li>
+</ul>
+<p>Next, we define unifrom prior ranges for parameters. If there is a negative number, i.e. “-1”, parameter is taken as a constant from .par file for each observing backend. If there is a positive number, it is taken as an actual and constant parameter.</p>
+<ul class="simple">
+<li><p><strong>efacpr</strong>: EFAC uniform prior range</p></li>
+<li><p><strong>efacsel</strong>: EFAC selection</p></li>
+<li><p><strong>equadpr</strong>: log10 EQUAD uniform prior range</p></li>
+<li><p><strong>equadsel</strong>: EQUAD selection</p></li>
+<li><p><strong>erorrpr</strong>: log10 ECORR uniform prior range</p></li>
+<li><p><strong>ecorrsel</strong>: ECORR selection</p></li>
+<li><p><strong>sn_model</strong>: model for red/spin noise, common for all systems and observing bands for each pulsars. Options: none, default.</p></li>
+<li><p><strong>sn_lgApr</strong>: lg10 spin noise powerlaw amplitude</p></li>
+<li><p><strong>sn_gpr</strong>: spin noise powerlaw index</p></li>
+<li><p><strong>dm_model</strong>: model for DM noise. Options: none, default.</p></li>
+<li><p><strong>dm_lgApr</strong>: log10 DM-variation noise powerlaw amplitude</p></li>
+<li><p><strong>dm_gpr</strong>: DM-variation noise powerlaw index</p></li>
+</ul>
+<div class="section" id="selection-options-for-white-noise">
+<h3>Selection options for white noise<a class="headerlink" href="#selection-options-for-white-noise" title="Permalink to this headline">¶</a></h3>
+<p>Selections allow us to estimate a certain white noise parameter in different splitting regimes, or how to define a constant white noise parameter:</p>
+<ul class="simple">
+<li><p><strong>no_selection</strong> - for a single pulsar, without splitting</p></li>
+<li><p><strong>by_backend</strong> - for each observing backend (using backend flags)</p></li>
+<li><p><strong>nanograv_backends</strong> - for each observing backend, but only for NANOGrav pulsars (only using NANOGrav flags)</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="custom-options-and-models-for-a-parameter-file">
+<h2>Custom options and models for a parameter file<a class="headerlink" href="#custom-options-and-models-for-a-parameter-file" title="Permalink to this headline">¶</a></h2>
+<p>One can add custom options for their own models in Enterprise by adding a python code with class that contains:</p>
+<ul class="simple">
+<li><p>dictionary, as an instruction for reading a parameter file</p></li>
+<li><p>function that takes in parameters from a dictionary, and outputs Enterprise signal object</p></li>
+</ul>
+<p>An example can be found in <code class="code docutils literal notranslate"><span class="pre">examples/custom_models.py</span></code></p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to enterprise_warp’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Boris Goncharov
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
