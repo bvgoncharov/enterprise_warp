@@ -9,10 +9,18 @@ from enterprise_warp import enterprise_warp
 from enterprise_warp import bilby_warp
 from enterprise_extensions import model_utils
 
+include_custom_models = True
+
 opts = enterprise_warp.parse_commandline()
-custom = custom_models.CustomModels
+if include_custom_models: 
+  custom = custom_models.CustomModels
+else:
+  custom = None
 params = enterprise_warp.Params(opts.prfile,opts=opts,custom_models_obj=custom)
 params.init_pulsars()
+#import ipdb; ipdb.set_trace()
+#params.psrs[0].__dict__['custom_flag_bor'] = 'group'
+#params.psrs[0].__dict__['flagval_bor'] = 'PDFB_10CM'
 pta = enterprise_warp.init_pta(params)
 
 #elif os.path.exists(params.directory+'info.txt'):

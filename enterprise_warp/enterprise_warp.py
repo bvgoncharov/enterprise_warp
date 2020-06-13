@@ -18,6 +18,8 @@ import enterprise.constants as const
 import libstempo as T2
 from enterprise_extensions import models
 
+from enterprise_models import StandardModels
+
 #import LT_custom
 #import model_constants as mc
 
@@ -59,33 +61,8 @@ class Params(object):
       "out:": ["out", str],
       "overwrite:": ["overwrite", str],
       "allpulsars:": ["allpulsars", str],
-      "gwb:": ["gwb", str],
-      "gwb_lgApr:": ["gwb_lgApr", float, float],
-      "gwb_gpr:": ["gwb_gpr", float, float],
       "noisefiles:": ["noisefiles", str],
-      "physephem:": ["physephem", str],
-      "efac:": ["efac", str],
-      "efacpr:": ["efacpr", float, float],
-      "efacsel:": ["efacsel", str],
-      "equad:": ["equad", str],
-      "equadpr:": ["equadpr", float, float],
-      "equadsel:": ["equadsel", str],
-      "ecorrpr:": ["ecorrpr", float, float],
-      "ecorrsel:": ["ecorrsel", str],
-      "sn_model:": ["sn_model", str],
-      "sn_sincomp:": ["sn_sincomp", int],
-      "sn_fourier_comp:": ["sn_fourier_comp", int],
-      "sn_lgApr:": ["sn_lgApr", float, float],
-      "sn_gpr:": ["sn_gpr", float, float],
-      "rs_model:": ["rs_model", str],
-      "rs_lgApr:": ["rs_lgApr", float, float],
-      "rs_gpr:": ["rs_gpr", float, float],
-      "dm_model:": ["dm_model", str],
-      "dm_lgApr:": ["dm_lgApr", float, float],
-      "dm_gpr:": ["dm_gpr", float, float],
-      "dm_fcpr:": ["dm_fcpr", float, float],
-      "dm_lgPpr:": ["dm_lgPpr", float, float],
-      "dm_apr:": ["dm_apr", float, float],
+      "noise_model_file:": ["noise_model_file", str],
       "sampler:": ["sampler", str],
       "dlogz:": ["dlogz", float],
       "nsamp:": ["nsamp", int],
@@ -101,10 +78,14 @@ class Params(object):
       "SCAMweight:": ["SCAMweight", int],
       "custom_commonpsr:": ["custom_commonpsr", str],
       "custom_singlepsr:": ["custom_singlepsr", str],
-      "tm:": ["tm", str]
+      "tm:": ["tm", str],
+      "fref:": ["fref", str]
 }
     if self.custom_models_obj is not None:
-      self.label_attr_map.update(self.custom_models_obj().label_attr_map)
+      self.noise_model_obj = self.custom_models_obj
+    else:
+      self.noise_model_obj = StandardModels
+    self.label_attr_map.update( self.noise_model_obj().get_label_attr_map() )
     model_id = None
     self.model_ids = list()
     self.__dict__['models'] = dict()
@@ -139,6 +120,7 @@ class Params(object):
     self.label = os.path.basename(os.path.normpath(self.out))
     self.override_params_using_opts()
     self.set_default_params()
+    self.read_modeldicts()
     self.clone_all_params_to_models()
 
   def override_params_using_opts(self):
@@ -192,15 +174,26 @@ class Params(object):
     if 'inc_events' not in self.__dict__:
       self.inc_events = True
       print('Including transient events to specific pulsar models')
-    if 'sn_sincomp' not in self.__dict__:
-      self.sn_sincomp = 2
-      print('Setting number of Fourier sin-cos components to 2')
-    if 'sn_fourier_comp' not in self.__dict__:
-      self.sn_fourier_comp = 30
-      print('Setting number of Fourier components to 30')
+    #if 'sn_sincomp' not in self.__dict__:
+    #  self.sn_sincomp = 2
+    #  print('Setting number of Fourier sin-cos components to 2')
+    #if 'sn_fourier_comp' not in self.__dict__:
+    #  self.sn_fourier_comp = 30
+    #  print('Setting number of Fourier components to 30')
+    if 'fref' not in self.__dict__:
+      self.fref = 1400 # MHz
+      print('Setting reference radio frequency to 1400 MHz')
+    # Copying default priors from StandardModels/CustomModels object
+    # Priors are chosen not to be model-specific because HyperModel
+    # (which is the only reason to have multiple models) does not support
+    # different priors for different models
+    for prior_key, prior_default in self.noise_model_obj().priors.items():
+      if prior_key not in self.__dict__.keys():
+        self.__dict__[prior_key] = prior_default
 
     # Model-dependent parameters
     for mkey in self.models:
+
       if 'rs_model' not in self.models[mkey].__dict__:
         self.models[mkey].rs_model = None
         print('Not adding red noise with selections for model',mkey)
@@ -210,10 +203,41 @@ class Params(object):
         self.models[mkey].custom_commonpsr = ''
       if 'custom_singlepsr' not in self.models[mkey].__dict__:
         self.models[mkey].custom_singlepsr = ''
+      self.models[mkey].modeldict = dict()
 
     print('------------------')
 
+  def read_modeldicts(self):
+    # Reading general noise model (which will overwrite model-specific ones,
+    # if it exists).
+    if 'noise_model_file' in self.__dict__.keys():
+      self.__dict__['noisemodel'] = read_json_dict(self.noise_model_file)
+      self.__dict__['common_signals'] = self.noisemodel['common_signals']
+      self.__dict__['model_name'] = self.noisemodel['model_name']
+      self.__dict__['universal'] = self.noisemodel['universal']
+      del self.noisemodel['common_signals']
+      del self.noisemodel['universal']
+      del self.noisemodel['model_name']
+    # Reading model-specific noise model
+    for mkey in self.models:
+      if 'noise_model_file' in self.models[mkey].__dict__.keys():
+        self.models[mkey].__dict__['noisemodel'] = read_json_dict(\
+                                  self.models[mkey].noise_model_file)
+        self.models[mkey].__dict__['common_signals'] = \
+                                  self.models[mkey].noisemodel['common_signals']
+        self.models[mkey].__dict__['model_name'] = \
+                                  self.models[mkey].noisemodel['model_name']
+        self.models[mkey].__dict__['universal'] = \
+                                  self.models[mkey].noisemodel['universal']
+        del self.models[mkey].noisemodel['common_signals']
+        del self.models[mkey].noisemodel['model_name']
+        del self.models[mkey].noisemodel['universal']
+
+
   def init_pulsars(self):
+      """
+      Initiate Enterprise pulsar objects
+      """
       directory = self.out
       
       cachedir = directory+'.psrs_cache/'
@@ -292,115 +316,44 @@ class Params(object):
         if not os.path.exists(directory):
           os.makedirs(directory)
 
-def white_param_interpret(prior,selection,mark):#,m):
-  """Take in a noise model "m" and noise-related input parameters
-  and return an updated model"""
-
-  #exec("global se; se=selections.Selection(selections.%s)" % (selection))
-  se=selections.Selection(selections.__dict__[selection])
-
-  # Interpret input in the prior of a parameter
-  if not np.isscalar(prior):
-    wp = parameter.Uniform(prior[0],prior[1])
-  elif prior<=0:
-    wp = parameter.Constant()
-  elif prior>0:
-    wp = parameter.Constant(prior)
-
-  # Create a noise object
-  if mark=='ef':
-    w=white_signals.MeasurementNoise(efac=wp,selection=se)
-    #if prior<0:
-    #    for value in 
-  elif mark=='eq':
-    w=white_signals.EquadNoise(log10_equad=wp,selection=se)
-  elif mark=='ec':
-    se_ng=selections.Selection(selections.nanograv_backends)
-    w=white_signals.EcorrKernelNoise(log10_ecorr=wp,selection=se_ng)
-    #if prior<0:
-    #  for value in pta._signal_dict['B1855+09_ecorr_sherman-morrison']._params:
-    #        a{'B1855+09_430_PUPPI_efac'}
-
-  return w
-
-#class string(str):
-#        def backwards(self):
-            
-
 def init_pta(params_all):
-  """Initiate model and PTA for Enterprise.
+  """
+  Initiate model and PTA for Enterprise.
   PTA for our code is just one pulsar, since we only
-  do parameter estimation for pulsar noise"""
+  do parameter estimation for pulsar noise
+  """
 
   ptas = dict.fromkeys(params_all.models)
   for ii, params in params_all.models.items():
 
+    allpsr_model = params_all.noise_model_obj(psrname=None,params=params)
+
     models = list()
     from_par_file = list()
     ecorrexists = np.zeros(len(params_all.psrs))
-  
-    try:
-      params.noisefiles
-      noisedict = get_noise_dict(psrlist=[p.name for p in params_all.psrs],noisefiles=params.noisefiles)
-    except:
-      noisedict = None
-  
-    # FOR RED NOISE MODEL SELECTION ONLY!!!
-    # We do this, so that white and DM noise parameters are consistent for models
-    if ii!=0 and noisedict !=None:
-      noisedict_dm = get_noise_dict(psrlist=[p.name for p in params_all.psrs],noisefiles=params.noisefiles)
-      noisedict_white = noisedict #_dm to make white noise params consistent for 2 models
-    elif noisedict!=None:
-      noisedict_dm = noisedict
-      noisedict_white = noisedict_dm
-  
-    models = list()
-  
+    
     # Including parameters common for all pulsars
     if params.tm=='default':
       tm = gp_signals.TimingModel()
-      #m.append('tm')
     elif params.tm=='ridge_regression':
       log10_variance = parameter.Uniform(-20, -10)
       basis = scaled_tm_basis()
       prior = ridge_prior(log10_variance=log10_variance)
       tm = gp_signals.BasisGP(prior, basis, name='ridge')
-      #m.append('tm')
-    #elif params.tm=='ffdot_separate':
     if params.tm!='none': m = tm
+
+    # Adding common noise terms for all pulsars
+    # Only those common signals are added that are listed in the noise model
+    # file, getting Enterprise models from the noise model object.
+    for psp, option in params.common_signals.items():
+        m += getattr(allpsr_model, psp)(option=option)
   
-    if params.gwb=='none':
-      print('GWB signal model is switched off in a parameter file')
-    else:
-      gwb_log10_A = parameter.Uniform(params.gwb_lgApr[0],params.gwb_lgApr[1])
-      if params.gwb=='default':
-        gwb_gamma = parameter.Uniform(params.gwb_gpr[0],params.gwb_gpr[1])
-      elif params.gwb=='fixedgamma':
-        gwb_gamma = parameter.Constant(4.33)
-      gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
-      orf = utils.hd_orf()
-      gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=30, name='gwb', Tspan=params.Tspan)
-      #m += gwb
-      m = m + gwb if params.tm!='none' else gwb
-  
-    for psp in params.custom_commonpsr.split():
-        psp_model = params_all.custom_models_obj(psrname=psr.name,params=params)
-        m += getattr(psp_model, psp)()
-  
-    if params.physephem=='none':
-      print('Not fitting for Solar System ephemeris error')
-    elif params.physephem=='default':
-      eph = deterministic_signals.PhysicalEphemerisSignal(use_epoch_toas=True)
-      m += eph
-  
-    # Including parameters that can be separate for different pulsars
+    # Including single pulsar noise models
     for pnum, psr in enumerate(params_all.psrs):
-      # Add constant parameters to PTA from .par files
-      #if params.allpulsars == 'True':
-      #  from_par_file.append( T2.tempopulsar(parfile=pulpar[ii],timfile=pultim[ii]) )
-      #elif params.allpulsars == 'False':
-      #  from_par_file.append( T2.tempopulsar(parfile=pulpar,timfile=pultim) )
-    
+   
+      singlepsr_model = params_all.noise_model_obj(psrname=psr.name,\
+                                                     params=params)
+ 
       # Determine if ecorr is mentioned in par file
       try:
         for key,val in psr.t2pulsar.noisemodel.items():
@@ -408,98 +361,35 @@ def init_pta(params_all):
             ecorrexists[pnum]=True
       except Exception as pint_problem:
         print(pint_problem)
-        ecorrexists[pnum]=False  
+        ecorrexists[pnum]=False
 
-      wnl = list()
-      if ecorrexists[pnum]:
-        ec = white_param_interpret(params.ecorrpr,params.ecorrsel,'ec')#,m)
-        wnl.append(ec)
-      if params.efac=='default':
-        ef = white_param_interpret(params.efacpr,params.efacsel,'ef')#,m)
-        wnl.append(ef)
-      if params.equad=='default':
-        eq = white_param_interpret(params.equadpr,params.equadsel,'eq')#,m)
-        wnl.append(eq)  
-      for ww, wnm in enumerate(wnl):
-        if ww==0:
-          if params.tm=='none':
-            m_sep = wnm
+      # Add noise models
+      if psr.name in params.noisemodel.keys():
+        noise_model_dict_psr = params.noisemodel[psr.name]
+      else:
+        noise_model_dict_psr = params.universal
+      for psp, option in noise_model_dict_psr.items():
+        if getattr(singlepsr_model, psp)() is not None:
+          if 'm_sep' in locals():
+            m_sep += getattr(singlepsr_model, psp)(option=option)
           else:
-            m_sep = m + wnm
-        else:
-          m_sep += wnm
-
-      for psp in params.custom_singlepsr:
-        psp_model = params_all.custom_models_obj(psrname=psr.name,params=params)
-        if getattr(psp_model, psp)() is not None:
-          m_sep += getattr(psp_model, psp)()
-  
-      if params.sn_model=='none':
-        print('Red/spin noise model is switched off in a parameter file')
-      elif params.sn_model=='default':
-        log10_A = parameter.Uniform(params.sn_lgApr[0],params.sn_lgApr[1])
-        gamma = parameter.Uniform(params.sn_gpr[0],params.sn_gpr[1])
-        pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-            components=params.sn_sincomp)
-        rn = gp_signals.FourierBasisGP(spectrum=pl, components=30, Tspan=params.Tspan)
-        m_sep += rn
-      elif params.sn_model=='default_informed':
-        log10_A = parameter.Uniform(noisedict[psr.name+'_log10_A'][1],noisedict[psr.name+'_log10_A'][2])
-        gamma = parameter.Uniform(noisedict[psr.name+'_gamma'][1],noisedict[psr.name+'_gamma'][2])
-        pl = utils.powerlaw(log10_A=log10_A, gamma=gamma)
-        rn = gp_signals.FourierBasisGP(spectrum=pl, components=30, Tspan=params.Tspan)
-        m_sep += rn
-  
-      elif params.sn_model=='free_spectrum':
-        ncomp = 30
-        log10_rho = parameter.Uniform(-10, -4, size=ncomp)
-        pl = free_spectrum(log10_rho=log10_rho)
-        rn = gp_signals.FourierBasisGP(spectrum=pl, components=ncomp, Tspan=params.Tspan)
-        m_sep += rn
-      else:
-        print('Warning: red noise model in parameter file is not recognized!')
-  
-      if params.rs_model is not None:
-        if psr.name in params.rs_model:
-          rs_log10_A = parameter.Uniform(params.rs_lgApr[0],params.rs_lgApr[1])
-          rs_gamma = parameter.Uniform(params.rs_gpr[0],params.rs_gpr[1])
-          pl_rs = utils.powerlaw(log10_A=rs_log10_A, gamma=rs_gamma)
-          rs_sel = selections.Selection(selections.__dict__\
-              [params.rs_model[psr.name]])
-          rs = gp_signals.FourierBasisGP(spectrum=pl_rs, components=30, \
-              selection=rs_sel, Tspan=params.Tspan, name=params.rs_model[psr.name])
-          m_sep += rs
-   
-      if params.dm_model=='none':
-        print('DM noise model is switched off in a parameter file')
-      elif params.dm_model=='default':
-        dm_log10_A = parameter.Uniform(params.dm_lgApr[0],params.dm_lgApr[1])
-        dm_gamma = parameter.Uniform(params.dm_gpr[0],params.dm_gpr[1])
-        dm_basis= utils.createfourierdesignmatrix_dm(nmodes=30, Tspan=params.Tspan, fref=(4.15e3)**(0.5))
-        dm_pl = utils.powerlaw(log10_A=dm_log10_A, gamma=dm_gamma)
-        dm = gp_signals.BasisGP(dm_pl, dm_basis, name='dm_gp')
-        m_sep += dm
-      elif params.dm_model=='default_informed':
-        dm_log10_A = parameter.Uniform(noisedict_dm[psr.name+'_dm_gp_log10_A'][1],noisedict_dm[psr.name+'_dm_gp_log10_A'][2])
-        dm_gamma = parameter.Uniform(noisedict_dm[psr.name+'_dm_gp_gamma'][1],noisedict_dm[psr.name+'_dm_gp_gamma'][2])
-        dm_basis= utils.createfourierdesignmatrix_dm(nmodes=30, Tspan=params.Tspan)
-        dm_pl = utils.powerlaw(log10_A=dm_log10_A, gamma=dm_gamma)
-        dm = gp_signals.BasisGP(dm_pl, dm_basis, name='dm_gp')
-        m_sep += dm
-      else:
-        print('Warning: DM noise model in parameter file is not recognized!')
+            m_sep = getattr(singlepsr_model, psp)(option=option)
   
       models.append(m_sep(psr))
+      del m_sep
 
     pta = signal_base.PTA(models)
-  
-    # Set some white noise parameters to constants, if required
-    constpar = {}
-    #constpar.update(get_noise_from_pal2(pulnoise))
+
+    if 'noisefiles' in params.__dict__.keys():
+      noisedict = get_noise_dict(psrlist=[p.name for p in params_all.psrs],\
+                                 noisefiles=params.noisefiles)
+      print('For constant parameters using noise files in PAL2 format')
+      pta.set_default_params(noisedict)
 
     print('Model',ii,'params order: ', pta.param_names)
     np.savetxt(params.directory+'/pars.txt', pta.param_names, fmt='%s')
     ptas[ii]=pta
+
   return ptas
 
 def checkifconstpar(params):

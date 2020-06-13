@@ -1,0 +1,17 @@
+{
+    "model_name": "cusmod_1",
+    "universal":
+    {
+        "efac": "by_backend",
+        "spin_noise": "powerlaw",
+        "dm_noise": "powerlaw"
+    },
+    "common_signals": {},
+    "J1832-0836":
+    {
+        "efac": "by_backend",
+        "equad": "by_backend",
+        "spin_noise": "powerlaw",
+        "my_powerlaw": "default"
+    }
+}

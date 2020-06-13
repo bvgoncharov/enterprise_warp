@@ -1,0 +1,7 @@
+datadir: data/
+out: out/
+overwrite: True
+allpulsars: False
+sampler: dynesty
+{0}
+noise_model_file: /home/bgonchar/fork_enterprise_warp/enterprise_warp/examples/example_noisemodels/system_noise_example_1.json
