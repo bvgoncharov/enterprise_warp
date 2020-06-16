@@ -222,19 +222,3 @@ def selection_factory(new_selection_name):
   return types.FunctionType(template_selection_code, template_sel.func_globals,
                             new_selection_name) 
 
-def system_noise_selection(flags,sys_flags,sys_flagvals):
-    """
-    Arguments "sys_flags" and "sys_flagvals" are variables
-    inside Enterprise Pulsar object - they can be added there manually.
-    They contain a list of flags and flagvals for system noise.
-    """
-    frame = inspect.currentframe()
-    # Extracting array index from function name
-    import ipdb; ipdb.set_trace()
-    idx = int(inspect.getframeinfo(frame).function.split('_')[-1]) 
-    if sys_flags==None or sys_flagvals==None:
-        print('Kwargs sys_flags and sys_flagvals must be specified!')
-        raise ValueError
-    seldict = dict()
-    seldict[sys_flagvals[idx]] = flags[sys_flags[idx]]==sys_flagvals[idx]
-    return seldict
