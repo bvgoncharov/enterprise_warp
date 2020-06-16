@@ -9,7 +9,7 @@ from enterprise_warp import enterprise_warp
 from enterprise_warp import bilby_warp
 from enterprise_extensions import model_utils
 
-include_custom_models = True
+include_custom_models = False
 
 opts = enterprise_warp.parse_commandline()
 if include_custom_models: 

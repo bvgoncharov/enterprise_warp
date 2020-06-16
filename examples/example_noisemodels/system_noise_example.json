@@ -1,0 +1,18 @@
+{
+    "model_name": "sysn_example",
+    "universal":
+    {
+        "white_noise": "by_backend",
+        "spin_noise": "powerlaw",
+        "dm_noise": "powerlaw"
+    },
+    "common_signals": {},
+    "J1832-0836":
+    {
+        "efac": "by_backend",
+        "equad": "by_backend",
+        "spin_noise": "powerlaw",
+        "dm_noise": "powerlaw",
+        "system_noise": ["PDFB_40CM","CASPSR_40CM"]
+    }
+}

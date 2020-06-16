@@ -326,7 +326,7 @@ def init_pta(params_all):
   ptas = dict.fromkeys(params_all.models)
   for ii, params in params_all.models.items():
 
-    allpsr_model = params_all.noise_model_obj(psrname=None,params=params)
+    allpsr_model = params_all.noise_model_obj(psr=None,params=params)
 
     models = list()
     from_par_file = list()
@@ -351,8 +351,7 @@ def init_pta(params_all):
     # Including single pulsar noise models
     for pnum, psr in enumerate(params_all.psrs):
    
-      singlepsr_model = params_all.noise_model_obj(psrname=psr.name,\
-                                                     params=params)
+      singlepsr_model = params_all.noise_model_obj(psr=psr, params=params)
  
       # Determine if ecorr is mentioned in par file
       try:
@@ -369,11 +368,10 @@ def init_pta(params_all):
       else:
         noise_model_dict_psr = params.universal
       for psp, option in noise_model_dict_psr.items():
-        if getattr(singlepsr_model, psp)() is not None:
-          if 'm_sep' in locals():
-            m_sep += getattr(singlepsr_model, psp)(option=option)
-          else:
-            m_sep = getattr(singlepsr_model, psp)(option=option)
+        if 'm_sep' in locals():
+          m_sep += getattr(singlepsr_model, psp)(option=option)
+        else:
+          m_sep = getattr(singlepsr_model, psp)(option=option)
   
       models.append(m_sep(psr))
       del m_sep

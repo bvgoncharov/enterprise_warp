@@ -7,4 +7,4 @@ nsamp: 1000000
 {0}
 noise_model_file: /home/bgonchar/fork_enterprise_warp/enterprise_warp/examples/example_noisemodels/custom_model_example.json
 {1}
-noise_model_file: /home/bgonchar/fork_enterprise_warp/enterprise_warp/examples/example_noisemodels/system_noise_example_2.json
+noise_model_file: /home/bgonchar/fork_enterprise_warp/enterprise_warp/examples/example_noisemodels/default_noise_example_2.json

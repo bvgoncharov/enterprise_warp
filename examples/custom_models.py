@@ -14,8 +14,8 @@ class CustomModels(StandardModels):
     """
     Please follow this example to add your own models for enterprise_warp.
     """
-    def __init__(self,psrname=None,params=None):
-      super(CustomModels, self).__init__(psrname=psrname,params=params)
+    def __init__(self,psr=None,params=None):
+      super(CustomModels, self).__init__(psr=psr,params=params)
       self.priors.update({
         "my_amp": [1e2, 1e4],
         "my_cc": [15.0, 18.0],
@@ -40,7 +40,7 @@ class CustomModels(StandardModels):
       """
       Example for borrowing a signal from enterprise_extensions
       """
-      if self.psrname=='J1713+0747':
+      if self.psr.name=='J1713+0747':
         j1713_dmexp=models.dm_exponential_dip(\
                                     tmin=self.params.event_j1713_t0[0],\
                                     tmax=self.params.event_j1713_t0[1])
