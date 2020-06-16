@@ -3,5 +3,8 @@ out: out/
 overwrite: True
 allpulsars: False
 sampler: dynesty
+efac: -1
+equad: -1
+noisefiles: /home/bgonchar/fork_enterprise_warp/enterprise_warp/examples/example_noisefiles/
 {0}
 noise_model_file: /home/bgonchar/fork_enterprise_warp/enterprise_warp/examples/example_noisemodels/system_noise_example.json

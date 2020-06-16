@@ -121,7 +121,11 @@ class StandardModels(object):
     return dmn
 
   def system_noise(self,option=[]):
-    for sys_noise_term in option:
+    """
+    Including red noise terms by "-group" flag, only with flagvals in noise 
+    model file.
+    """
+    for ii, sys_noise_term in enumerate(option):
       log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
       gamma = parameter.Uniform(self.params.syn_gamma[0],\
                                 self.params.syn_gamma[1])
@@ -135,13 +139,48 @@ class StandardModels(object):
       self.psr.sys_flagvals.append(sys_noise_term)
 
       syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=self.params.Tspan,
-                                      name='system_noise',
+                                      name='system_noise_' + \
+                                      str(self.sys_noise_count),
                                       selection=selections.Selection( \
                                       self.__dict__[selection_function_name] ),
                                       components=self.params.red_general_nfreqs)
-      if self.sys_noise_count == 0:
+      if ii == 0:
         syn = syn_term
-      elif self.sys_noise_count > 0:
+      elif ii > 0:
+        syn += syn_term
+
+      self.sys_noise_count += 1
+
+    return syn
+
+  def ppta_band_noise(self,option=[]):
+    """
+    Including red noise terms by the PPTA "-B" flag, only with flagvals in
+    noise model file. It is considered a derivative of system noise in our code.
+    """
+    for ii, band_term in enumerate(option):
+      log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
+      gamma = parameter.Uniform(self.params.syn_gamma[0],\
+                                self.params.syn_gamma[1])
+      pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
+                          components=self.params.red_general_nfouriercomp)
+
+      selection_function_name = 'band_noise_selection_' + \
+                                str(self.sys_noise_count)
+      setattr(self, selection_function_name,
+              selection_factory(selection_function_name))
+      self.psr.sys_flags.append('B')
+      self.psr.sys_flagvals.append(band_term)
+
+      syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=self.params.Tspan,
+                                      name='band_noise_' + \
+                                      str(self.sys_noise_count),
+                                      selection=selections.Selection( \
+                                      self.__dict__[selection_function_name] ),
+                                      components=self.params.red_general_nfreqs)
+      if ii == 0:
+        syn = syn_term
+      elif ii > 0:
         syn += syn_term
 
       self.sys_noise_count += 1

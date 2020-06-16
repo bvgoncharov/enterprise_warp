@@ -13,6 +13,7 @@
         "equad": "by_backend",
         "spin_noise": "powerlaw",
         "dm_noise": "powerlaw",
-        "system_noise": ["PDFB_40CM","CASPSR_40CM"]
+        "system_noise": ["PDFB_40CM","CASPSR_40CM"],
+        "ppta_band_noise": ["10CM"]
     }
 }
