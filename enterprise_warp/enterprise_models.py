@@ -37,7 +37,7 @@ class StandardModels(object):
       "syn_lgA": [-20., -6.],
       "syn_gamma": [0., 10.],
       "gwb_gamma": [0., 10.],
-      "red_general_nfreqs": 30,
+      "red_general_freqs": "tobs_60days",
       "red_general_nfouriercomp": 2
     }
     if self.psr is not None:
@@ -99,9 +99,9 @@ class StandardModels(object):
       fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
       pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
                         components=self.params.red_general_nfouriercomp)
+    nfreqs = self.determine_nfreqs(sel_func_name=None)
     sn = gp_signals.FourierBasisGP(spectrum=pl, Tspan=self.params.Tspan,
-                                   name='red_noise',
-                                   components=self.params.red_general_nfreqs)
+                                   name='red_noise', components=nfreqs)
     return sn
 
   def dm_noise(self,option="powerlaw"):
@@ -114,9 +114,10 @@ class StandardModels(object):
       fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
       pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
                         components=self.params.red_general_nfouriercomp)
-    dm_basis = utils.createfourierdesignmatrix_dm(\
-               nmodes = self.params.red_general_nfreqs,\
-               Tspan=self.params.Tspan, fref=self.params.fref)
+    nfreqs = self.determine_nfreqs(sel_func_name=None)
+    dm_basis = utils.createfourierdesignmatrix_dm(nmodes = nfreqs,
+                                                  Tspan=self.params.Tspan,
+                                                  fref=self.params.fref)
     dmn = gp_signals.BasisGP(pl, dm_basis, name='dm_gp')
     return dmn
 
@@ -138,12 +139,14 @@ class StandardModels(object):
       self.psr.sys_flags.append('group')
       self.psr.sys_flagvals.append(sys_noise_term)
 
+      nfreqs = self.determine_nfreqs(sel_func_name=selection_function_name)
+
       syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=self.params.Tspan,
                                       name='system_noise_' + \
                                       str(self.sys_noise_count),
                                       selection=selections.Selection( \
                                       self.__dict__[selection_function_name] ),
-                                      components=self.params.red_general_nfreqs)
+                                      components=nfreqs)
       if ii == 0:
         syn = syn_term
       elif ii > 0:
@@ -172,12 +175,14 @@ class StandardModels(object):
       self.psr.sys_flags.append('B')
       self.psr.sys_flagvals.append(band_term)
 
+      nfreqs = self.determine_nfreqs(sel_func_name=selection_function_name)
+
       syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=self.params.Tspan,
                                       name='band_noise_' + \
                                       str(self.sys_noise_count),
                                       selection=selections.Selection( \
                                       self.__dict__[selection_function_name] ),
-                                      components=self.params.red_general_nfreqs)
+                                      components=nfreqs)
       if ii == 0:
         syn = syn_term
       elif ii > 0:
@@ -205,6 +210,57 @@ class StandardModels(object):
   def bayes_ephem(self,option="default"):
     eph = deterministic_signals.PhysicalEphemerisSignal(use_epoch_toas=True)
     return eph
+
+  # Utility functions for noise model object
+
+  def determine_nfreqs(self, sel_func_name=None):
+
+    if sel_func_name is None:
+      selfunc = selections.no_selection
+    else:
+      selfunc = self.__dict__[sel_func_name]
+
+    selection_mask = toa_mask_from_selection_function(self.psr, selfunc)
+
+    toas = self.psr.toas[selection_mask]
+    tobs = np.max(toas) - np.min(toas)
+
+    if self.params.red_general_freqs.isdigit():
+      n_freqs = int(self.params.red_general_freqs)
+    elif self.params.red_general_freqs == "tobs_60days":
+      n_freqs = int(np.round((1./60./const.day - 1/tobs)/(1/tobs)))
+
+    if self.params.opts.mpi_regime != 2:
+      self.save_nfreqs_information(sel_func_name, n_freqs)
+
+    return n_freqs
+
+  def save_nfreqs_information(self, sel_func_name, n_freqs):
+
+    if sel_func_name is None:
+      filename = 'no_selection'
+      sel_func_name = 'none'
+    else:
+      filename = sel_func_name
+    line = ''
+    # System and band noise convention:
+    if sel_func_name.split('_')[-1].isdigit():
+      idx = int(sel_func_name.split('_')[-1])
+      line += self.psr.sys_flags[idx]
+      line += ';'
+      line += self.psr.sys_flagvals[idx]
+      line += ';'
+    # Spin and DM noise convention: no number in selection func name
+    else:
+      line += 'no selection;-;'
+    line += str(n_freqs)
+    line += '\n'
+
+    with open(self.params.output_dir + filename + '_nfreqs.txt', 'w') \
+                                                           as comp_file:
+      comp_file.write(line)
+
+# General utility functions
 
 def interpret_white_noise_prior(prior):
   if not np.isscalar(prior):
@@ -261,3 +317,12 @@ def selection_factory(new_selection_name):
   return types.FunctionType(template_selection_code, template_sel.func_globals,
                             new_selection_name) 
 
+def toa_mask_from_selection_function(psr,selfunc):
+    args_selfunc = inspect.getargspec(selfunc).args
+    argdict = {attr: getattr(psr,attr) for attr in dir(psr) \
+                                                if attr in args_selfunc}
+    selection_mask_dict = selfunc(**argdict)
+    if len(selection_mask_dict.keys())==1:
+      return selection_mask_dict.values()[0]
+    else:
+      raise NotImplementedError

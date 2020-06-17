@@ -34,11 +34,25 @@ def parse_commandline():
 
   parser.add_option("-n", "--num", help="Pulsar number",  default=0, type=int)
   parser.add_option("-p", "--prfile", help="Parameter file", type=str)
-  parser.add_option("-q", "--prfile2", help="Parameter file 2 for Bayes factor", default=None, type=str)
-  parser.add_option("-i", "--images", help="Plots", default=1, type=int)
-
-  parser.add_option("-o", "--onum", help="Other number",  default=0, type=int)
-  parser.add_option("-c", "--sn_fcpr", help="Option to fix corner frequency parameter", default=None, type=float)
+  parser.add_option("-c", "--clearcache", \
+                    help="Clear psrs cache file, associated with the run \
+                          (to-do after changes to .par and .tim files)", \
+                    default=0, type=int)
+  parser.add_option("-m", "--mpi_regime", \
+                    help="In MPI, manipulating with files and directories \
+                          causes errors. So, we provide 3 regimes: \n \
+                          (0) No MPI - run code as usual; \n \
+                          (1) MPI preparation - manipulate files and prepare \
+                          for the run (should be done outside MPI); \n \
+                          (2) MPI run - run the code, assuming all necessary \
+                          file manipulations have been performed. \n \
+                          PolychordLite sampler in Bilby supports MPI",
+                    default=0, type=int)
+  parser.add_option("-w", "--wipe_old_output", \
+                    help="Wipe contents of the output directory. Otherwise, \
+                          the code will attempt to resume the previous run. \
+                          Be careful: all subdirectories are removed too!", \
+                    default=0, type=int)
 
   opts, args = parser.parse_args()
 
@@ -70,14 +84,11 @@ class Params(object):
       "ntemp:": ["ntemp", int],
       "setupsamp:": ["setupsamp", bool],
       "psrlist:": ["psrlist", str],
-      "psrcachedir:": ["psrcachedir", str],
       "ssephem:": ["ssephem", str],
       "clock:": ["clock", str],
       "AMweight:": ["AMweight", int],
       "DMweight:": ["DMweight", int],
       "SCAMweight:": ["SCAMweight", int],
-      "custom_commonpsr:": ["custom_commonpsr", str],
-      "custom_singlepsr:": ["custom_singlepsr", str],
       "tm:": ["tm", str],
       "fref:": ["fref", str]
 }
@@ -121,6 +132,7 @@ class Params(object):
     self.override_params_using_opts()
     self.set_default_params()
     self.read_modeldicts()
+    self.init_pulsars()
     self.clone_all_params_to_models()
 
   def override_params_using_opts(self):
@@ -164,8 +176,6 @@ class Params(object):
     else:
       self.__dict__['psrlist'] = []
       print('Using all available pulsars from .par/.tim directory')
-    if 'psrcachedir' not in self.__dict__:
-      self.psrcachedir = None
     if 'psrcachefile' not in self.__dict__:
       self.psrcachefile = None
     if 'tm' not in self.__dict__:
@@ -174,12 +184,6 @@ class Params(object):
     if 'inc_events' not in self.__dict__:
       self.inc_events = True
       print('Including transient events to specific pulsar models')
-    #if 'sn_sincomp' not in self.__dict__:
-    #  self.sn_sincomp = 2
-    #  print('Setting number of Fourier sin-cos components to 2')
-    #if 'sn_fourier_comp' not in self.__dict__:
-    #  self.sn_fourier_comp = 30
-    #  print('Setting number of Fourier components to 30')
     if 'fref' not in self.__dict__:
       self.fref = 1400 # MHz
       print('Setting reference radio frequency to 1400 MHz')
@@ -194,15 +198,6 @@ class Params(object):
     # Model-dependent parameters
     for mkey in self.models:
 
-      if 'rs_model' not in self.models[mkey].__dict__:
-        self.models[mkey].rs_model = None
-        print('Not adding red noise with selections for model',mkey)
-      else:
-        self.models[mkey].rs_model = read_json_dict(self.models[mkey].rs_model)
-      if 'custom_commonpsr' not in self.models[mkey].__dict__:
-        self.models[mkey].custom_commonpsr = ''
-      if 'custom_singlepsr' not in self.models[mkey].__dict__:
-        self.models[mkey].custom_singlepsr = ''
       self.models[mkey].modeldict = dict()
 
     print('------------------')
@@ -232,30 +227,38 @@ class Params(object):
         del self.models[mkey].noisemodel['common_signals']
         del self.models[mkey].noisemodel['model_name']
         del self.models[mkey].noisemodel['universal']
+    self.label_models = '_'.join([self.models[mkey].model_name \
+                                                    for mkey in self.models])
 
 
   def init_pulsars(self):
       """
       Initiate Enterprise pulsar objects
       """
-      directory = self.out
       
-      cachedir = directory+'.psrs_cache/'
+      cachedir = self.datadir+'.psrs_cache/'
       if not os.path.exists(cachedir):
+        if self.opts.mpi_regime != 2:
           os.makedirs(cachedir)
       
-      if not self.psrcachefile==None or (not self.psrcachedir==None and not self.psrlist==[]):
+      if not self.psrcachefile==None or (not self.psrlist==[]):
           print('Attempting to load pulsar objects from cache')
-          if not self.psrcachedir==None:
+          if self.psrcachefile is not None:
+              cached_file = self.psrcachefile
+          else:
               psr_str = ''.join(sorted(self.psrlist)) + self.ssephem
               psr_hash = hashlib.sha1(psr_str.encode()).hexdigest()
-              cached_file = self.psrcachedir + psr_hash
-          if not self.psrcachefile==None:
-              cached_file = self.psrcachefile
+              cached_file = cachedir + psr_hash
+
           if os.path.exists(cached_file):
-              with open(cached_file, 'rb') as fin:
-                  print('Loading pulsars from cache')
-                  psrs_cache = pickle.load(fin)
+              if bool(self.opts.clearcache):
+                  os.remove(cached_file)
+                  print('Cache file existed, but got removed, following \
+                         command line options')
+              else:
+                  with open(cached_file, 'rb') as fin:
+                      print('Loading pulsars from cache')
+                      psrs_cache = pickle.load(fin)
           else:
               print('Could not load pulsars from cache: file does not exist')
               psrs_cache = None
@@ -272,7 +275,7 @@ class Params(object):
         exit()
       
       if self.allpulsars=='True':
-        self.output_dir = self.out
+        self.output_dir = self.out + self.label_models + '/'
         if psrs_cache == None:
           print('Loading pulsars')
           self.psrlist_new = list()
@@ -301,20 +304,24 @@ class Params(object):
       elif self.allpulsars=='False':
         self.psrs = Pulsar(parfiles[self.opts.num], timfiles[self.opts.num],drop_t2pulsar=False)#, ephem=params.ssephem, clk=params.clock)
         self.Tspan = self.psrs.toas.max() - self.psrs.toas.min() # observation time in seconds
-        self.output_dir = self.out + str(self.opts.num)+'_'+self.psrs.name+'/'
+        self.output_dir = self.out + self.label_models + '/' + \
+                          str(self.opts.num)+'_'+self.psrs.name+'/'
 
         parfiles = parfiles[self.opts.num]
         timfiles = timfiles[self.opts.num]
         print('Current .par file: ',parfiles)
         print('Current .tim file: ',timfiles)
-        directory += str(self.opts.num)+'_'+self.psrs.name+'/'
+
         exit_message = "This pulsar has already been processed"
         self.psrs = [self.psrs]
-      self.directory = directory
-      for mkey in self.models:
-        self.models[mkey].directory = directory
-        if not os.path.exists(directory):
-          os.makedirs(directory)
+
+      if self.opts.mpi_regime != 2:
+        if not os.path.exists(self.output_dir):
+          os.makedirs(self.output_dir)
+        elif bool(self.opts.wipe_old_output):
+          print('Warning: removing everything in ' + self.output_dir)
+          shutil.rmtree(self.output_dir)
+          os.makedirs(self.output_dir)
 
 def init_pta(params_all):
   """
@@ -385,7 +392,8 @@ def init_pta(params_all):
       pta.set_default_params(noisedict)
 
     print('Model',ii,'params order: ', pta.param_names)
-    np.savetxt(params.directory+'/pars.txt', pta.param_names, fmt='%s')
+    if params.opts.mpi_regime != 2:
+      np.savetxt(params.output_dir + '/pars.txt', pta.param_names, fmt='%s')
     ptas[ii]=pta
 
   return ptas
