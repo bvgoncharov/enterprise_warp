@@ -5,27 +5,20 @@ import json
 import glob
 import os
 import optparse
+import warnings
 
 import enterprise.signals.parameter as parameter
-from enterprise.signals import utils
-from enterprise.signals import selections
 from enterprise.signals import signal_base
-from enterprise.signals import deterministic_signals
-import enterprise.signals.white_signals as white_signals
 import enterprise.signals.gp_signals as gp_signals
 from enterprise.pulsar import Pulsar
 import enterprise.constants as const
-import libstempo as T2
 from enterprise_extensions import models
-
 from enterprise_models import StandardModels
 
-#import LT_custom
-#import model_constants as mc
-
-from scipy.special import ndtri
-
-from matplotlib import pyplot as plt
+try:
+  from bilby import sampler as bimpler
+except:
+  warnings.warn("Warning: failed to import bilby.sampler")
 
 def parse_commandline():
   """@parse the options given on the command-line.
@@ -70,6 +63,7 @@ class Params(object):
     self.psrs = list()
     self.Tspan = None
     self.custom_models_obj = custom_models_obj
+    self.sampler_kwargs = {}
     self.label_attr_map = {
       "datadir:": ["datadir", str],
       "out:": ["out", str],
@@ -78,10 +72,7 @@ class Params(object):
       "noisefiles:": ["noisefiles", str],
       "noise_model_file:": ["noise_model_file", str],
       "sampler:": ["sampler", str],
-      "dlogz:": ["dlogz", float],
       "nsamp:": ["nsamp", int],
-      "nwalk:": ["nwalk", int],
-      "ntemp:": ["ntemp", int],
       "setupsamp:": ["setupsamp", bool],
       "psrlist:": ["psrlist", str],
       "ssephem:": ["ssephem", str],
@@ -103,10 +94,15 @@ class Params(object):
 
     with open(input_file_name, 'r') as input_file:
       for line in input_file:
+        # Determining start of the new model, where line looks like this: {N}
         between_curly_brackets = line[line.find('{')+1 : line.find('}')]
         if between_curly_brackets.isdigit():
           model_id = int(between_curly_brackets)
           self.create_model(model_id)
+          continue
+
+        # Skipping comment lines:
+        if line[0] == '#':
           continue
 
         row = line.split()
@@ -118,6 +114,19 @@ class Params(object):
           datatypes = [datatypes[0] for dd in data]
 
         values = [(datatypes[i](data[i])) for i in range(len(data))]
+
+        # Adding sampler kwargs to self.label_attr_map
+        if attr == 'sampler' and 'bimpler' in globals():
+          if data[0] in bimpler.__dict__.keys():
+            self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].\
+                                    default_kwargs
+            self.label_attr_map.update( dict_to_label_attr_map(\
+                                        self.sampler_kwargs) )
+          else:
+            error_message = 'Unknown sampler: ' + data[0] + '\n' + \
+                            'Known samplers: ' + \
+                            ', '.join(bimpler.IMPLEMENTED_SAMPLERS.keys())
+            raise ValueError(error_message)
 
         if model_id == None:
           self.__dict__[attr] = values if len(values) > 1 else values[0]
@@ -132,6 +141,7 @@ class Params(object):
     self.override_params_using_opts()
     self.set_default_params()
     self.read_modeldicts()
+    self.update_sampler_kwargs()
     self.init_pulsars()
     self.clone_all_params_to_models()
 
@@ -157,6 +167,15 @@ class Params(object):
   def create_model(self, model_id):
     self.model_ids.append(model_id)
     self.models[model_id] = ModelParams(model_id)
+
+  def update_sampler_kwargs(self):
+    print('Setting sampler kwargs from the parameter file:')
+    for samkw in self.sampler_kwargs.keys():
+      if samkw in self.__dict__.keys():
+        self.sampler_kwargs[samkw] = self.__dict__[samkw]
+        upd_message = 'Setting ' + samkw + ' to ' + str(self.__dict__[samkw])
+        print(upd_message)
+    print('------------------')
 
   def set_default_params(self):
     ''' Setting default parameters here '''
@@ -229,7 +248,6 @@ class Params(object):
         del self.models[mkey].noisemodel['universal']
     self.label_models = '_'.join([self.models[mkey].model_name \
                                                     for mkey in self.models])
-
 
   def init_pulsars(self):
       """
@@ -319,7 +337,8 @@ class Params(object):
         if not os.path.exists(self.output_dir):
           os.makedirs(self.output_dir)
         elif bool(self.opts.wipe_old_output):
-          print('Warning: removing everything in ' + self.output_dir)
+          warn_message = 'Warning: removing everything in ' + self.output_dir
+          warnings.warn(warn_message)
           shutil.rmtree(self.output_dir)
           os.makedirs(self.output_dir)
 
@@ -499,3 +518,8 @@ def load_to_dict(filename):
             dictionary[key] = val
     return dictionary
 
+def dict_to_label_attr_map(input_dict):
+    """
+    Converting python dict with one value into Params.label_attr_map format
+    """
+    return {key+':': [key, type(val)] for key, val in input_dict.items()}

@@ -20,11 +20,11 @@ else:
 params = enterprise_warp.Params(opts.prfile,opts=opts,custom_models_obj=custom)
 pta = enterprise_warp.init_pta(params)
 
-if params.sampler == 'ptmcmc':
+if params.sampler == 'PTMCMCSampler':
   if len(params.models)==1:
     sampler = model_utils.setup_sampler(pta[0], resume=False, outdir=params.output_dir)
     x0 = np.hstack(p.sample() for p in pta[0].params)
-    sampler.sample(x0, params.nsamp, SCAMweight=30, AMweight=15, DEweight=50)
+    sampler.sample(x0, params.nsamp, **params.sampler_kwargs)
   else:
     super_model = model_utils.HyperModel(pta)
     print('Super model parameters: ', super_model.params)
@@ -38,7 +38,7 @@ else:
     likelihood = bilby_warp.PTABilbyLikelihood(pta[0],parameters)
     label = os.path.basename(os.path.normpath(params.out))
     if opts.mpi_regime != 1:
-      bilby.run_sampler(likelihood=likelihood, priors=priors, outdir=params.output_dir, label=params.label, sampler=params.sampler, resume=True, nwalkers=500)
+      bilby.run_sampler(likelihood=likelihood, priors=priors, outdir=params.output_dir, label=params.label, sampler=params.sampler, **params.sampler_kwargs)
     else:
       print('Preparations for the MPI run are complete - now set \
              opts.mpi_regime to 2 and enjoy the speed!')
