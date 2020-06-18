@@ -1,12 +1,10 @@
 import numpy as np
 import enterprise.constants as const
 from enterprise.signals import signal_base
-#import model_constants as mc
 from enterprise_extensions import models
 import enterprise.signals.parameter as parameter
 import enterprise.signals.gp_signals as gp_signals
 import enterprise.signals.selections as selections
-import my_selections
 
 from enterprise_warp.enterprise_models import StandardModels
 
@@ -30,10 +28,9 @@ class CustomModels(StandardModels):
       cc = parameter.Uniform(self.params.my_cc[0],self.params.my_cc[1])
       pl = powerlaw_my(amp=amp, cc=cc, \
                        components=self.params.red_general_nfouriercomp)
-      rn = gp_signals.FourierBasisGP(spectrum=pl, \
-                components=self.params.red_general_nfreqs, \
-                Tspan=self.params.Tspan,name='my_powerlaw')#, \
-                #selection=selections.Selection(my_selections.custom_selection))
+      nfreqs = self.determine_nfreqs(sel_func_name=None)
+      rn = gp_signals.FourierBasisGP(spectrum=pl, components=nfreqs, \
+                                     Tspan=self.params.Tspan,name='my_powerlaw')
       return rn
 
     def event_j1713(self,option="default"):

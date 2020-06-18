@@ -33,9 +33,10 @@ class StandardModels(object):
       "sn_fc": [-10., -6.],
       "dmn_lgA": [-20., -6.],
       "dmn_gamma": [0., 10.],
-      "gwb_lgA": [-20., -6.],
+      "chrom_idx": [0., 6.],
       "syn_lgA": [-20., -6.],
       "syn_gamma": [0., 10.],
+      "gwb_lgA": [-20., -6.],
       "gwb_gamma": [0., 10.],
       "red_general_freqs": "tobs_60days",
       "red_general_nfouriercomp": 2
@@ -119,7 +120,29 @@ class StandardModels(object):
                                                   Tspan=self.params.Tspan,
                                                   fref=self.params.fref)
     dmn = gp_signals.BasisGP(pl, dm_basis, name='dm_gp')
+
     return dmn
+
+  def chromred(self,option="vary"):
+    log10_A = parameter.Uniform(self.params.dmn_lgA[0],self.params.dmn_lgA[1])
+    gamma = parameter.Uniform(self.params.dmn_gamma[0],self.params.dmn_gamma[1])
+    pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
+                        components=self.params.red_general_nfouriercomp)
+    nfreqs = self.determine_nfreqs(sel_func_name=None)
+
+    if option=="vary":
+      idx = parameter.Uniform(self.params.chrom_idx[0], \
+                              self.params.chrom_idx[1])
+    else:
+      idx = option
+
+    chr_basis = models.createfourierdesignmatrix_chromatic(nmodes=nfreqs,
+                                                   Tspan=self.params.Tspan,
+                                                   idx=idx)
+
+    chrn = gp_signals.BasisGP(pl, chr_basis, name='chromatic_gp')
+
+    return chrn
 
   def system_noise(self,option=[]):
     """
@@ -201,10 +224,10 @@ class StandardModels(object):
     elif option=="fixed_gamma":
       gwb_gamma = parameter.Constant(4.33)
     gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
+    nfreqs = self.determine_nfreqs(sel_func_name=None)
     orf = utils.hd_orf()
-    gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, \
-                                 components=self.params.red_general_nfreqs, \
-                                 name='gwb', Tspan=self.params.Tspan)
+    gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs, \
+                                          name='gwb', Tspan=self.params.Tspan)
     return gwb
 
   def bayes_ephem(self,option="default"):

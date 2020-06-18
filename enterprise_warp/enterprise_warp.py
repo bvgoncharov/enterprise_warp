@@ -117,7 +117,7 @@ class Params(object):
 
         # Adding sampler kwargs to self.label_attr_map
         if attr == 'sampler' and 'bimpler' in globals():
-          if data[0] in bimpler.__dict__.keys():
+          if data[0] in bimpler.IMPLEMENTED_SAMPLERS.keys():
             self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].\
                                     default_kwargs
             self.label_attr_map.update( dict_to_label_attr_map(\
@@ -398,7 +398,7 @@ def init_pta(params_all):
           m_sep += getattr(singlepsr_model, psp)(option=option)
         else:
           m_sep = getattr(singlepsr_model, psp)(option=option)
-  
+
       models.append(m_sep(psr))
       del m_sep
 

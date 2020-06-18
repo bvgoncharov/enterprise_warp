@@ -2,7 +2,7 @@ datadir: data/
 out: out/
 overwrite: True
 allpulsars: False
-sampler: PTMCMCSampler
+sampler: ptmcmcsampler
 SCAMweight: 30
 AMweight: 15
 DEweight: 50
