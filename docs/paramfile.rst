@@ -1,6 +1,6 @@
-==============
-Parameter file
-==============
+====================
+Parameter file usage
+====================
 
 To run Enterprise from a command line using a parameter file on a first pair of .par-.tim files in your data directory, please go to :code:`examples/` and run:
 
@@ -19,6 +19,6 @@ Parameter file options
 - **sampler**: choose ptmcmcsampler or any of the samplers compatible with Bilby
 
 Parameter file also automatically recognizes:
-- Priors. Default parameters of prior distributions are set in "code:`ModelParams` class or its child class where you specify your custom noise models.
+- Priors. Default parameters of prior distributions are set in :code:`ModelParams` class or its child class where you specify your custom noise models.
 - Sampler keyword arguments. I.e., dlogz. They should only be specified after the sampler.
 

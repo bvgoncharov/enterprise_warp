@@ -1,0 +1,689 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>enterprise_warp.enterprise_models &mdash; enterprise_warp  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript">
+          var DOCUMENTATION_OPTIONS = {
+              URL_ROOT:'../../',
+              VERSION:'',
+              LANGUAGE:'None',
+              COLLAPSE_INDEX:false,
+              FILE_SUFFIX:'.html',
+              HAS_SOURCE:  true,
+              SOURCELINK_SUFFIX: ''
+          };
+      </script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> enterprise_warp
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../paramfile.html">Parameter file usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">enterprise_warp API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">enterprise_warp</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>enterprise_warp.enterprise_models</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for enterprise_warp.enterprise_models</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">enterprise.constants</span> <span class="k">as</span> <span class="nn">const</span>
+<span class="kn">from</span> <span class="nn">enterprise.signals</span> <span class="k">import</span> <span class="n">signal_base</span>
+<span class="kn">from</span> <span class="nn">enterprise.signals</span> <span class="k">import</span> <span class="n">utils</span>
+<span class="c1">#import model_constants as mc</span>
+<span class="kn">from</span> <span class="nn">enterprise_extensions</span> <span class="k">import</span> <span class="n">models</span>
+<span class="kn">import</span> <span class="nn">enterprise.signals.parameter</span> <span class="k">as</span> <span class="nn">parameter</span>
+<span class="kn">import</span> <span class="nn">enterprise.signals.gp_signals</span> <span class="k">as</span> <span class="nn">gp_signals</span>
+<span class="kn">import</span> <span class="nn">enterprise.signals.white_signals</span> <span class="k">as</span> <span class="nn">white_signals</span>
+<span class="kn">import</span> <span class="nn">enterprise.signals.selections</span> <span class="k">as</span> <span class="nn">selections</span>
+
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">types</span>
+
+<div class="viewcode-block" id="StandardModels"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels">[docs]</a><span class="k">class</span> <span class="nc">StandardModels</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">  Standard models for pulsar timing analyses.</span>
+
+<span class="sd">  Single-pulsar signals include white noise (efac, equad, ecorr), spin noise,</span>
+<span class="sd">  DM noise, band noise, system noise, chromatic noise.</span>
+<span class="sd">  Common signals include errors in Solar System ephemerides and</span>
+<span class="sd">  gravitational-wave background with Hellings-Downs spatial correlations.</span>
+
+<span class="sd">  Custom models should be derived from this class. See /examples.</span>
+
+<span class="sd">  Parameters</span>
+<span class="sd">  ----------</span>
+<span class="sd">  psr: enterprise.pulsar.Pulsar</span>
+<span class="sd">    Enterprise Pulsar object, where custom atrributes are written for </span>
+<span class="sd">    band noise and system noise because enterprise.selections function</span>
+<span class="sd">    have access to Pulsar object attributes to select certain parts of data.</span>
+
+<span class="sd">    For common signals between multiple pulsars this parameter is not needed</span>
+<span class="sd">    and can remain as &quot;None&quot;.</span>
+<span class="sd">  params: enterprise_warp.Params</span>
+<span class="sd">    Parameter object, where default prior distribution parameters are added</span>
+<span class="sd">    from self.priors if not specified in a parameter file (--prfile ...)</span>
+
+<span class="sd">  Attributes</span>
+<span class="sd">  ----------</span>
+<span class="sd">  psr: enterprise.pulsar.Pulsar</span>
+<span class="sd">    Enterprise Pulsar object</span>
+<span class="sd">  params: enterprise_warp.Params</span>
+<span class="sd">    Parameter object</span>
+<span class="sd">  priors: dict</span>
+<span class="sd">    Dictionary with keys being prior probability parameters for models</span>
+<span class="sd">    or some model-specific settings, described in the current model object</span>
+<span class="sd">    (if not hard-coded). Dictionary values serve as default parameters and as</span>
+<span class="sd">    parameter format for input from parameter files.</span>
+<span class="sd">  sys_noise_count: int</span>
+<span class="sd">    Internal variable that counts how many times we created a new selection</span>
+<span class="sd">    function for band noise, system noise, or any other noise with</span>
+<span class="sd">    multiple terms for different segments of the data.</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">psr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">psr</span> <span class="o">=</span> <span class="n">psr</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">params</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">sys_noise_count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="c1"># Make sure that default value types are correct (add &quot;.0&quot; for float)</span>
+    <span class="c1"># Dict values are default prior boundaries, if not set in param file</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">priors</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="s2">&quot;efac&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">10.</span><span class="p">],</span>
+      <span class="s2">&quot;equad&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">10.</span><span class="p">,</span> <span class="o">-</span><span class="mf">5.</span><span class="p">],</span>
+      <span class="s2">&quot;ecorr&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">10.</span><span class="p">,</span> <span class="o">-</span><span class="mf">5.</span><span class="p">],</span>
+      <span class="s2">&quot;sn_lgA&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">20.</span><span class="p">,</span> <span class="o">-</span><span class="mf">6.</span><span class="p">],</span>
+      <span class="s2">&quot;sn_gamma&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">10.</span><span class="p">],</span>
+      <span class="s2">&quot;sn_fc&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">10.</span><span class="p">,</span> <span class="o">-</span><span class="mf">6.</span><span class="p">],</span>
+      <span class="s2">&quot;dmn_lgA&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">20.</span><span class="p">,</span> <span class="o">-</span><span class="mf">6.</span><span class="p">],</span>
+      <span class="s2">&quot;dmn_gamma&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">10.</span><span class="p">],</span>
+      <span class="s2">&quot;chrom_idx&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">6.</span><span class="p">],</span>
+      <span class="s2">&quot;syn_lgA&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">20.</span><span class="p">,</span> <span class="o">-</span><span class="mf">6.</span><span class="p">],</span>
+      <span class="s2">&quot;syn_gamma&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">10.</span><span class="p">],</span>
+      <span class="s2">&quot;gwb_lgA&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">20.</span><span class="p">,</span> <span class="o">-</span><span class="mf">6.</span><span class="p">],</span>
+      <span class="s2">&quot;gwb_gamma&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">10.</span><span class="p">],</span>
+      <span class="s2">&quot;red_general_freqs&quot;</span><span class="p">:</span> <span class="s2">&quot;tobs_60days&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;red_general_nfouriercomp&quot;</span><span class="p">:</span> <span class="mi">2</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">psr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psr</span><span class="p">,</span><span class="s1">&#39;sys_flags&#39;</span><span class="p">):</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psr</span><span class="p">,</span><span class="s1">&#39;sys_flags&#39;</span><span class="p">,[])</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psr</span><span class="p">,</span><span class="s1">&#39;sys_flagvals&#39;</span><span class="p">,[])</span>
+
+<div class="viewcode-block" id="StandardModels.get_label_attr_map"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.get_label_attr_map">[docs]</a>  <span class="k">def</span> <span class="nf">get_label_attr_map</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert self.priors dict to enterprise_warp.Params.label_attr_map dict</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">label_attr_map</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">priors</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+      <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span><span class="s1">&#39;__iter__&#39;</span><span class="p">):</span>
+        <span class="n">lam_types</span> <span class="o">=</span> <span class="p">[</span><span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">))]</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">lam_types</span> <span class="o">=</span> <span class="p">[</span><span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">)]</span>
+      <span class="n">label_attr_map</span><span class="p">[</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;:&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+</span> <span class="n">lam_types</span>
+    <span class="k">return</span> <span class="n">label_attr_map</span></div>
+
+  <span class="k">def</span> <span class="nf">get_default_prior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">priors</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+  <span class="c1"># Signle pulsar noise models</span>
+
+<div class="viewcode-block" id="StandardModels.efac"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.efac">[docs]</a>  <span class="k">def</span> <span class="nf">efac</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">option</span><span class="o">=</span><span class="s2">&quot;by_backend&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    EFAC signal:  multiplies ToA variance by EFAC**2, where ToA variance </span>
+<span class="sd">    are diagonal components of the Likelihood covariance matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">option</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">selections</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;EFAC option must be Enterprise selection function name&#39;</span><span class="p">)</span>
+    <span class="n">se</span><span class="o">=</span><span class="n">selections</span><span class="o">.</span><span class="n">Selection</span><span class="p">(</span><span class="n">selections</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">option</span><span class="p">])</span>
+    <span class="n">efacpr</span> <span class="o">=</span> <span class="n">interpret_white_noise_prior</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">efac</span><span class="p">)</span>
+    <span class="n">efs</span> <span class="o">=</span> <span class="n">white_signals</span><span class="o">.</span><span class="n">MeasurementNoise</span><span class="p">(</span><span class="n">efac</span><span class="o">=</span><span class="n">efacpr</span><span class="p">,</span><span class="n">selection</span><span class="o">=</span><span class="n">se</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">efs</span></div>
+
+<div class="viewcode-block" id="StandardModels.equad"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.equad">[docs]</a>  <span class="k">def</span> <span class="nf">equad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">option</span><span class="o">=</span><span class="s2">&quot;by_backend&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    EQUAD signal: adds EQUAD**2 to the ToA variance, where ToA variance</span>
+<span class="sd">    are diagonal components of the Likelihood covariance matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">option</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">selections</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;EQUAD option must be Enterprise selection function </span><span class="se">\</span>
+<span class="s1">                        name&#39;</span><span class="p">)</span>
+    <span class="n">se</span><span class="o">=</span><span class="n">selections</span><span class="o">.</span><span class="n">Selection</span><span class="p">(</span><span class="n">selections</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">option</span><span class="p">])</span>
+    <span class="n">equadpr</span> <span class="o">=</span> <span class="n">interpret_white_noise_prior</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">equad</span><span class="p">)</span>
+    <span class="n">eqs</span> <span class="o">=</span> <span class="n">white_signals</span><span class="o">.</span><span class="n">EquadNoise</span><span class="p">(</span><span class="n">log10_equad</span><span class="o">=</span><span class="n">equadpr</span><span class="p">,</span><span class="n">selection</span><span class="o">=</span><span class="n">se</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">eqs</span></div>
+
+<div class="viewcode-block" id="StandardModels.ecorr"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.ecorr">[docs]</a>  <span class="k">def</span> <span class="nf">ecorr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">option</span><span class="o">=</span><span class="s2">&quot;by_backend&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Similar to EFAC and EQUAD, ECORR is a white noise parameter that</span>
+<span class="sd">    describes a correlation between ToAs in a single epoch (observation).</span>
+
+<span class="sd">    Arzoumanian, Zaven, et al. The Astrophysical Journal 859.1 (2018): 47.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">option</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">selections</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;ECORR option must be Enterprise selection function </span><span class="se">\</span>
+<span class="s1">                        name&#39;</span><span class="p">)</span>
+    <span class="n">se</span><span class="o">=</span><span class="n">selections</span><span class="o">.</span><span class="n">Selection</span><span class="p">(</span><span class="n">selections</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">option</span><span class="p">])</span>
+    <span class="n">ecorrpr</span> <span class="o">=</span> <span class="n">interpret_white_noise_prior</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">ecorr</span><span class="p">)</span>
+    <span class="n">ecs</span> <span class="o">=</span> <span class="n">white_signals</span><span class="o">.</span><span class="n">EcorrKernelNoise</span><span class="p">(</span><span class="n">efac</span><span class="o">=</span><span class="n">efacpr</span><span class="p">,</span><span class="n">selection</span><span class="o">=</span><span class="n">se</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">efs</span></div>
+
+<div class="viewcode-block" id="StandardModels.spin_noise"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.spin_noise">[docs]</a>  <span class="k">def</span> <span class="nf">spin_noise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">option</span><span class="o">=</span><span class="s2">&quot;powerlaw&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Achromatic red noise process is called spin noise, although generally</span>
+<span class="sd">    this model is used to model any unknown red noise. If this model is </span>
+<span class="sd">    preferred over chromatic models then the observed noise is really spin</span>
+<span class="sd">    noise, associated with pulsar rotational irregularities.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">log10_A</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">sn_lgA</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">sn_lgA</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">gamma</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">sn_gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">sn_gamma</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">option</span><span class="o">==</span><span class="s2">&quot;powerlaw&quot;</span><span class="p">:</span>
+      <span class="n">pl</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">powerlaw</span><span class="p">(</span><span class="n">log10_A</span><span class="o">=</span><span class="n">log10_A</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">,</span> \
+                          <span class="n">components</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">red_general_nfouriercomp</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">option</span><span class="o">==</span><span class="s2">&quot;turnover&quot;</span><span class="p">:</span>
+      <span class="n">fc</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">sn_fc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">sn_fc</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+      <span class="n">pl</span> <span class="o">=</span> <span class="n">powerlaw_bpl</span><span class="p">(</span><span class="n">log10_A</span><span class="o">=</span><span class="n">log10_A</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">,</span> <span class="n">fc</span><span class="o">=</span><span class="n">fc</span><span class="p">,</span>
+                        <span class="n">components</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">red_general_nfouriercomp</span><span class="p">)</span>
+    <span class="n">nfreqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">determine_nfreqs</span><span class="p">(</span><span class="n">sel_func_name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">sn</span> <span class="o">=</span> <span class="n">gp_signals</span><span class="o">.</span><span class="n">FourierBasisGP</span><span class="p">(</span><span class="n">spectrum</span><span class="o">=</span><span class="n">pl</span><span class="p">,</span> <span class="n">Tspan</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">Tspan</span><span class="p">,</span>
+                                   <span class="n">name</span><span class="o">=</span><span class="s1">&#39;red_noise&#39;</span><span class="p">,</span> <span class="n">components</span><span class="o">=</span><span class="n">nfreqs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sn</span></div>
+
+<div class="viewcode-block" id="StandardModels.dm_noise"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.dm_noise">[docs]</a>  <span class="k">def</span> <span class="nf">dm_noise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">option</span><span class="o">=</span><span class="s2">&quot;powerlaw&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A term to account for stochastic variations in DM. It is based on spin</span>
+<span class="sd">    noise model, with Fourier amplitudes depending on radio frequency nu</span>
+<span class="sd">    as ~ 1/nu^2.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">log10_A</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">dmn_lgA</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">dmn_lgA</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">gamma</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">dmn_gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">dmn_gamma</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">option</span><span class="o">==</span><span class="s2">&quot;powerlaw&quot;</span><span class="p">:</span>
+      <span class="n">pl</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">powerlaw</span><span class="p">(</span><span class="n">log10_A</span><span class="o">=</span><span class="n">log10_A</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">,</span> \
+                          <span class="n">components</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">red_general_nfouriercomp</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">option</span><span class="o">==</span><span class="s2">&quot;turnover&quot;</span><span class="p">:</span>
+      <span class="n">fc</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">sn_fc</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">sn_fc</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+      <span class="n">pl</span> <span class="o">=</span> <span class="n">powerlaw_bpl</span><span class="p">(</span><span class="n">log10_A</span><span class="o">=</span><span class="n">log10_A</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">,</span> <span class="n">fc</span><span class="o">=</span><span class="n">fc</span><span class="p">,</span>
+                        <span class="n">components</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">red_general_nfouriercomp</span><span class="p">)</span>
+    <span class="n">nfreqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">determine_nfreqs</span><span class="p">(</span><span class="n">sel_func_name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">dm_basis</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">createfourierdesignmatrix_dm</span><span class="p">(</span><span class="n">nmodes</span> <span class="o">=</span> <span class="n">nfreqs</span><span class="p">,</span>
+                                                  <span class="n">Tspan</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">Tspan</span><span class="p">,</span>
+                                                  <span class="n">fref</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">fref</span><span class="p">)</span>
+    <span class="n">dmn</span> <span class="o">=</span> <span class="n">gp_signals</span><span class="o">.</span><span class="n">BasisGP</span><span class="p">(</span><span class="n">pl</span><span class="p">,</span> <span class="n">dm_basis</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;dm_gp&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">dmn</span></div>
+
+<div class="viewcode-block" id="StandardModels.chromred"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.chromred">[docs]</a>  <span class="k">def</span> <span class="nf">chromred</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">option</span><span class="o">=</span><span class="s2">&quot;vary&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This is an generalization of DM noise, with the dependence of Fourier </span>
+<span class="sd">    amplitudes on radio frequency nu as ~ 1/nu^chi, where chi is a free</span>
+<span class="sd">    parameter.</span>
+
+<span class="sd">    Examples of chi:</span>
+
+<span class="sd">    - Pulse scattering in the ISM: chi = 4 (Lyne A., Graham-Smith F., 2012,</span>
+<span class="sd">      Pulsar astronomy)</span>
+<span class="sd">    - Refractive propagation: chi ≈ 6.4 (Shannon, R. M., and J. M. Cordes.</span>
+<span class="sd">      MNRAS, 464.2 (2017): 2075-2089).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">log10_A</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">dmn_lgA</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">dmn_lgA</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">gamma</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">dmn_gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">dmn_gamma</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">pl</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">powerlaw</span><span class="p">(</span><span class="n">log10_A</span><span class="o">=</span><span class="n">log10_A</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">,</span> \
+                        <span class="n">components</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">red_general_nfouriercomp</span><span class="p">)</span>
+    <span class="n">nfreqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">determine_nfreqs</span><span class="p">(</span><span class="n">sel_func_name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">option</span><span class="o">==</span><span class="s2">&quot;vary&quot;</span><span class="p">:</span>
+      <span class="n">idx</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">chrom_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> \
+                              <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">chrom_idx</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="n">idx</span> <span class="o">=</span> <span class="n">option</span>
+
+    <span class="n">chr_basis</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">createfourierdesignmatrix_chromatic</span><span class="p">(</span><span class="n">nmodes</span><span class="o">=</span><span class="n">nfreqs</span><span class="p">,</span>
+                                                   <span class="n">Tspan</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">Tspan</span><span class="p">,</span>
+                                                   <span class="n">idx</span><span class="o">=</span><span class="n">idx</span><span class="p">)</span>
+
+    <span class="n">chrn</span> <span class="o">=</span> <span class="n">gp_signals</span><span class="o">.</span><span class="n">BasisGP</span><span class="p">(</span><span class="n">pl</span><span class="p">,</span> <span class="n">chr_basis</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;chromatic_gp&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">chrn</span></div>
+
+<div class="viewcode-block" id="StandardModels.system_noise"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.system_noise">[docs]</a>  <span class="k">def</span> <span class="nf">system_noise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">option</span><span class="o">=</span><span class="p">[]):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Including red noise terms by &quot;-group&quot; flag, only with flagvals in noise </span>
+<span class="sd">    model file.</span>
+
+<span class="sd">    See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">ii</span><span class="p">,</span> <span class="n">sys_noise_term</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">option</span><span class="p">):</span>
+      <span class="n">log10_A</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">syn_lgA</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">syn_lgA</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+      <span class="n">gamma</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">syn_gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>\
+                                <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">syn_gamma</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+      <span class="n">pl</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">powerlaw</span><span class="p">(</span><span class="n">log10_A</span><span class="o">=</span><span class="n">log10_A</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">,</span> \
+                          <span class="n">components</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">red_general_nfouriercomp</span><span class="p">)</span>
+  
+      <span class="n">selection_function_name</span> <span class="o">=</span> <span class="s1">&#39;sys_noise_selection_&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sys_noise_count</span><span class="p">)</span>
+      <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">selection_function_name</span><span class="p">,</span> 
+              <span class="n">selection_factory</span><span class="p">(</span><span class="n">selection_function_name</span><span class="p">))</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">psr</span><span class="o">.</span><span class="n">sys_flags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;group&#39;</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">psr</span><span class="o">.</span><span class="n">sys_flagvals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sys_noise_term</span><span class="p">)</span>
+
+      <span class="n">nfreqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">determine_nfreqs</span><span class="p">(</span><span class="n">sel_func_name</span><span class="o">=</span><span class="n">selection_function_name</span><span class="p">)</span>
+
+      <span class="n">syn_term</span> <span class="o">=</span> <span class="n">gp_signals</span><span class="o">.</span><span class="n">FourierBasisGP</span><span class="p">(</span><span class="n">spectrum</span><span class="o">=</span><span class="n">pl</span><span class="p">,</span> <span class="n">Tspan</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">Tspan</span><span class="p">,</span>
+                                      <span class="n">name</span><span class="o">=</span><span class="s1">&#39;system_noise_&#39;</span> <span class="o">+</span> \
+                                      <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sys_noise_count</span><span class="p">),</span>
+                                      <span class="n">selection</span><span class="o">=</span><span class="n">selections</span><span class="o">.</span><span class="n">Selection</span><span class="p">(</span> \
+                                      <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">selection_function_name</span><span class="p">]</span> <span class="p">),</span>
+                                      <span class="n">components</span><span class="o">=</span><span class="n">nfreqs</span><span class="p">)</span>
+      <span class="k">if</span> <span class="n">ii</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">syn</span> <span class="o">=</span> <span class="n">syn_term</span>
+      <span class="k">elif</span> <span class="n">ii</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">syn</span> <span class="o">+=</span> <span class="n">syn_term</span>
+
+      <span class="bp">self</span><span class="o">.</span><span class="n">sys_noise_count</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">syn</span></div>
+
+<div class="viewcode-block" id="StandardModels.ppta_band_noise"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.ppta_band_noise">[docs]</a>  <span class="k">def</span> <span class="nf">ppta_band_noise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">option</span><span class="o">=</span><span class="p">[]):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Including red noise terms by the PPTA &quot;-B&quot; flag, only with flagvals in</span>
+<span class="sd">    noise model file. It is considered a derivative of system noise in our code.</span>
+
+<span class="sd">    See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">ii</span><span class="p">,</span> <span class="n">band_term</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">option</span><span class="p">):</span>
+      <span class="n">log10_A</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">syn_lgA</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">syn_lgA</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+      <span class="n">gamma</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">syn_gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>\
+                                <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">syn_gamma</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+      <span class="n">pl</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">powerlaw</span><span class="p">(</span><span class="n">log10_A</span><span class="o">=</span><span class="n">log10_A</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">,</span> \
+                          <span class="n">components</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">red_general_nfouriercomp</span><span class="p">)</span>
+
+      <span class="n">selection_function_name</span> <span class="o">=</span> <span class="s1">&#39;band_noise_selection_&#39;</span> <span class="o">+</span> \
+                                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sys_noise_count</span><span class="p">)</span>
+      <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">selection_function_name</span><span class="p">,</span>
+              <span class="n">selection_factory</span><span class="p">(</span><span class="n">selection_function_name</span><span class="p">))</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">psr</span><span class="o">.</span><span class="n">sys_flags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;B&#39;</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">psr</span><span class="o">.</span><span class="n">sys_flagvals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">band_term</span><span class="p">)</span>
+
+      <span class="n">nfreqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">determine_nfreqs</span><span class="p">(</span><span class="n">sel_func_name</span><span class="o">=</span><span class="n">selection_function_name</span><span class="p">)</span>
+
+      <span class="n">syn_term</span> <span class="o">=</span> <span class="n">gp_signals</span><span class="o">.</span><span class="n">FourierBasisGP</span><span class="p">(</span><span class="n">spectrum</span><span class="o">=</span><span class="n">pl</span><span class="p">,</span> <span class="n">Tspan</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">Tspan</span><span class="p">,</span>
+                                      <span class="n">name</span><span class="o">=</span><span class="s1">&#39;band_noise_&#39;</span> <span class="o">+</span> \
+                                      <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sys_noise_count</span><span class="p">),</span>
+                                      <span class="n">selection</span><span class="o">=</span><span class="n">selections</span><span class="o">.</span><span class="n">Selection</span><span class="p">(</span> \
+                                      <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">selection_function_name</span><span class="p">]</span> <span class="p">),</span>
+                                      <span class="n">components</span><span class="o">=</span><span class="n">nfreqs</span><span class="p">)</span>
+      <span class="k">if</span> <span class="n">ii</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">syn</span> <span class="o">=</span> <span class="n">syn_term</span>
+      <span class="k">elif</span> <span class="n">ii</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">syn</span> <span class="o">+=</span> <span class="n">syn_term</span>
+
+      <span class="bp">self</span><span class="o">.</span><span class="n">sys_noise_count</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="n">syn</span></div>
+
+  <span class="c1"># Common noise for multiple pulsars</span>
+
+<div class="viewcode-block" id="StandardModels.gwb"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.gwb">[docs]</a>  <span class="k">def</span> <span class="nf">gwb</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">option</span><span class="o">=</span><span class="s2">&quot;common_pl&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Spatially-correlated quadrupole signal from the nanohertz stochastic</span>
+<span class="sd">    gravitational-wave background.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">gwb_log10_A</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">gwb_lgA</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">params</span><span class="o">.</span><span class="n">gwb_lgA</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">option</span><span class="o">==</span><span class="s2">&quot;common_pl&quot;</span><span class="p">:</span>
+      <span class="n">gwb_gamma</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">gwb_gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">params</span><span class="o">.</span><span class="n">gwb_gamma</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">elif</span> <span class="n">option</span><span class="o">==</span><span class="s2">&quot;fixed_gamma&quot;</span><span class="p">:</span>
+      <span class="n">gwb_gamma</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Constant</span><span class="p">(</span><span class="mf">4.33</span><span class="p">)</span>
+    <span class="n">gwb_pl</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">powerlaw</span><span class="p">(</span><span class="n">log10_A</span><span class="o">=</span><span class="n">gwb_log10_A</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="n">gwb_gamma</span><span class="p">)</span>
+    <span class="n">nfreqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">determine_nfreqs</span><span class="p">(</span><span class="n">sel_func_name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">orf</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">hd_orf</span><span class="p">()</span>
+    <span class="n">gwb</span> <span class="o">=</span> <span class="n">gp_signals</span><span class="o">.</span><span class="n">FourierBasisCommonGP</span><span class="p">(</span><span class="n">gwb_pl</span><span class="p">,</span> <span class="n">orf</span><span class="p">,</span> <span class="n">components</span><span class="o">=</span><span class="n">nfreqs</span><span class="p">,</span> \
+                                          <span class="n">name</span><span class="o">=</span><span class="s1">&#39;gwb&#39;</span><span class="p">,</span> <span class="n">Tspan</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">Tspan</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">gwb</span></div>
+
+<div class="viewcode-block" id="StandardModels.bayes_ephem"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.bayes_ephem">[docs]</a>  <span class="k">def</span> <span class="nf">bayes_ephem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">option</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Deterministic signal from errors in Solar System ephemerides. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">eph</span> <span class="o">=</span> <span class="n">deterministic_signals</span><span class="o">.</span><span class="n">PhysicalEphemerisSignal</span><span class="p">(</span><span class="n">use_epoch_toas</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">eph</span></div>
+
+  <span class="c1"># Utility functions for noise model object</span>
+
+<div class="viewcode-block" id="StandardModels.determine_nfreqs"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.determine_nfreqs">[docs]</a>  <span class="k">def</span> <span class="nf">determine_nfreqs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sel_func_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Determine whether to model red noise process with a fixed number of </span>
+<span class="sd">    Fourier frequencies or whether to choose a number frequencies</span>
+<span class="sd">    between the inverse of observation time and 60 days.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sel_func_name: str</span>
+<span class="sd">      Name of the selection function, stored in the current noise model</span>
+<span class="sd">      object. It is needed to determine the observation span for a selected</span>
+<span class="sd">      data (which is equal or smaller than the total observation span).</span>
+<span class="sd">      If None, then enterprise.signals.selections.no_selection is assumed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">sel_func_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="n">selfunc</span> <span class="o">=</span> <span class="n">selections</span><span class="o">.</span><span class="n">no_selection</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="n">selfunc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">sel_func_name</span><span class="p">]</span>
+
+    <span class="n">selection_mask</span> <span class="o">=</span> <span class="n">toa_mask_from_selection_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psr</span><span class="p">,</span> <span class="n">selfunc</span><span class="p">)</span>
+
+    <span class="n">toas</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">psr</span><span class="o">.</span><span class="n">toas</span><span class="p">[</span><span class="n">selection_mask</span><span class="p">]</span>
+    <span class="n">tobs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">toas</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">toas</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">red_general_freqs</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+      <span class="n">n_freqs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">red_general_freqs</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">red_general_freqs</span> <span class="o">==</span> <span class="s2">&quot;tobs_60days&quot;</span><span class="p">:</span>
+      <span class="n">n_freqs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">((</span><span class="mf">1.</span><span class="o">/</span><span class="mf">60.</span><span class="o">/</span><span class="n">const</span><span class="o">.</span><span class="n">day</span> <span class="o">-</span> <span class="mi">1</span><span class="o">/</span><span class="n">tobs</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">tobs</span><span class="p">)))</span>
+
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">mpi_regime</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">save_nfreqs_information</span><span class="p">(</span><span class="n">sel_func_name</span><span class="p">,</span> <span class="n">n_freqs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">n_freqs</span></div>
+
+<div class="viewcode-block" id="StandardModels.save_nfreqs_information"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.StandardModels.save_nfreqs_information">[docs]</a>  <span class="k">def</span> <span class="nf">save_nfreqs_information</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sel_func_name</span><span class="p">,</span> <span class="n">n_freqs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enterprise does not store a number of Fourier frequencies for red noise</span>
+<span class="sd">    processes. This function stores this information in the output folder.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sel_func_name: str</span>
+<span class="sd">      Selection function name (None for no selection)</span>
+<span class="sd">    n_freqs: int</span>
+<span class="sd">      Number of Fourier frequencies of a red noise process</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">sel_func_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="n">filename</span> <span class="o">=</span> <span class="s1">&#39;no_selection&#39;</span>
+      <span class="n">sel_func_name</span> <span class="o">=</span> <span class="s1">&#39;none&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="n">filename</span> <span class="o">=</span> <span class="n">sel_func_name</span>
+    <span class="n">line</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+    <span class="c1"># System and band noise convention:</span>
+    <span class="k">if</span> <span class="n">sel_func_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+      <span class="n">idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">sel_func_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+      <span class="n">line</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">psr</span><span class="o">.</span><span class="n">sys_flags</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+      <span class="n">line</span> <span class="o">+=</span> <span class="s1">&#39;;&#39;</span>
+      <span class="n">line</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">psr</span><span class="o">.</span><span class="n">sys_flagvals</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+      <span class="n">line</span> <span class="o">+=</span> <span class="s1">&#39;;&#39;</span>
+    <span class="c1"># Spin and DM noise convention: no number in selection func name</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="n">line</span> <span class="o">+=</span> <span class="s1">&#39;no selection;-;&#39;</span>
+    <span class="n">line</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="n">n_freqs</span><span class="p">)</span>
+    <span class="n">line</span> <span class="o">+=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">+</span> <span class="n">filename</span> <span class="o">+</span> <span class="s1">&#39;_nfreqs.txt&#39;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> \
+                                                           <span class="k">as</span> <span class="n">comp_file</span><span class="p">:</span>
+      <span class="n">comp_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">line</span><span class="p">)</span></div></div>
+
+<span class="c1"># General utility functions</span>
+
+<div class="viewcode-block" id="interpret_white_noise_prior"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.interpret_white_noise_prior">[docs]</a><span class="k">def</span> <span class="nf">interpret_white_noise_prior</span><span class="p">(</span><span class="n">prior</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">  Interpret prior distribution parameters, passed from parameter file.</span>
+<span class="sd">  Adding only one numbers sets prior to be a constant, while two numbers</span>
+<span class="sd">  are interpreted as Uniform prior bounds.</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+  <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">prior</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="n">prior</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">prior</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+  <span class="k">else</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Constant</span><span class="p">()</span></div>
+
+<span class="c1"># Signal models</span>
+
+<span class="nd">@signal_base</span><span class="o">.</span><span class="n">function</span>
+<div class="viewcode-block" id="powerlaw_bpl"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.powerlaw_bpl">[docs]</a><span class="k">def</span> <span class="nf">powerlaw_bpl</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">log10_A</span><span class="o">=-</span><span class="mi">16</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">fc</span><span class="o">=-</span><span class="mi">9</span><span class="p">,</span> <span class="n">components</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Broken power law red noise from Goncharov, Zhu, Thrane (2019):</span>
+<span class="sd">    `arXiv:1910.05961 &lt;https://arxiv.org/abs/1910.05961&gt;`__</span>
+<span class="sd">    If fc &lt; 0, lg(fc) is assumed instead of fc.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]),</span> <span class="n">f</span><span class="p">[::</span><span class="n">components</span><span class="p">])))</span>
+    <span class="k">if</span> <span class="n">fc</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="p">:</span> <span class="n">fc</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="n">fc</span>
+    <span class="k">return</span> <span class="p">((</span><span class="mi">10</span><span class="o">**</span><span class="n">log10_A</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mf">12.0</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span>
+            <span class="n">const</span><span class="o">.</span><span class="n">fyr</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="p">((</span><span class="n">f</span><span class="o">+</span><span class="n">fc</span><span class="p">)</span><span class="o">/</span><span class="n">const</span><span class="o">.</span><span class="n">fyr</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="n">gamma</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">components</span><span class="p">))</span></div>
+
+<span class="c1"># Selection functions</span>
+
+<div class="viewcode-block" id="selection_factory"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.selection_factory">[docs]</a><span class="k">def</span> <span class="nf">selection_factory</span><span class="p">(</span><span class="n">new_selection_name</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">  This function constructs new selection functions for band and system noise,</span>
+<span class="sd">  so that the specific band/system selection with flag and flag values (i.e., </span>
+<span class="sd">  &quot;group&quot; and &quot;CPSR2_50CM&quot;) are passed as arrays &quot;sys_flags&quot; and &quot;sys_flagvals&quot;</span>
+<span class="sd">  in enterprise.pulsar.Pulsar object. The selection function name contains an</span>
+<span class="sd">  index for these arrays, which tell the function which flag and value to use.</span>
+<span class="sd">  </span>
+<span class="sd">  This method is not ideal, but it allows to create the right number of</span>
+<span class="sd">  selection functions for any given number of band/system noise terms,</span>
+<span class="sd">  without the need to pre-define them or modify the Enterprise code.</span>
+<span class="sd">  </span>
+<span class="sd">  Parameters</span>
+<span class="sd">  ----------</span>
+<span class="sd">  new_selection_name: str</span>
+<span class="sd">    Python string with selection function name that we need to create. </span>
+<span class="sd">    Selection function name format is &quot;name_N&quot;, where N is an integer,</span>
+<span class="sd">    an array index for &quot;sys_flags&quot; and &quot;sys_flagvals&quot;.</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="k">def</span> <span class="nf">template_sel</span><span class="p">(</span><span class="n">flags</span><span class="p">,</span><span class="n">sys_flags</span><span class="p">,</span><span class="n">sys_flagvals</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Arguments &quot;sys_flags&quot; and &quot;sys_flagvals&quot; are variables</span>
+<span class="sd">    inside Enterprise Pulsar object - they can be added there manually.</span>
+<span class="sd">    They contain a list of flags and flagvals for system noise.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">currentframe</span><span class="p">()</span>
+    <span class="c1"># Extracting array index from function name</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getframeinfo</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">sys_flags</span><span class="o">==</span><span class="kc">None</span> <span class="ow">or</span> <span class="n">sys_flagvals</span><span class="o">==</span><span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Kwargs sys_flags and sys_flagvals must be specified!&#39;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span>
+    <span class="n">seldict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">seldict</span><span class="p">[</span><span class="n">sys_flagvals</span><span class="p">[</span><span class="n">idx</span><span class="p">]]</span> <span class="o">=</span> <span class="n">flags</span><span class="p">[</span><span class="n">sys_flags</span><span class="p">[</span><span class="n">idx</span><span class="p">]]</span><span class="o">==</span><span class="n">sys_flagvals</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">seldict</span>
+
+  <span class="n">template_selection_code</span> <span class="o">=</span> <span class="n">types</span><span class="o">.</span><span class="n">CodeType</span><span class="p">(</span><span class="n">template_sel</span><span class="o">.</span><span class="n">func_code</span><span class="o">.</span><span class="n">co_argcount</span><span class="p">,</span>
+                            <span class="n">template_sel</span><span class="o">.</span><span class="n">func_code</span><span class="o">.</span><span class="n">co_nlocals</span><span class="p">,</span>
+                            <span class="n">template_sel</span><span class="o">.</span><span class="n">func_code</span><span class="o">.</span><span class="n">co_stacksize</span><span class="p">,</span>
+                            <span class="n">template_sel</span><span class="o">.</span><span class="n">func_code</span><span class="o">.</span><span class="n">co_flags</span><span class="p">,</span>
+                            <span class="n">template_sel</span><span class="o">.</span><span class="n">func_code</span><span class="o">.</span><span class="n">co_code</span><span class="p">,</span>
+                            <span class="n">template_sel</span><span class="o">.</span><span class="n">func_code</span><span class="o">.</span><span class="n">co_consts</span><span class="p">,</span>
+                            <span class="n">template_sel</span><span class="o">.</span><span class="n">func_code</span><span class="o">.</span><span class="n">co_names</span><span class="p">,</span>
+                            <span class="n">template_sel</span><span class="o">.</span><span class="n">func_code</span><span class="o">.</span><span class="n">co_varnames</span><span class="p">,</span>
+                            <span class="n">template_sel</span><span class="o">.</span><span class="n">func_code</span><span class="o">.</span><span class="n">co_filename</span><span class="p">,</span>
+                            <span class="n">new_selection_name</span><span class="p">,</span>
+                            <span class="n">template_sel</span><span class="o">.</span><span class="n">func_code</span><span class="o">.</span><span class="n">co_firstlineno</span><span class="p">,</span>
+                            <span class="n">template_sel</span><span class="o">.</span><span class="n">func_code</span><span class="o">.</span><span class="n">co_lnotab</span><span class="p">)</span>
+
+  <span class="k">return</span> <span class="n">types</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">(</span><span class="n">template_selection_code</span><span class="p">,</span> <span class="n">template_sel</span><span class="o">.</span><span class="n">func_globals</span><span class="p">,</span>
+                            <span class="n">new_selection_name</span><span class="p">)</span> </div>
+
+<div class="viewcode-block" id="toa_mask_from_selection_function"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_models.toa_mask_from_selection_function">[docs]</a><span class="k">def</span> <span class="nf">toa_mask_from_selection_function</span><span class="p">(</span><span class="n">psr</span><span class="p">,</span><span class="n">selfunc</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">  Create numpy array mask for ToA array, by applying selection function</span>
+<span class="sd">  to enterprise.pulsar.Pulsar object.</span>
+
+<span class="sd">  Parameters</span>
+<span class="sd">  ----------</span>
+<span class="sd">  psr: enterprise.pulsar.Pulsar</span>
+<span class="sd">    Pulsar object in Enterprise format</span>
+<span class="sd">  selfunc: function</span>
+<span class="sd">    Selection function. Examples are in enterprise.signals.selections</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+  <span class="n">args_selfunc</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getargspec</span><span class="p">(</span><span class="n">selfunc</span><span class="p">)</span><span class="o">.</span><span class="n">args</span>
+  <span class="n">argdict</span> <span class="o">=</span> <span class="p">{</span><span class="n">attr</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">psr</span><span class="p">,</span><span class="n">attr</span><span class="p">)</span> <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">psr</span><span class="p">)</span> \
+                                              <span class="k">if</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">args_selfunc</span><span class="p">}</span>
+  <span class="n">selection_mask_dict</span> <span class="o">=</span> <span class="n">selfunc</span><span class="p">(</span><span class="o">**</span><span class="n">argdict</span><span class="p">)</span>
+  <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">selection_mask_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">selection_mask_dict</span><span class="o">.</span><span class="n">values</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+  <span class="k">else</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Boris Goncharov
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

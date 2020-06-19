@@ -44,7 +44,7 @@
   <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Parameter file" href="paramfile.html" /> 
+    <link rel="next" title="Installation" href="installation.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -90,8 +90,9 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="paramfile.html">Parameter file</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="paramfile.html">Parameter file usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">enterprise_warp API</a></li>
 </ul>
 
             
@@ -161,17 +162,25 @@
 <div class="toctree-wrapper compound" id="contents">
 <p class="caption"><span class="caption-text">Contents:</span><a class="headerlink" href="#contents" title="Permalink to this toctree">¶</a></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="paramfile.html">Parameter file</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="paramfile.html">Parameter file usage</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="paramfile.html#parameter-file-options">Parameter file options</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">enterprise_warp API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.html#enterprise-warp">enterprise_warp</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#enterprise-models">enterprise_models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#bilby-warp">bilby_warp</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#tempo2-warp">tempo2_warp</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#libstempo-warp">libstempo_warp</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </div>
 <div class="section" id="enterprise-warp">
 <h1>enterprise_warp<a class="headerlink" href="#enterprise-warp" title="Permalink to this headline">¶</a></h1>
-<p>enterprise_warp is a set of tools for pulsar timing analysis with <a class="reference external" href="https://github.com/nanograv/enterprise/">Enterprise</a>, <a class="reference external" href="https://github.com/vallis/libstempo/">Libstempo</a> and <cite>Tempo2 &lt;https://bitbucket.org/psrsoft/tempo2&gt;</cite>. It uses the <a class="reference external" href="https://git.ligo.org/lscsoft/bilby/">Bilby</a> to enable Bayesian inference for pulsar timing arrays using many different samplers and all other advantages of Bilby.</p>
+<p>enterprise_warp is a set of tools for pulsar timing analysis with <a class="reference external" href="https://github.com/nanograv/enterprise/">Enterprise</a>, <a class="reference external" href="https://github.com/vallis/libstempo/">Libstempo</a> and <a class="reference external" href="https://bitbucket.org/psrsoft/tempo2">Tempo2</a>. It uses the <a class="reference external" href="https://git.ligo.org/lscsoft/bilby/">Bilby</a> to enable Bayesian inference for pulsar timing arrays using many different samplers and all other advantages of Bilby.</p>
 <p>Look how easy it is to run from the command line:</p>
 <div class="highlight-console"><div class="highlight"><pre><span></span><span class="gp">$</span> python run_example_paramfile.py --prfile example_params/default_model_dynesty.dat --num <span class="m">0</span>
 </pre></div>
@@ -212,7 +221,7 @@
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="paramfile.html" class="btn btn-neutral float-right" title="Parameter file" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
     </div>

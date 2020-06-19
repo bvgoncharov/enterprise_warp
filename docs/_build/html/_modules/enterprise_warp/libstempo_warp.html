@@ -1,0 +1,436 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>enterprise_warp.libstempo_warp &mdash; enterprise_warp  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript">
+          var DOCUMENTATION_OPTIONS = {
+              URL_ROOT:'../../',
+              VERSION:'',
+              LANGUAGE:'None',
+              COLLAPSE_INDEX:false,
+              FILE_SUFFIX:'.html',
+              HAS_SOURCE:  true,
+              SOURCELINK_SUFFIX: ''
+          };
+      </script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> enterprise_warp
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../paramfile.html">Parameter file usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">enterprise_warp API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">enterprise_warp</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>enterprise_warp.libstempo_warp</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for enterprise_warp.libstempo_warp</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">enterprise.constants</span> <span class="k">as</span> <span class="nn">const</span>
+<span class="kn">import</span> <span class="nn">libstempo.toasim</span> <span class="k">as</span> <span class="nn">LT</span>
+
+<span class="k">def</span> <span class="nf">red_psd</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span><span class="n">AA</span><span class="p">,</span><span class="n">gamma</span><span class="p">):</span>
+    <span class="n">norm</span> <span class="o">=</span> <span class="n">AA</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">yr</span><span class="o">**</span><span class="mi">3</span> <span class="o">/</span> <span class="p">(</span><span class="mi">12</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">norm</span> <span class="o">*</span> <span class="p">(</span><span class="n">ff</span><span class="o">*</span><span class="n">const</span><span class="o">.</span><span class="n">yr</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="n">gamma</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">red_v1_psd</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span><span class="n">AA</span><span class="p">,</span><span class="n">gamma</span><span class="p">,</span><span class="n">fc</span><span class="p">):</span>
+    <span class="n">norm</span> <span class="o">=</span> <span class="n">AA</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">yr</span><span class="o">**</span><span class="mi">3</span> <span class="o">/</span> <span class="p">(</span><span class="mi">12</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">norm</span> <span class="o">*</span> <span class="p">((</span><span class="n">ff</span><span class="o">+</span><span class="n">fc</span><span class="p">)</span><span class="o">*</span><span class="n">const</span><span class="o">.</span><span class="n">yr</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="n">gamma</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">dm_psd</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span><span class="n">AA</span><span class="p">,</span><span class="n">gamma</span><span class="p">,</span><span class="n">max_rad_freq_hz</span><span class="p">,</span><span class="n">DMk</span><span class="o">=</span><span class="mf">4.15e3</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">red_psd</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span><span class="n">AA</span><span class="p">,</span><span class="n">gamma</span><span class="p">)</span><span class="o">*</span><span class="n">DMk</span><span class="o">/</span><span class="n">max_rad_freq_hz</span><span class="o">**</span><span class="mi">2</span>
+
+<span class="k">def</span> <span class="nf">lorenzian_red_psd</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span><span class="n">PP</span><span class="p">,</span><span class="n">fc</span><span class="p">,</span><span class="n">alpha</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">PP</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="p">(</span><span class="n">ff</span><span class="o">/</span><span class="n">fc</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="n">alpha</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">plot_noise_psd_from_dict</span><span class="p">(</span><span class="n">psr</span><span class="p">,</span> <span class="n">psd_params</span><span class="p">,</span> <span class="n">backends</span><span class="p">,</span> <span class="n">ff</span><span class="p">):</span>
+   <span class="k">for</span> <span class="n">backend</span> <span class="ow">in</span> <span class="n">backends</span><span class="p">:</span>
+       <span class="n">label</span> <span class="o">=</span> <span class="s1">&#39;RMS white noise in &#39;</span><span class="o">+</span><span class="n">backend</span>
+       <span class="n">wpsd</span> <span class="o">=</span> <span class="n">psd_params</span><span class="p">[</span><span class="n">backend</span><span class="p">][</span><span class="s1">&#39;rms_toaerr&#39;</span><span class="p">]</span><span class="o">*</span><span class="mf">1e-6</span>
+       <span class="n">wpsd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">wpsd</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">ff</span><span class="p">))</span>
+       <span class="n">plt</span><span class="o">.</span><span class="n">loglog</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span><span class="n">wpsd</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span>
+
+   <span class="k">if</span> <span class="s1">&#39;red&#39;</span> <span class="ow">in</span> <span class="n">psd_params</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+       <span class="k">if</span> <span class="s1">&#39;A&#39;</span> <span class="ow">in</span> <span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">]:</span>
+           <span class="n">label</span> <span class="o">=</span> <span class="s1">&#39;Red noise, lgA=&#39;</span><span class="o">+</span>\
+               <span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;A&#39;</span><span class="p">]),</span><span class="mi">2</span><span class="p">))</span><span class="o">+</span>\
+               <span class="s1">&#39;, gamma=&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;gamma&#39;</span><span class="p">],</span><span class="mi">2</span><span class="p">))</span>
+           <span class="n">plt</span><span class="o">.</span><span class="n">loglog</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span> <span class="n">red_psd</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span><span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;A&#39;</span><span class="p">],</span>\
+               <span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;gamma&#39;</span><span class="p">]),</span><span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span>
+       <span class="k">elif</span> <span class="s1">&#39;P&#39;</span> <span class="ow">in</span> <span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">]:</span>
+           <span class="n">label</span> <span class="o">=</span> <span class="s1">&#39;Red noise, lgP=&#39;</span><span class="o">+</span>\
+               <span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;P&#39;</span><span class="p">]),</span><span class="mi">2</span><span class="p">))</span><span class="o">+</span>\
+               <span class="s1">&#39;, alpha=&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;alpha&#39;</span><span class="p">],</span><span class="mi">2</span><span class="p">))</span><span class="o">+</span>\
+               <span class="s1">&#39;, lg(fc)=&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;fc&#39;</span><span class="p">]),</span><span class="mi">2</span><span class="p">))</span>
+           <span class="n">plt</span><span class="o">.</span><span class="n">loglog</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span> <span class="n">lorenzian_red_psd</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span><span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;P&#39;</span><span class="p">],</span>\
+               <span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;fc&#39;</span><span class="p">],</span><span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;alpha&#39;</span><span class="p">]),</span><span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span>
+
+   <span class="k">if</span> <span class="s1">&#39;dm&#39;</span> <span class="ow">in</span> <span class="n">psd_params</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+       <span class="k">if</span> <span class="s1">&#39;A&#39;</span> <span class="ow">in</span> <span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;dm&#39;</span><span class="p">]:</span>
+           <span class="n">label</span> <span class="o">=</span> <span class="s1">&#39;DM noise at max freq, lgA=&#39;</span><span class="o">+</span>\
+               <span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;dm&#39;</span><span class="p">][</span><span class="s1">&#39;A&#39;</span><span class="p">]),</span><span class="mi">2</span><span class="p">))</span><span class="o">+</span>\
+               <span class="s1">&#39;, gamma=&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">psd_params</span><span class="p">[</span><span class="s1">&#39;dm&#39;</span><span class="p">][</span><span class="s1">&#39;gamma&#39;</span><span class="p">],</span><span class="mi">2</span><span class="p">))</span>
+           <span class="c1">#plt.loglog(ff, dm_psd(ff,psd_params[&#39;dm&#39;][&#39;A&#39;],\</span>
+           <span class="c1">#    psd_params[&#39;dm&#39;][&#39;gamma&#39;],max(psr.freqs)*1e9),label=label)</span>
+           <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Function dm_psd in core.py: not clear how to include DM </span><span class="se">\</span>
+<span class="s1">                  constant and radio frequencies&#39;</span><span class="p">)</span>
+           <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Not plotting DM noise PSD&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="add_noise"><a class="viewcode-back" href="../../api.html#enterprise_warp.libstempo_warp.add_noise">[docs]</a><span class="k">def</span> <span class="nf">add_noise</span><span class="p">(</span><span class="n">t2pulsar</span><span class="p">,</span> <span class="n">noise_dict</span><span class="p">,</span> <span class="n">sim_dm</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sim_white</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sim_red</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+              <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+   <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">   Recognize noise from noise parameter name, and add to t2pulsar.</span>
+<span class="sd">   &quot;&quot;&quot;</span>
+
+   <span class="n">added_noise_psd_params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+   <span class="n">flagid</span><span class="o">=</span><span class="nb">list</span><span class="p">()</span>
+   <span class="k">if</span> <span class="s1">&#39;f&#39;</span> <span class="ow">in</span> <span class="n">t2pulsar</span><span class="o">.</span><span class="n">flags</span><span class="p">():</span>
+      <span class="n">backends</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">flagvals</span><span class="p">(</span><span class="s1">&#39;f&#39;</span><span class="p">))</span>
+      <span class="n">flagid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;f&#39;</span><span class="p">)</span>
+   <span class="k">if</span> <span class="s1">&#39;g&#39;</span> <span class="ow">in</span> <span class="n">t2pulsar</span><span class="o">.</span><span class="n">flags</span><span class="p">():</span> <span class="c1">#PPTA</span>
+      <span class="n">backends</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">backends</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">flagvals</span><span class="p">(</span><span class="s1">&#39;g&#39;</span><span class="p">))</span> <span class="p">)</span>
+      <span class="n">flagid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;g&#39;</span><span class="p">)</span>
+   <span class="k">if</span> <span class="s1">&#39;sys&#39;</span> <span class="ow">in</span> <span class="n">t2pulsar</span><span class="o">.</span><span class="n">flags</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="s1">&#39;group&#39;</span> <span class="ow">in</span> <span class="n">t2pulsar</span><span class="o">.</span><span class="n">flags</span><span class="p">():</span>
+      <span class="n">backends</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">flagvals</span><span class="p">(</span><span class="s1">&#39;sys&#39;</span><span class="p">))</span>
+      <span class="n">flagid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;sys&#39;</span><span class="p">)</span>
+   <span class="k">if</span> <span class="s1">&#39;sys&#39;</span> <span class="ow">in</span> <span class="n">t2pulsar</span><span class="o">.</span><span class="n">flags</span><span class="p">()</span> <span class="ow">and</span> <span class="s1">&#39;group&#39;</span> <span class="ow">in</span> <span class="n">t2pulsar</span><span class="o">.</span><span class="n">flags</span><span class="p">():</span>
+      <span class="n">backends</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">flagvals</span><span class="p">(</span><span class="s1">&#39;group&#39;</span><span class="p">))</span>
+      <span class="n">flagid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;group&#39;</span><span class="p">)</span>
+   <span class="k">if</span> <span class="n">flagid</span><span class="o">==</span><span class="p">[]:</span>
+      <span class="n">backends</span> <span class="o">=</span> <span class="p">[]</span>
+      <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Backend convention is not recognized&#39;</span><span class="p">)</span>
+
+   <span class="n">used_backends</span><span class="o">=</span><span class="nb">list</span><span class="p">()</span>
+   <span class="k">for</span> <span class="n">noise_param</span><span class="p">,</span> <span class="n">noise_val</span> <span class="ow">in</span> <span class="n">noise_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+      <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">noise_val</span><span class="p">):</span>
+         <span class="n">noise_val</span> <span class="o">=</span> <span class="n">noise_val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+         <span class="n">noise_dict</span><span class="p">[</span><span class="n">noise_param</span><span class="p">]</span> <span class="o">=</span> <span class="n">noise_dict</span><span class="p">[</span><span class="n">noise_param</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+      <span class="n">backend_name</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+      <span class="n">param_name</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+      <span class="k">for</span> <span class="n">bcknd</span> <span class="ow">in</span> <span class="n">backends</span><span class="p">:</span>
+         <span class="k">if</span> <span class="n">bcknd</span> <span class="ow">in</span> <span class="n">noise_param</span><span class="p">:</span>
+            <span class="n">used_backends</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bcknd</span><span class="p">)</span>
+            <span class="n">backend_name</span> <span class="o">=</span> <span class="n">bcknd</span>
+            <span class="k">for</span> <span class="n">fid</span> <span class="ow">in</span> <span class="n">flagid</span><span class="p">:</span> <span class="c1"># for 2 flags in PPTA</span>
+              <span class="n">flagid_bcknd</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+              <span class="k">if</span> <span class="n">backend_name</span> <span class="ow">in</span> <span class="n">t2pulsar</span><span class="o">.</span><span class="n">flagvals</span><span class="p">(</span><span class="n">fid</span><span class="p">):</span>
+                <span class="n">flagid_bcknd</span> <span class="o">=</span> <span class="n">fid</span>
+            <span class="n">added_noise_psd_params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">backend_name</span><span class="p">,</span><span class="nb">dict</span><span class="p">())</span>
+            <span class="n">toaerr_bcknd</span> <span class="o">=</span> <span class="n">t2pulsar</span><span class="o">.</span><span class="n">toaerrs</span><span class="p">[</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>\
+                           <span class="n">t2pulsar</span><span class="o">.</span><span class="n">flagvals</span><span class="p">(</span><span class="n">flagid_bcknd</span><span class="p">)</span><span class="o">==</span><span class="n">backend_name</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="p">]</span>
+            <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="n">backend_name</span><span class="p">][</span><span class="s1">&#39;rms_toaerr&#39;</span><span class="p">]</span> <span class="o">=</span> \
+                              <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">toaerr_bcknd</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">toaerr_bcknd</span><span class="p">))</span><span class="o">**</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+            <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="n">backend_name</span><span class="p">][</span><span class="s1">&#39;mean_toaerr&#39;</span><span class="p">]</span> <span class="o">=</span> \
+                               <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">toaerr_bcknd</span><span class="p">)</span>
+
+      <span class="k">if</span> <span class="s1">&#39;efac&#39;</span> <span class="ow">in</span> <span class="n">noise_param</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">and</span> <span class="n">sim_white</span><span class="p">:</span>
+         <span class="n">param_name</span> <span class="o">=</span> <span class="s1">&#39;efac&#39;</span>
+         <span class="k">if</span> <span class="ow">not</span> <span class="n">backend_name</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
+            <span class="c1">#LT.add_efac(t2pulsar, efac=noise_val, seed=seed,\</span>
+            <span class="c1">#            flags=backend_name, flagid=flagid_bcknd)</span>
+            <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="n">backend_name</span><span class="p">][</span><span class="s1">&#39;efac&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">noise_val</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Added efac: &#39;</span><span class="p">,</span><span class="n">noise_val</span><span class="p">,</span><span class="n">backend_name</span><span class="p">)</span>
+         <span class="k">elif</span> <span class="n">noise_param</span><span class="o">==</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_efac&#39;</span><span class="p">:</span>
+            <span class="c1">#LT.add_efac(t2pulsar, efac=noise_val, seed=seed)</span>
+            <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;efac&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">noise_val</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Added efac: &#39;</span><span class="p">,</span><span class="n">noise_val</span><span class="p">)</span>
+         <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Efac is not recognized. Neither signle, nor per </span><span class="se">\</span>
+<span class="s1">                             backend. Parameter name from noise file: &#39;</span><span class="p">,</span> \
+                             <span class="n">noise_param</span><span class="p">,</span><span class="s1">&#39;. Backends: &#39;</span><span class="p">,</span><span class="n">backends</span><span class="p">)</span>
+   
+      <span class="k">elif</span> <span class="s1">&#39;log10_equad&#39;</span> <span class="ow">in</span> <span class="n">noise_param</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">and</span> <span class="n">sim_white</span><span class="p">:</span>
+         <span class="n">param_name</span> <span class="o">=</span> <span class="s1">&#39;log10_equad&#39;</span>
+         <span class="k">if</span> <span class="ow">not</span> <span class="n">backend_name</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
+            <span class="c1">#LT.add_equad(t2pulsar, equad=10**noise_val, seed=seed, \</span>
+            <span class="c1">#             flags=backend_name, flagid=flagid_bcknd)</span>
+            <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="n">backend_name</span><span class="p">][</span><span class="s1">&#39;equad&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Added equad: &#39;</span><span class="p">,</span><span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span><span class="p">,</span><span class="n">backend_name</span><span class="p">)</span>
+         <span class="k">elif</span> <span class="n">noise_param</span><span class="o">==</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_log10_equad&#39;</span><span class="p">:</span>
+            <span class="c1">#LT.add_equad(t2pulsar, equad=10**noise_val, seed=seed)</span>
+            <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;equad&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Added efac: &#39;</span><span class="p">,</span><span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span><span class="p">)</span>
+         <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Equad is not recognized. Neither signle, nor per </span><span class="se">\</span>
+<span class="s1">                             backend. Parameter name from noise file: &#39;</span><span class="p">,</span> \
+                             <span class="n">noise_param</span><span class="p">,</span><span class="s1">&#39;. Backends: &#39;</span><span class="p">,</span><span class="n">backends</span><span class="p">)</span>
+   
+      <span class="k">elif</span> <span class="s1">&#39;log10_ecorr&#39;</span> <span class="ow">in</span> <span class="n">noise_param</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">and</span> <span class="n">sim_white</span><span class="p">:</span>
+         <span class="n">param_name</span> <span class="o">=</span> <span class="s1">&#39;log10_ecorr&#39;</span>
+         <span class="k">if</span> <span class="ow">not</span> <span class="n">backend_name</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
+            <span class="c1">#LT.add_jitter(t2pulsar, ecorr=10**noise_val, seed=seed, \</span>
+            <span class="c1">#              flags=backend_name, flagid=flagid_bcknd)</span>
+            <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="n">backend_name</span><span class="p">][</span><span class="s1">&#39;ecorr&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Added ecorr: &#39;</span><span class="p">,</span><span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span><span class="p">,</span><span class="n">backend_name</span><span class="p">)</span>
+         <span class="k">elif</span> <span class="n">noise_param</span><span class="o">==</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_log10_ecorr&#39;</span><span class="p">:</span>
+            <span class="c1">#LT.add_jitter(t2pulsar, ecorr=10**noise_val, seed=seed)</span>
+            <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;ecorr&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Added efac: &#39;</span><span class="p">,</span><span class="n">noise_val</span><span class="p">)</span>
+         <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Ecorr is not recognized. Neither signle, nor per backend. Parameter name from noise file: &#39;</span><span class="p">,</span><span class="n">noise_param</span><span class="p">,</span><span class="s1">&#39;. Backends: &#39;</span><span class="p">,</span><span class="n">backends</span><span class="p">)</span>
+   
+      <span class="k">elif</span> <span class="s1">&#39;dm_gp_log10_A&#39;</span> <span class="ow">in</span> <span class="n">noise_param</span> <span class="ow">and</span> <span class="n">sim_dm</span><span class="p">:</span>
+         <span class="n">param_name</span> <span class="o">=</span> <span class="s1">&#39;dm_gp_log10_A&#39;</span>
+         <span class="c1">#LT.add_dm(t2pulsar,A=10**noise_val,\</span>
+         <span class="c1">#          gamma=noise_dict[t2pulsar.name+&#39;_dm_gp_gamma&#39;],\</span>
+         <span class="c1">#          seed=seed,components=30)</span>
+         <span class="n">added_noise_psd_params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;dm&#39;</span><span class="p">,</span><span class="nb">dict</span><span class="p">())</span>
+         <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;dm&#39;</span><span class="p">][</span><span class="s1">&#39;A&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span>
+         <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Added DM noise, A=&#39;</span><span class="p">,</span><span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span><span class="p">,</span><span class="s1">&#39; gamma=&#39;</span><span class="p">,</span><span class="n">noise_dict</span><span class="p">[</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_dm_gp_gamma&#39;</span><span class="p">])</span>
+      <span class="k">elif</span> <span class="s1">&#39;dm_gp_gamma&#39;</span> <span class="ow">in</span> <span class="n">noise_param</span> <span class="ow">and</span> <span class="n">sim_dm</span><span class="p">:</span>
+         <span class="n">added_noise_psd_params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;dm&#39;</span><span class="p">,</span><span class="nb">dict</span><span class="p">())</span>
+         <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;dm&#39;</span><span class="p">][</span><span class="s1">&#39;gamma&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">noise_val</span>
+         <span class="n">param_name</span> <span class="o">=</span> <span class="s1">&#39;dm_gp_gamma&#39;</span>
+         <span class="k">pass</span>
+
+      <span class="k">elif</span> <span class="n">noise_param</span><span class="o">==</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_log10_A&#39;</span> <span class="ow">and</span> <span class="n">sim_red</span><span class="p">:</span>
+         <span class="n">param_name</span> <span class="o">=</span> <span class="s1">&#39;log10_A&#39;</span>
+         <span class="c1">#LT.add_rednoise(t2pulsar,A=10**noise_val,\</span>
+         <span class="c1">#                gamma=noise_dict[t2pulsar.name+&#39;_gamma&#39;],\</span>
+         <span class="c1">#                seed=seed,components=30)</span>
+         <span class="n">added_noise_psd_params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;red&#39;</span><span class="p">,</span><span class="nb">dict</span><span class="p">())</span>
+         <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;A&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span>
+         <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Added red noise, A=&#39;</span><span class="p">,</span><span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span><span class="p">,</span><span class="s1">&#39; gamma=&#39;</span><span class="p">,</span><span class="n">noise_dict</span><span class="p">[</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_gamma&#39;</span><span class="p">])</span>
+      <span class="k">elif</span> <span class="n">noise_param</span><span class="o">==</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_gamma&#39;</span><span class="p">:</span>
+         <span class="n">added_noise_psd_params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;red&#39;</span><span class="p">,</span><span class="nb">dict</span><span class="p">())</span>
+         <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;gamma&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">noise_val</span>
+         <span class="n">param_name</span> <span class="o">=</span> <span class="s1">&#39;gamma&#39;</span>
+         <span class="k">pass</span>
+
+      <span class="k">elif</span> <span class="s1">&#39;log10_P0&#39;</span> <span class="ow">in</span> <span class="n">noise_param</span><span class="p">:</span>
+         <span class="n">param_name</span> <span class="o">=</span> <span class="s1">&#39;log10_P0&#39;</span>
+         <span class="c1">#LT_custom.add_lorenzianrednoise(t2pulsar,P=10**noise_val,\</span>
+         <span class="c1">#                            fc=10**noise_dict[t2pulsar.name+&#39;_fc&#39;],\</span>
+         <span class="c1">#                            alpha=noise_dict[t2pulsar.name+&#39;_alpha&#39;],\</span>
+         <span class="c1">#                            seed=seed)</span>
+         <span class="n">added_noise_psd_params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;red&#39;</span><span class="p">,</span><span class="nb">dict</span><span class="p">())</span>
+         <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;P&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span>
+         <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Added red noise, P=&#39;</span><span class="p">,</span><span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span><span class="p">,</span><span class="s1">&#39; fc=&#39;</span><span class="p">,</span><span class="n">noise_dict</span><span class="p">[</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_fc&#39;</span><span class="p">],</span> <span class="s1">&#39; alpha=&#39;</span><span class="p">,</span><span class="n">noise_dict</span><span class="p">[</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;_alpha&#39;</span><span class="p">])</span>
+      <span class="k">elif</span> <span class="s1">&#39;alpha&#39;</span> <span class="ow">in</span> <span class="n">noise_param</span><span class="p">:</span>
+         <span class="n">param_name</span> <span class="o">=</span> <span class="s1">&#39;alpha&#39;</span>
+         <span class="n">added_noise_psd_params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;red&#39;</span><span class="p">,</span><span class="nb">dict</span><span class="p">())</span>
+         <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;alpha&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">noise_val</span>
+         <span class="k">pass</span>
+      <span class="k">elif</span> <span class="s1">&#39;fc&#39;</span> <span class="ow">in</span> <span class="n">noise_param</span><span class="p">:</span>
+         <span class="n">param_name</span> <span class="o">=</span> <span class="s1">&#39;fc&#39;</span>
+         <span class="n">added_noise_psd_params</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;red&#39;</span><span class="p">,</span><span class="nb">dict</span><span class="p">())</span>
+         <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;fc&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="n">noise_val</span>
+         <span class="k">pass</span>
+
+      <span class="k">else</span><span class="p">:</span>
+         <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Warning: parameter &#39;</span><span class="p">,</span><span class="n">noise_param</span><span class="p">,</span><span class="s1">&#39; is not recognized or </span><span class="se">\</span>
+<span class="s1">                switched off. It was not used to simulate any data.&#39;</span><span class="p">)</span>
+
+   <span class="k">if</span> <span class="n">sim_white</span><span class="p">:</span>
+      <span class="n">vector_vals</span><span class="p">,</span> <span class="n">vector_bckd</span> <span class="o">=</span> <span class="n">added_noise_psd_to_vector</span><span class="p">(</span> \
+              <span class="n">added_noise_psd_params</span><span class="p">,</span><span class="n">param</span><span class="o">=</span><span class="s1">&#39;efac&#39;</span><span class="p">)</span>
+      <span class="n">LT</span><span class="o">.</span><span class="n">add_efac</span><span class="p">(</span><span class="n">t2pulsar</span><span class="p">,</span> <span class="n">efac</span><span class="o">=</span><span class="n">vector_vals</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="n">vector_bckd</span><span class="p">,</span> 
+                  <span class="n">flagid</span><span class="o">=</span><span class="n">flagid_bcknd</span><span class="p">)</span>
+      <span class="n">vector_vals</span><span class="p">,</span> <span class="n">vector_bckd</span> <span class="o">=</span> <span class="n">added_noise_psd_to_vector</span><span class="p">(</span> \
+              <span class="n">added_noise_psd_params</span><span class="p">,</span><span class="n">param</span><span class="o">=</span><span class="s1">&#39;equad&#39;</span><span class="p">)</span>
+      <span class="n">LT</span><span class="o">.</span><span class="n">add_equad</span><span class="p">(</span><span class="n">t2pulsar</span><span class="p">,</span> <span class="n">equad</span><span class="o">=</span><span class="n">vector_vals</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="n">vector_bckd</span><span class="p">,</span> 
+                   <span class="n">flagid</span><span class="o">=</span><span class="n">flagid_bcknd</span><span class="p">)</span>
+
+   <span class="k">if</span> <span class="n">sim_red</span><span class="p">:</span>
+      <span class="n">Ared</span> <span class="o">=</span> <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;A&#39;</span><span class="p">]</span>
+      <span class="n">gred</span> <span class="o">=</span> <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">][</span><span class="s1">&#39;gamma&#39;</span><span class="p">]</span>
+      <span class="n">LT</span><span class="o">.</span><span class="n">add_rednoise</span><span class="p">(</span><span class="n">t2pulsar</span><span class="p">,</span><span class="n">A</span><span class="o">=</span><span class="n">Ared</span><span class="p">,</span><span class="n">gamma</span><span class="o">=</span><span class="n">gred</span><span class="p">,</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span><span class="n">components</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+
+   <span class="k">if</span> <span class="n">sim_dm</span><span class="p">:</span>
+      <span class="n">Adm</span> <span class="o">=</span> <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;dm&#39;</span><span class="p">][</span><span class="s1">&#39;A&#39;</span><span class="p">]</span>
+      <span class="n">gdm</span> <span class="o">=</span> <span class="n">added_noise_psd_params</span><span class="p">[</span><span class="s1">&#39;dm&#39;</span><span class="p">][</span><span class="s1">&#39;gamma&#39;</span><span class="p">]</span>
+      <span class="n">LT</span><span class="o">.</span><span class="n">add_dm</span><span class="p">(</span><span class="n">t2pulsar</span><span class="p">,</span><span class="n">A</span><span class="o">=</span><span class="n">Adm</span><span class="p">,</span><span class="n">gamma</span><span class="o">=</span><span class="n">gdm</span><span class="p">,</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span><span class="n">components</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+
+   <span class="n">used_backends</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">used_backends</span><span class="p">)</span>
+   <span class="n">backends</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">backends</span><span class="p">)</span>
+
+   <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">backends</span><span class="p">)</span><span class="o">!=</span><span class="nb">len</span><span class="p">(</span><span class="n">used_backends</span><span class="p">):</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;[!] Warning, number of not used backends: &#39;</span><span class="p">,</span>\
+            <span class="nb">len</span><span class="p">(</span><span class="n">backends</span><span class="p">)</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">used_backends</span><span class="p">))</span>
+
+   <span class="k">return</span> <span class="n">t2pulsar</span><span class="p">,</span> <span class="n">used_backends</span><span class="p">,</span> <span class="n">added_noise_psd_params</span></div>
+
+<div class="viewcode-block" id="added_noise_psd_to_vector"><a class="viewcode-back" href="../../api.html#enterprise_warp.libstempo_warp.added_noise_psd_to_vector">[docs]</a><span class="k">def</span> <span class="nf">added_noise_psd_to_vector</span><span class="p">(</span><span class="n">added_noise_psd_params</span><span class="p">,</span><span class="n">param</span><span class="o">=</span><span class="s1">&#39;efac&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Conversion of dict to vector to simulate efac/equad in libstempo</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">vector_vals</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">vector_bckd</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">added_noise_psd_params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">val</span><span class="p">:</span>
+            <span class="n">vector_vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">val</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="p">)</span>
+            <span class="n">vector_bckd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">key</span> <span class="p">)</span>
+    <span class="k">return</span> <span class="n">vector_vals</span><span class="p">,</span> <span class="n">vector_bckd</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Boris Goncharov
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

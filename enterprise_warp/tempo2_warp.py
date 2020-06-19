@@ -2,15 +2,27 @@ import subprocess
 import sys
 
 def get_tempo2_prediction(par,tim,configuration,output_file,execute='tempo2'):
-  """
+  r"""
   Runs tempo2 and returns noise reconstruction in a file.
-  Plugin "general2" is used.
-  Configuration is a string in a string, example:
-    '"{bat}\t{freq}\t{post}\t{err}\t{posttn}\t{tndm}\t{tnrn}\n"'.
-  Kwarg execute: full path to tempo2 executable file, if other user's tempo2
-    executable is sourced and aliased.
+  Plugin "general2" for Tempo2 is required.
+
   See tempo2 manual online for more information.
   Output can be loaded with numpy.loadtxt().
+
+  Parameters
+  ----------
+  par: str
+    Path to a .par file
+  tim: str
+    Path to a .tim file
+  configuration: str
+     String in a string, with tempo2-general2 parameters:
+     '"{bat}\t{freq}\t{post}\t{err}\t{posttn}\t{tndm}\t{tnrn}\n"'
+  output_file: str
+    Output file name with a full path
+  execute: str
+    A shell command to run Tempo2 or the full path to the tempo2 executable
+    file, if other user's tempo2 executable is sourced and aliased.
   """
   
   command = [execute,'-output','general2','-f',par,tim,'-s',configuration]

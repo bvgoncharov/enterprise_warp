@@ -1,0 +1,248 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>enterprise_warp.tempo2_warp &mdash; enterprise_warp  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript">
+          var DOCUMENTATION_OPTIONS = {
+              URL_ROOT:'../../',
+              VERSION:'',
+              LANGUAGE:'None',
+              COLLAPSE_INDEX:false,
+              FILE_SUFFIX:'.html',
+              HAS_SOURCE:  true,
+              SOURCELINK_SUFFIX: ''
+          };
+      </script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> enterprise_warp
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../paramfile.html">Parameter file usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">enterprise_warp API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">enterprise_warp</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>enterprise_warp.tempo2_warp</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for enterprise_warp.tempo2_warp</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<div class="viewcode-block" id="get_tempo2_prediction"><a class="viewcode-back" href="../../api.html#enterprise_warp.tempo2_warp.get_tempo2_prediction">[docs]</a><span class="k">def</span> <span class="nf">get_tempo2_prediction</span><span class="p">(</span><span class="n">par</span><span class="p">,</span><span class="n">tim</span><span class="p">,</span><span class="n">configuration</span><span class="p">,</span><span class="n">output_file</span><span class="p">,</span><span class="n">execute</span><span class="o">=</span><span class="s1">&#39;tempo2&#39;</span><span class="p">):</span>
+  <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">  Runs tempo2 and returns noise reconstruction in a file.</span>
+<span class="sd">  Plugin &quot;general2&quot; for Tempo2 is required.</span>
+
+<span class="sd">  See tempo2 manual online for more information.</span>
+<span class="sd">  Output can be loaded with numpy.loadtxt().</span>
+
+<span class="sd">  Parameters</span>
+<span class="sd">  ----------</span>
+<span class="sd">  par: str</span>
+<span class="sd">    Path to a .par file</span>
+<span class="sd">  tim: str</span>
+<span class="sd">    Path to a .tim file</span>
+<span class="sd">  configuration: str</span>
+<span class="sd">     String in a string, with tempo2-general2 parameters:</span>
+<span class="sd">     &#39;&quot;{bat}\t{freq}\t{post}\t{err}\t{posttn}\t{tndm}\t{tnrn}\n&quot;&#39;</span>
+<span class="sd">  output_file: str</span>
+<span class="sd">    Output file name with a full path</span>
+<span class="sd">  execute: str</span>
+<span class="sd">    A shell command to run Tempo2 or the full path to the tempo2 executable</span>
+<span class="sd">    file, if other user&#39;s tempo2 executable is sourced and aliased.</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+  
+  <span class="n">command</span> <span class="o">=</span> <span class="p">[</span><span class="n">execute</span><span class="p">,</span><span class="s1">&#39;-output&#39;</span><span class="p">,</span><span class="s1">&#39;general2&#39;</span><span class="p">,</span><span class="s1">&#39;-f&#39;</span><span class="p">,</span><span class="n">par</span><span class="p">,</span><span class="n">tim</span><span class="p">,</span><span class="s1">&#39;-s&#39;</span><span class="p">,</span><span class="n">configuration</span><span class="p">]</span>
+
+  <span class="k">try</span><span class="p">:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+  <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span> <span class="k">as</span> <span class="n">t2_run_exception</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+      <span class="c1"># If the error is from &quot;Too many TOAs&quot; of tempo2</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;get_tempo2_prediction: handing tempo2 exception&#39;</span><span class="p">)</span>
+      <span class="n">command</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-nobs&#39;</span><span class="p">)</span>
+      <span class="n">command</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;1000000&#39;</span><span class="p">)</span>
+      <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span> <span class="k">as</span> <span class="n">ee</span><span class="p">:</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Unknown error when running tempo2. Exiting.&#39;</span><span class="p">)</span>
+      <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+  <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="c1"># bytes to string</span>
+  <span class="c1"># Remove output junk before and after the actual output:</span>
+  <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s1">&#39;Starting general2 plugin&#39;</span><span class="p">)[</span><span class="mi">2</span><span class="p">]</span>
+  <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s1">&#39;Finished general2 plugin&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+  <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;&quot;&#39;</span><span class="p">,</span><span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="c1"># remove quotation marks</span>
+  
+  <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">output</span><span class="p">:</span> <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Boris Goncharov
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

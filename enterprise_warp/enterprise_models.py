@@ -1,8 +1,3 @@
-"""
-To-dos:
- - We need to set defaults for label_attr_map, in case it is not supplied in the parameter file
-"""
-
 import numpy as np
 import enterprise.constants as const
 from enterprise.signals import signal_base
@@ -18,6 +13,45 @@ import inspect
 import types
 
 class StandardModels(object):
+  """
+  Standard models for pulsar timing analyses.
+
+  Single-pulsar signals include white noise (efac, equad, ecorr), spin noise,
+  DM noise, band noise, system noise, chromatic noise.
+  Common signals include errors in Solar System ephemerides and
+  gravitational-wave background with Hellings-Downs spatial correlations.
+
+  Custom models should be derived from this class. See /examples.
+
+  Parameters
+  ----------
+  psr: enterprise.pulsar.Pulsar
+    Enterprise Pulsar object, where custom atrributes are written for 
+    band noise and system noise because enterprise.selections function
+    have access to Pulsar object attributes to select certain parts of data.
+
+    For common signals between multiple pulsars this parameter is not needed
+    and can remain as "None".
+  params: enterprise_warp.Params
+    Parameter object, where default prior distribution parameters are added
+    from self.priors if not specified in a parameter file (--prfile ...)
+
+  Attributes
+  ----------
+  psr: enterprise.pulsar.Pulsar
+    Enterprise Pulsar object
+  params: enterprise_warp.Params
+    Parameter object
+  priors: dict
+    Dictionary with keys being prior probability parameters for models
+    or some model-specific settings, described in the current model object
+    (if not hard-coded). Dictionary values serve as default parameters and as
+    parameter format for input from parameter files.
+  sys_noise_count: int
+    Internal variable that counts how many times we created a new selection
+    function for band noise, system noise, or any other noise with
+    multiple terms for different segments of the data.
+  """
   def __init__(self,psr=None,params=None):
     self.psr = psr
     self.params = params
@@ -65,6 +99,10 @@ class StandardModels(object):
   # Signle pulsar noise models
 
   def efac(self,option="by_backend"):
+    """
+    EFAC signal:  multiplies ToA variance by EFAC**2, where ToA variance 
+    are diagonal components of the Likelihood covariance matrix.
+    """
     if option not in selections.__dict__.keys():
       raise ValueError('EFAC option must be Enterprise selection function name')
     se=selections.Selection(selections.__dict__[option])
@@ -73,6 +111,10 @@ class StandardModels(object):
     return efs
 
   def equad(self,option="by_backend"):
+    """
+    EQUAD signal: adds EQUAD**2 to the ToA variance, where ToA variance
+    are diagonal components of the Likelihood covariance matrix.
+    """
     if option not in selections.__dict__.keys():
       raise ValueError('EQUAD option must be Enterprise selection function \
                         name')
@@ -82,6 +124,12 @@ class StandardModels(object):
     return eqs
 
   def ecorr(self,option="by_backend"):
+    """
+    Similar to EFAC and EQUAD, ECORR is a white noise parameter that
+    describes a correlation between ToAs in a single epoch (observation).
+
+    Arzoumanian, Zaven, et al. The Astrophysical Journal 859.1 (2018): 47.
+    """
     if option not in selections.__dict__.keys():
       raise ValueError('ECORR option must be Enterprise selection function \
                         name')
@@ -91,6 +139,12 @@ class StandardModels(object):
     return efs
 
   def spin_noise(self,option="powerlaw"):
+    """
+    Achromatic red noise process is called spin noise, although generally
+    this model is used to model any unknown red noise. If this model is 
+    preferred over chromatic models then the observed noise is really spin
+    noise, associated with pulsar rotational irregularities.
+    """
     log10_A = parameter.Uniform(self.params.sn_lgA[0],self.params.sn_lgA[1])
     gamma = parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1])
     if option=="powerlaw":
@@ -106,6 +160,11 @@ class StandardModels(object):
     return sn
 
   def dm_noise(self,option="powerlaw"):
+    """
+    A term to account for stochastic variations in DM. It is based on spin
+    noise model, with Fourier amplitudes depending on radio frequency nu
+    as ~ 1/nu^2.
+    """
     log10_A = parameter.Uniform(self.params.dmn_lgA[0],self.params.dmn_lgA[1])
     gamma = parameter.Uniform(self.params.dmn_gamma[0],self.params.dmn_gamma[1])
     if option=="powerlaw":
@@ -124,6 +183,18 @@ class StandardModels(object):
     return dmn
 
   def chromred(self,option="vary"):
+    """
+    This is an generalization of DM noise, with the dependence of Fourier 
+    amplitudes on radio frequency nu as ~ 1/nu^chi, where chi is a free
+    parameter.
+
+    Examples of chi:
+
+    - Pulse scattering in the ISM: chi = 4 (Lyne A., Graham-Smith F., 2012,
+      Pulsar astronomy)
+    - Refractive propagation: chi ≈ 6.4 (Shannon, R. M., and J. M. Cordes.
+      MNRAS, 464.2 (2017): 2075-2089).
+    """
     log10_A = parameter.Uniform(self.params.dmn_lgA[0],self.params.dmn_lgA[1])
     gamma = parameter.Uniform(self.params.dmn_gamma[0],self.params.dmn_gamma[1])
     pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
@@ -148,6 +219,8 @@ class StandardModels(object):
     """
     Including red noise terms by "-group" flag, only with flagvals in noise 
     model file.
+
+    See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.
     """
     for ii, sys_noise_term in enumerate(option):
       log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
@@ -183,6 +256,8 @@ class StandardModels(object):
     """
     Including red noise terms by the PPTA "-B" flag, only with flagvals in
     noise model file. It is considered a derivative of system noise in our code.
+
+    See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.
     """
     for ii, band_term in enumerate(option):
       log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
@@ -218,6 +293,10 @@ class StandardModels(object):
   # Common noise for multiple pulsars
 
   def gwb(self,option="common_pl"):
+    """
+    Spatially-correlated quadrupole signal from the nanohertz stochastic
+    gravitational-wave background.
+    """
     gwb_log10_A = parameter.Uniform(params.gwb_lgA[0],params.gwb_lgA[1])
     if option=="common_pl":
       gwb_gamma = parameter.Uniform(params.gwb_gamma[0],params.gwb_gamma[1])
@@ -231,13 +310,28 @@ class StandardModels(object):
     return gwb
 
   def bayes_ephem(self,option="default"):
+    """
+    Deterministic signal from errors in Solar System ephemerides. 
+    """
     eph = deterministic_signals.PhysicalEphemerisSignal(use_epoch_toas=True)
     return eph
 
   # Utility functions for noise model object
 
   def determine_nfreqs(self, sel_func_name=None):
+    """
+    Determine whether to model red noise process with a fixed number of 
+    Fourier frequencies or whether to choose a number frequencies
+    between the inverse of observation time and 60 days.
 
+    Parameters
+    ----------
+    sel_func_name: str
+      Name of the selection function, stored in the current noise model
+      object. It is needed to determine the observation span for a selected
+      data (which is equal or smaller than the total observation span).
+      If None, then enterprise.signals.selections.no_selection is assumed.
+    """
     if sel_func_name is None:
       selfunc = selections.no_selection
     else:
@@ -259,7 +353,17 @@ class StandardModels(object):
     return n_freqs
 
   def save_nfreqs_information(self, sel_func_name, n_freqs):
+    """
+    Enterprise does not store a number of Fourier frequencies for red noise
+    processes. This function stores this information in the output folder.
 
+    Parameters
+    ----------
+    sel_func_name: str
+      Selection function name (None for no selection)
+    n_freqs: int
+      Number of Fourier frequencies of a red noise process
+    """
     if sel_func_name is None:
       filename = 'no_selection'
       sel_func_name = 'none'
@@ -286,6 +390,11 @@ class StandardModels(object):
 # General utility functions
 
 def interpret_white_noise_prior(prior):
+  """
+  Interpret prior distribution parameters, passed from parameter file.
+  Adding only one numbers sets prior to be a constant, while two numbers
+  are interpreted as Uniform prior bounds.
+  """
   if not np.isscalar(prior):
     return parameter.Uniform(prior[0],prior[1])
   else:
@@ -296,8 +405,9 @@ def interpret_white_noise_prior(prior):
 @signal_base.function
 def powerlaw_bpl(f, log10_A=-16, gamma=5, fc=-9, components=2):
     """
-    Broken power law red noise from Goncharov, Zhu, Thrane (2019).
-    If fc<0 we assume we have lg(fc).
+    Broken power law red noise from Goncharov, Zhu, Thrane (2019):
+    `arXiv:1910.05961 <https://arxiv.org/abs/1910.05961>`__
+    If fc < 0, lg(fc) is assumed instead of fc.
     """
     df = np.diff(np.concatenate((np.array([0]), f[::components])))
     if fc < 0 : fc = 10**fc
@@ -307,6 +417,24 @@ def powerlaw_bpl(f, log10_A=-16, gamma=5, fc=-9, components=2):
 # Selection functions
 
 def selection_factory(new_selection_name):
+  """
+  This function constructs new selection functions for band and system noise,
+  so that the specific band/system selection with flag and flag values (i.e., 
+  "group" and "CPSR2_50CM") are passed as arrays "sys_flags" and "sys_flagvals"
+  in enterprise.pulsar.Pulsar object. The selection function name contains an
+  index for these arrays, which tell the function which flag and value to use.
+  
+  This method is not ideal, but it allows to create the right number of
+  selection functions for any given number of band/system noise terms,
+  without the need to pre-define them or modify the Enterprise code.
+  
+  Parameters
+  ----------
+  new_selection_name: str
+    Python string with selection function name that we need to create. 
+    Selection function name format is "name_N", where N is an integer,
+    an array index for "sys_flags" and "sys_flagvals".
+  """
 
   def template_sel(flags,sys_flags,sys_flagvals):
     """
@@ -341,11 +469,22 @@ def selection_factory(new_selection_name):
                             new_selection_name) 
 
 def toa_mask_from_selection_function(psr,selfunc):
-    args_selfunc = inspect.getargspec(selfunc).args
-    argdict = {attr: getattr(psr,attr) for attr in dir(psr) \
-                                                if attr in args_selfunc}
-    selection_mask_dict = selfunc(**argdict)
-    if len(selection_mask_dict.keys())==1:
-      return selection_mask_dict.values()[0]
-    else:
-      raise NotImplementedError
+  """
+  Create numpy array mask for ToA array, by applying selection function
+  to enterprise.pulsar.Pulsar object.
+
+  Parameters
+  ----------
+  psr: enterprise.pulsar.Pulsar
+    Pulsar object in Enterprise format
+  selfunc: function
+    Selection function. Examples are in enterprise.signals.selections
+  """
+  args_selfunc = inspect.getargspec(selfunc).args
+  argdict = {attr: getattr(psr,attr) for attr in dir(psr) \
+                                              if attr in args_selfunc}
+  selection_mask_dict = selfunc(**argdict)
+  if len(selection_mask_dict.keys())==1:
+    return selection_mask_dict.values()[0]
+  else:
+    raise NotImplementedError

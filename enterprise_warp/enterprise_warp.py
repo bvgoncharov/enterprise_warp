@@ -1,5 +1,3 @@
-#!/bin/python
-
 import numpy as np
 import json
 import glob
@@ -13,7 +11,7 @@ import enterprise.signals.gp_signals as gp_signals
 from enterprise.pulsar import Pulsar
 import enterprise.constants as const
 from enterprise_extensions import models
-from enterprise_models import StandardModels
+from .enterprise_models import StandardModels
 
 try:
   from bilby import sampler as bimpler
@@ -21,7 +19,15 @@ except:
   warnings.warn("Warning: failed to import bilby.sampler")
 
 def parse_commandline():
-  """@parse the options given on the command-line.
+  """
+  Parse the command-line options.
+
+  Most important options:
+
+  - --prfile: parameter file, the only option that must be set.
+  - --num: index of a pulsar in a data directory (default: 0).
+
+  See other options and their description in the code.
   """
   parser = optparse.OptionParser()
 
@@ -52,11 +58,25 @@ def parse_commandline():
   return opts
 
 class ModelParams(object):
+  """
+  A simple template for a new class. Used as a nested enterprise_warp.Params
+  class for multiple model parameters within ont enterprise_warp.Params class.
+  It is used with product-space sampling method and ptmcmcsampler, which
+  evaluate posterior odds ratios (Bayes factors) for a given number of 
+  compared models.
+
+  Parameters
+  ----------
+  model_id: int
+    Index of a model
+  """
   def __init__(self,model_id):
     self.model_id = model_id
 
 class Params(object):
-  # Load parameters for how to run Enterprise
+  """
+  Load parameters with instructions for how to run Enterprise.
+  """
   def __init__(self, input_file_name, opts=None, custom_models_obj=None):
     self.input_file_name = input_file_name
     self.opts = opts
@@ -146,8 +166,10 @@ class Params(object):
     self.clone_all_params_to_models()
 
   def override_params_using_opts(self):
-    ''' If opts from command line parser has a non-None parameter argument,
-    override this parameter for all models'''
+    """
+    If opts from command line parser has a non-None parameter argument,
+    override this parameter for all models.
+    """
     if self.opts is not None:
       for key, val in self.models.items():
         for opt in self.opts.__dict__:
@@ -178,7 +200,9 @@ class Params(object):
     print('------------------')
 
   def set_default_params(self):
-    ''' Setting default parameters here '''
+    """
+    Setting some default parameters here
+    """
     print('------------------')
     print('Setting default parameters with file ', self.input_file_name)
     #if 'ssephem' not in self.__dict__:
@@ -222,8 +246,10 @@ class Params(object):
     print('------------------')
 
   def read_modeldicts(self):
-    # Reading general noise model (which will overwrite model-specific ones,
-    # if it exists).
+    """
+    Reading general noise model (which will overwrite model-specific ones,
+    if they exists).
+    """
     if 'noise_model_file' in self.__dict__.keys():
       self.__dict__['noisemodel'] = read_json_dict(self.noise_model_file)
       self.__dict__['common_signals'] = self.noisemodel['common_signals']
@@ -251,7 +277,7 @@ class Params(object):
 
   def init_pulsars(self):
       """
-      Initiate Enterprise pulsar objects
+      Initiate Enterprise pulsar objects.
       """
       
       cachedir = self.datadir+'.psrs_cache/'
@@ -344,9 +370,7 @@ class Params(object):
 
 def init_pta(params_all):
   """
-  Initiate model and PTA for Enterprise.
-  PTA for our code is just one pulsar, since we only
-  do parameter estimation for pulsar noise
+  Initiate enterprise signal models and enterprise.signals.signal_base.PTA.
   """
 
   ptas = dict.fromkeys(params_all.models)
@@ -439,47 +463,6 @@ def readconstpar(prior,noisemodel,mark,psrname,constpar):
               #constpar[constpar_dictkey] = val.val
     return constpar
 
-def paramstringcut(mystring):
-    # Cut string between " " symbols
-    start = mystring.find( '"' )
-    end = mystring.find( '":' )
-    result = mystring[start+1:end]
-    return result
-
-def get_noise_from_pal2(noisefile):
-    """ THIS SHOULD BE REPLACED LATER ON, IT IS FOR TESTING ONLY
-    https://enterprise.readthedocs.io/en/latest/nano9.html"""
-    psrname = noisefile.split('/')[-1].split('_noise.txt')[0]
-    fin = open(noisefile, 'r')
-    lines = fin.readlines()
-    params = {}
-    for line in lines:
-        ln = line.split()
-        if 'efac' in line:
-            par = 'efac'
-            flag = ln[0].split('efac-')[-1]
-        elif 'equad' in line:
-            par = 'log10_equad'
-            flag = ln[0].split('equad-')[-1]
-        elif 'jitter_q' in line:
-            par = 'log10_ecorr'
-            flag = ln[0].split('jitter_q-')[-1]
-        elif 'RN-Amplitude' in line:
-            par = 'log10_A'
-            flag = ''
-        elif 'RN-spectral-index' in line:
-            par = 'gamma'
-            flag = ''
-        else:
-            break
-        if flag:
-            name = [psrname, flag, par]
-        else:
-            name = [psrname, par]
-        pname = '_'.join(name)
-        params.update({pname: float(ln[1])})
-    return params
-
 def get_noise_dict(psrlist,noisefiles):
     """
     Reads in list of pulsar names and returns dictionary
@@ -497,7 +480,9 @@ def get_noise_dict(psrlist,noisefiles):
     return params
 
 def get_noise_dict_psr(psrname,noisefiles):
-    ''' get_noise_dict for only one pulsar '''
+    """
+    get_noise_dict for only one pulsar
+    """
     params = dict()
     with open(noisefiles+psrname+'_noise.json', 'r') as fin:
         params.update(json.load(fin))
@@ -510,7 +495,9 @@ def read_json_dict(json_file):
     return out_dict
 
 def load_to_dict(filename):
-    ''' Load file to dictionary '''
+    """
+    Load file to Python dictionary
+    """
     dictionary = dict()
     with open(filename) as ff:
         for line in ff:

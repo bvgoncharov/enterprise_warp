@@ -10,8 +10,9 @@ Welcome to enterprise_warp's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   paramfile
    installation
+   paramfile
+   api
 
 enterprise_warp
 ===============

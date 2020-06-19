@@ -1,0 +1,711 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>enterprise_warp.enterprise_warp &mdash; enterprise_warp  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript">
+          var DOCUMENTATION_OPTIONS = {
+              URL_ROOT:'../../',
+              VERSION:'',
+              LANGUAGE:'None',
+              COLLAPSE_INDEX:false,
+              FILE_SUFFIX:'.html',
+              HAS_SOURCE:  true,
+              SOURCELINK_SUFFIX: ''
+          };
+      </script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> enterprise_warp
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../paramfile.html">Parameter file usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">enterprise_warp API</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">enterprise_warp</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>enterprise_warp.enterprise_warp</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for enterprise_warp.enterprise_warp</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">optparse</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="kn">import</span> <span class="nn">enterprise.signals.parameter</span> <span class="k">as</span> <span class="nn">parameter</span>
+<span class="kn">from</span> <span class="nn">enterprise.signals</span> <span class="k">import</span> <span class="n">signal_base</span>
+<span class="kn">import</span> <span class="nn">enterprise.signals.gp_signals</span> <span class="k">as</span> <span class="nn">gp_signals</span>
+<span class="kn">from</span> <span class="nn">enterprise.pulsar</span> <span class="k">import</span> <span class="n">Pulsar</span>
+<span class="kn">import</span> <span class="nn">enterprise.constants</span> <span class="k">as</span> <span class="nn">const</span>
+<span class="kn">from</span> <span class="nn">enterprise_extensions</span> <span class="k">import</span> <span class="n">models</span>
+<span class="kn">from</span> <span class="nn">.enterprise_models</span> <span class="k">import</span> <span class="n">StandardModels</span>
+
+<span class="k">try</span><span class="p">:</span>
+  <span class="kn">from</span> <span class="nn">bilby</span> <span class="k">import</span> <span class="n">sampler</span> <span class="k">as</span> <span class="n">bimpler</span>
+<span class="k">except</span><span class="p">:</span>
+  <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Warning: failed to import bilby.sampler&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="parse_commandline"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.parse_commandline">[docs]</a><span class="k">def</span> <span class="nf">parse_commandline</span><span class="p">():</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">  Parse the command-line options.</span>
+
+<span class="sd">  Most important options:</span>
+
+<span class="sd">  - --prfile: parameter file, the only option that must be set.</span>
+<span class="sd">  - --num: index of a pulsar in a data directory (default: 0).</span>
+
+<span class="sd">  See other options and their description in the code.</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+  <span class="n">parser</span> <span class="o">=</span> <span class="n">optparse</span><span class="o">.</span><span class="n">OptionParser</span><span class="p">()</span>
+
+  <span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="s2">&quot;--num&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Pulsar number&quot;</span><span class="p">,</span>  <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+  <span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s2">&quot;-p&quot;</span><span class="p">,</span> <span class="s2">&quot;--prfile&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Parameter file&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+  <span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="s2">&quot;--clearcache&quot;</span><span class="p">,</span> \
+                    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Clear psrs cache file, associated with the run </span><span class="se">\</span>
+<span class="s2">                          (to-do after changes to .par and .tim files)&quot;</span><span class="p">,</span> \
+                    <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+  <span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s2">&quot;-m&quot;</span><span class="p">,</span> <span class="s2">&quot;--mpi_regime&quot;</span><span class="p">,</span> \
+                    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;In MPI, manipulating with files and directories </span><span class="se">\</span>
+<span class="s2">                          causes errors. So, we provide 3 regimes: </span><span class="se">\n</span><span class="s2"> </span><span class="se">\</span>
+<span class="s2">                          (0) No MPI - run code as usual; </span><span class="se">\n</span><span class="s2"> </span><span class="se">\</span>
+<span class="s2">                          (1) MPI preparation - manipulate files and prepare </span><span class="se">\</span>
+<span class="s2">                          for the run (should be done outside MPI); </span><span class="se">\n</span><span class="s2"> </span><span class="se">\</span>
+<span class="s2">                          (2) MPI run - run the code, assuming all necessary </span><span class="se">\</span>
+<span class="s2">                          file manipulations have been performed. </span><span class="se">\n</span><span class="s2"> </span><span class="se">\</span>
+<span class="s2">                          PolychordLite sampler in Bilby supports MPI&quot;</span><span class="p">,</span>
+                    <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+  <span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s2">&quot;-w&quot;</span><span class="p">,</span> <span class="s2">&quot;--wipe_old_output&quot;</span><span class="p">,</span> \
+                    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Wipe contents of the output directory. Otherwise, </span><span class="se">\</span>
+<span class="s2">                          the code will attempt to resume the previous run. </span><span class="se">\</span>
+<span class="s2">                          Be careful: all subdirectories are removed too!&quot;</span><span class="p">,</span> \
+                    <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+
+  <span class="n">opts</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+  <span class="k">return</span> <span class="n">opts</span></div>
+
+<div class="viewcode-block" id="ModelParams"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.ModelParams">[docs]</a><span class="k">class</span> <span class="nc">ModelParams</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">  A simple template for a new class. Used as a nested enterprise_warp.Params</span>
+<span class="sd">  class for multiple model parameters within ont enterprise_warp.Params class.</span>
+<span class="sd">  It is used with product-space sampling method and ptmcmcsampler, which</span>
+<span class="sd">  evaluate posterior odds ratios (Bayes factors) for a given number of </span>
+<span class="sd">  compared models.</span>
+
+<span class="sd">  Parameters</span>
+<span class="sd">  ----------</span>
+<span class="sd">  model_id: int</span>
+<span class="sd">    Index of a model</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">model_id</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">model_id</span> <span class="o">=</span> <span class="n">model_id</span></div>
+
+<div class="viewcode-block" id="Params"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.Params">[docs]</a><span class="k">class</span> <span class="nc">Params</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">  Load parameters with instructions for how to run Enterprise.</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_file_name</span><span class="p">,</span> <span class="n">opts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">custom_models_obj</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">input_file_name</span> <span class="o">=</span> <span class="n">input_file_name</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">opts</span> <span class="o">=</span> <span class="n">opts</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">psrs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">Tspan</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">custom_models_obj</span> <span class="o">=</span> <span class="n">custom_models_obj</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">sampler_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">label_attr_map</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="s2">&quot;datadir:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;datadir&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+      <span class="s2">&quot;out:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;out&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+      <span class="s2">&quot;overwrite:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;overwrite&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+      <span class="s2">&quot;allpulsars:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;allpulsars&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+      <span class="s2">&quot;noisefiles:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;noisefiles&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+      <span class="s2">&quot;noise_model_file:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;noise_model_file&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+      <span class="s2">&quot;sampler:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;sampler&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+      <span class="s2">&quot;nsamp:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;nsamp&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+      <span class="s2">&quot;setupsamp:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;setupsamp&quot;</span><span class="p">,</span> <span class="nb">bool</span><span class="p">],</span>
+      <span class="s2">&quot;psrlist:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;psrlist&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+      <span class="s2">&quot;ssephem:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;ssephem&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+      <span class="s2">&quot;clock:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;clock&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+      <span class="s2">&quot;AMweight:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;AMweight&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+      <span class="s2">&quot;DMweight:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;DMweight&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+      <span class="s2">&quot;SCAMweight:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;SCAMweight&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+      <span class="s2">&quot;tm:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;tm&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+      <span class="s2">&quot;fref:&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;fref&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>
+<span class="p">}</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">custom_models_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">noise_model_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">custom_models_obj</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">noise_model_obj</span> <span class="o">=</span> <span class="n">StandardModels</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">label_attr_map</span><span class="o">.</span><span class="n">update</span><span class="p">(</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_model_obj</span><span class="p">()</span><span class="o">.</span><span class="n">get_label_attr_map</span><span class="p">()</span> <span class="p">)</span>
+    <span class="n">model_id</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">model_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;models&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">input_file_name</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">input_file</span><span class="p">:</span>
+      <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">input_file</span><span class="p">:</span>
+        <span class="c1"># Determining start of the new model, where line looks like this: {N}</span>
+        <span class="n">between_curly_brackets</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;{&#39;</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span> <span class="p">:</span> <span class="n">line</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;}&#39;</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">between_curly_brackets</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+          <span class="n">model_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">between_curly_brackets</span><span class="p">)</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">create_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
+          <span class="k">continue</span>
+
+        <span class="c1"># Skipping comment lines:</span>
+        <span class="k">if</span> <span class="n">line</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;#&#39;</span><span class="p">:</span>
+          <span class="k">continue</span>
+
+        <span class="n">row</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>  <span class="c1"># rest of row is data list</span>
+        <span class="n">attr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_attr_map</span><span class="p">[</span><span class="n">label</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">datatypes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_attr_map</span><span class="p">[</span><span class="n">label</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">datatypes</span><span class="p">)</span><span class="o">==</span><span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">&gt;</span><span class="mi">1</span><span class="p">:</span>
+          <span class="n">datatypes</span> <span class="o">=</span> <span class="p">[</span><span class="n">datatypes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">dd</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
+
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[(</span><span class="n">datatypes</span><span class="p">[</span><span class="n">i</span><span class="p">](</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">))]</span>
+
+        <span class="c1"># Adding sampler kwargs to self.label_attr_map</span>
+        <span class="k">if</span> <span class="n">attr</span> <span class="o">==</span> <span class="s1">&#39;sampler&#39;</span> <span class="ow">and</span> <span class="s1">&#39;bimpler&#39;</span> <span class="ow">in</span> <span class="nb">globals</span><span class="p">():</span>
+          <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">bimpler</span><span class="o">.</span><span class="n">IMPLEMENTED_SAMPLERS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sampler_kwargs</span> <span class="o">=</span> <span class="n">bimpler</span><span class="o">.</span><span class="n">IMPLEMENTED_SAMPLERS</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span>\
+                                    <span class="n">default_kwargs</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">label_attr_map</span><span class="o">.</span><span class="n">update</span><span class="p">(</span> <span class="n">dict_to_label_attr_map</span><span class="p">(</span>\
+                                        <span class="bp">self</span><span class="o">.</span><span class="n">sampler_kwargs</span><span class="p">)</span> <span class="p">)</span>
+          <span class="k">else</span><span class="p">:</span>
+            <span class="n">error_message</span> <span class="o">=</span> <span class="s1">&#39;Unknown sampler: &#39;</span> <span class="o">+</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> \
+                            <span class="s1">&#39;Known samplers: &#39;</span> <span class="o">+</span> \
+                            <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bimpler</span><span class="o">.</span><span class="n">IMPLEMENTED_SAMPLERS</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">error_message</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">model_id</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+          <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">model_id</span><span class="p">]</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> \
+                                <span class="n">values</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+      <span class="n">model_id</span> <span class="o">=</span> <span class="mi">0</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">create_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">))</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">override_params_using_opts</span><span class="p">()</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">set_default_params</span><span class="p">()</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">read_modeldicts</span><span class="p">()</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">update_sampler_kwargs</span><span class="p">()</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">init_pulsars</span><span class="p">()</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">clone_all_params_to_models</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Params.override_params_using_opts"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.Params.override_params_using_opts">[docs]</a>  <span class="k">def</span> <span class="nf">override_params_using_opts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    If opts from command line parser has a non-None parameter argument,</span>
+<span class="sd">    override this parameter for all models.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">opt</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
+          <span class="k">if</span> <span class="n">opt</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="vm">__dict__</span> \
+                  <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">opt</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">opt</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">opt</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="o">+=</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="n">opt</span><span class="o">+</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">opt</span><span class="p">])</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Model: &#39;</span><span class="p">,</span><span class="n">key</span><span class="p">,</span><span class="s1">&#39;. Overriding parameter &#39;</span><span class="p">,</span><span class="n">opt</span><span class="p">,</span><span class="s1">&#39; to &#39;</span><span class="p">,</span>\
+              <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">opt</span><span class="p">])</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Setting label to &#39;</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">)</span></div>
+
+  <span class="k">def</span> <span class="nf">clone_all_params_to_models</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+      <span class="k">for</span> <span class="n">mm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mm</span><span class="p">]</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+  <span class="k">def</span> <span class="nf">create_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">model_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">model_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">ModelParams</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
+
+  <span class="k">def</span> <span class="nf">update_sampler_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Setting sampler kwargs from the parameter file:&#39;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">samkw</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampler_kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+      <span class="k">if</span> <span class="n">samkw</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampler_kwargs</span><span class="p">[</span><span class="n">samkw</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">samkw</span><span class="p">]</span>
+        <span class="n">upd_message</span> <span class="o">=</span> <span class="s1">&#39;Setting &#39;</span> <span class="o">+</span> <span class="n">samkw</span> <span class="o">+</span> <span class="s1">&#39; to &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">samkw</span><span class="p">])</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">upd_message</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;------------------&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Params.set_default_params"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.Params.set_default_params">[docs]</a>  <span class="k">def</span> <span class="nf">set_default_params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Setting some default parameters here</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;------------------&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Setting default parameters with file &#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_file_name</span><span class="p">)</span>
+    <span class="c1">#if &#39;ssephem&#39; not in self.__dict__:</span>
+    <span class="c1">#  self.__dict__[&#39;ssephem&#39;] = &#39;DE436&#39;</span>
+    <span class="c1">#  print(&#39;Setting default Solar System Ephemeris: DE436&#39;)</span>
+    <span class="c1">#if &#39;clock&#39; not in self.__dict__:</span>
+    <span class="c1">#  self.__dict__[&#39;clock&#39;] = None</span>
+    <span class="c1">#  print(&#39;Setting a default Enterprise clock convention (check the code)&#39;)</span>
+    <span class="k">if</span> <span class="s1">&#39;setupsamp&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;setupsamp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="s1">&#39;psrlist&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">psrlist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psrlist</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">unicode_</span><span class="p">)</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Only using pulsars from psrlist&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;psrlist&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Using all available pulsars from .par/.tim directory&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s1">&#39;psrcachefile&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">psrcachefile</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="s1">&#39;tm&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">tm</span> <span class="o">=</span> <span class="s1">&#39;default&#39;</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Setting a default linear timing model&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s1">&#39;inc_events&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">inc_events</span> <span class="o">=</span> <span class="kc">True</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Including transient events to specific pulsar models&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s1">&#39;fref&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">fref</span> <span class="o">=</span> <span class="mi">1400</span> <span class="c1"># MHz</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Setting reference radio frequency to 1400 MHz&#39;</span><span class="p">)</span>
+    <span class="c1"># Copying default priors from StandardModels/CustomModels object</span>
+    <span class="c1"># Priors are chosen not to be model-specific because HyperModel</span>
+    <span class="c1"># (which is the only reason to have multiple models) does not support</span>
+    <span class="c1"># different priors for different models</span>
+    <span class="k">for</span> <span class="n">prior_key</span><span class="p">,</span> <span class="n">prior_default</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise_model_obj</span><span class="p">()</span><span class="o">.</span><span class="n">priors</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+      <span class="k">if</span> <span class="n">prior_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">prior_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">prior_default</span>
+
+    <span class="c1"># Model-dependent parameters</span>
+    <span class="k">for</span> <span class="n">mkey</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+
+      <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="n">modeldict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;------------------&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Params.read_modeldicts"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.Params.read_modeldicts">[docs]</a>  <span class="k">def</span> <span class="nf">read_modeldicts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reading general noise model (which will overwrite model-specific ones,</span>
+<span class="sd">    if they exists).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="s1">&#39;noise_model_file&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+      <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;noisemodel&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_json_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">noise_model_file</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;common_signals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;common_signals&#39;</span><span class="p">]</span>
+      <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;model_name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;model_name&#39;</span><span class="p">]</span>
+      <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;universal&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;universal&#39;</span><span class="p">]</span>
+      <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;common_signals&#39;</span><span class="p">]</span>
+      <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;universal&#39;</span><span class="p">]</span>
+      <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;model_name&#39;</span><span class="p">]</span>
+    <span class="c1"># Reading model-specific noise model</span>
+    <span class="k">for</span> <span class="n">mkey</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+      <span class="k">if</span> <span class="s1">&#39;noise_model_file&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;noisemodel&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_json_dict</span><span class="p">(</span>\
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="n">noise_model_file</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;common_signals&#39;</span><span class="p">]</span> <span class="o">=</span> \
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;common_signals&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;model_name&#39;</span><span class="p">]</span> <span class="o">=</span> \
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;model_name&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s1">&#39;universal&#39;</span><span class="p">]</span> <span class="o">=</span> \
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;universal&#39;</span><span class="p">]</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;common_signals&#39;</span><span class="p">]</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;model_name&#39;</span><span class="p">]</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="s1">&#39;universal&#39;</span><span class="p">]</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">label_models</span> <span class="o">=</span> <span class="s1">&#39;_&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">mkey</span><span class="p">]</span><span class="o">.</span><span class="n">model_name</span> \
+                                                    <span class="k">for</span> <span class="n">mkey</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="Params.init_pulsars"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.Params.init_pulsars">[docs]</a>  <span class="k">def</span> <span class="nf">init_pulsars</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+      <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">      Initiate Enterprise pulsar objects.</span>
+<span class="sd">      &quot;&quot;&quot;</span>
+      
+      <span class="n">cachedir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">datadir</span><span class="o">+</span><span class="s1">&#39;.psrs_cache/&#39;</span>
+      <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">cachedir</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">mpi_regime</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+          <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">cachedir</span><span class="p">)</span>
+      
+      <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">psrcachefile</span><span class="o">==</span><span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">psrlist</span><span class="o">==</span><span class="p">[]):</span>
+          <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Attempting to load pulsar objects from cache&#39;</span><span class="p">)</span>
+          <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">psrcachefile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+              <span class="n">cached_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">psrcachefile</span>
+          <span class="k">else</span><span class="p">:</span>
+              <span class="n">psr_str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psrlist</span><span class="p">))</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssephem</span>
+              <span class="n">psr_hash</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha1</span><span class="p">(</span><span class="n">psr_str</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+              <span class="n">cached_file</span> <span class="o">=</span> <span class="n">cachedir</span> <span class="o">+</span> <span class="n">psr_hash</span>
+
+          <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">cached_file</span><span class="p">):</span>
+              <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">clearcache</span><span class="p">):</span>
+                  <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">cached_file</span><span class="p">)</span>
+                  <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Cache file existed, but got removed, following </span><span class="se">\</span>
+<span class="s1">                         command line options&#39;</span><span class="p">)</span>
+              <span class="k">else</span><span class="p">:</span>
+                  <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cached_file</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fin</span><span class="p">:</span>
+                      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Loading pulsars from cache&#39;</span><span class="p">)</span>
+                      <span class="n">psrs_cache</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fin</span><span class="p">)</span>
+          <span class="k">else</span><span class="p">:</span>
+              <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Could not load pulsars from cache: file does not exist&#39;</span><span class="p">)</span>
+              <span class="n">psrs_cache</span> <span class="o">=</span> <span class="kc">None</span>
+      <span class="k">else</span><span class="p">:</span>
+          <span class="n">psrs_cache</span> <span class="o">=</span> <span class="kc">None</span>
+          <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Condition for loading pulsars from cache is not satisfied&#39;</span><span class="p">)</span>
+      
+      <span class="n">parfiles</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">datadir</span> <span class="o">+</span> <span class="s1">&#39;/*.par&#39;</span><span class="p">))</span>
+      <span class="n">timfiles</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">datadir</span> <span class="o">+</span> <span class="s1">&#39;/*.tim&#39;</span><span class="p">))</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Number of .par files: &#39;</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">parfiles</span><span class="p">))</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Number of .tim files: &#39;</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">timfiles</span><span class="p">))</span>
+      <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parfiles</span><span class="p">)</span><span class="o">!=</span><span class="nb">len</span><span class="p">(</span><span class="n">timfiles</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Error - there should be the same number of .par and .tim files.&#39;</span><span class="p">)</span>
+        <span class="n">exit</span><span class="p">()</span>
+      
+      <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">allpulsars</span><span class="o">==</span><span class="s1">&#39;True&#39;</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">out</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_models</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span>
+        <span class="k">if</span> <span class="n">psrs_cache</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+          <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Loading pulsars&#39;</span><span class="p">)</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">psrlist_new</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+          <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">parfiles</span><span class="p">,</span> <span class="n">timfiles</span><span class="p">):</span>
+            <span class="n">pname</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">pname</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">psrlist</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">psrlist</span><span class="o">==</span><span class="p">[]:</span>
+                <span class="n">psr</span> <span class="o">=</span> <span class="n">Pulsar</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">ephem</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ssephem</span><span class="p">,</span> <span class="n">clk</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">clock</span><span class="p">,</span><span class="n">drop_t2pulsar</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">psrs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">psr</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">psrlist_new</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pname</span><span class="p">)</span>
+          <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Writing pulsars to cache.</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+          <span class="n">psr_str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psrlist_new</span><span class="p">))</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssephem</span>
+          <span class="n">psr_hash</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha1</span><span class="p">(</span><span class="n">psr_str</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+          <span class="n">cached_file</span> <span class="o">=</span> <span class="n">cachedir</span> <span class="o">+</span> <span class="n">psr_hash</span>
+          <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cached_file</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fout</span><span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psrs</span><span class="p">,</span> <span class="n">fout</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Using pulsars from cache&#39;</span><span class="p">)</span>
+          <span class="bp">self</span><span class="o">.</span><span class="n">psrs</span> <span class="o">=</span> <span class="n">psrs_cache</span>
+        <span class="c1"># find the maximum time span to set GW frequency sampling</span>
+        <span class="n">tmin</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">toas</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">psrs</span><span class="p">]</span>
+        <span class="n">tmax</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">toas</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">psrs</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Tspan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">tmax</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">tmin</span><span class="p">)</span>
+        <span class="c1">#psr = []</span>
+        <span class="n">exit_message</span> <span class="o">=</span> <span class="s2">&quot;PTA analysis has already been carried out using a given parameter file&quot;</span>
+      
+      <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">allpulsars</span><span class="o">==</span><span class="s1">&#39;False&#39;</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">psrs</span> <span class="o">=</span> <span class="n">Pulsar</span><span class="p">(</span><span class="n">parfiles</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">num</span><span class="p">],</span> <span class="n">timfiles</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">num</span><span class="p">],</span><span class="n">drop_t2pulsar</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="c1">#, ephem=params.ssephem, clk=params.clock)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Tspan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">psrs</span><span class="o">.</span><span class="n">toas</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">psrs</span><span class="o">.</span><span class="n">toas</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="c1"># observation time in seconds</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">out</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_models</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span> <span class="o">+</span> \
+                          <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">num</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">psrs</span><span class="o">.</span><span class="n">name</span><span class="o">+</span><span class="s1">&#39;/&#39;</span>
+
+        <span class="n">parfiles</span> <span class="o">=</span> <span class="n">parfiles</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">num</span><span class="p">]</span>
+        <span class="n">timfiles</span> <span class="o">=</span> <span class="n">timfiles</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">num</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Current .par file: &#39;</span><span class="p">,</span><span class="n">parfiles</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Current .tim file: &#39;</span><span class="p">,</span><span class="n">timfiles</span><span class="p">)</span>
+
+        <span class="n">exit_message</span> <span class="o">=</span> <span class="s2">&quot;This pulsar has already been processed&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">psrs</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">psrs</span><span class="p">]</span>
+
+      <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">mpi_regime</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">):</span>
+          <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">wipe_old_output</span><span class="p">):</span>
+          <span class="n">warn_message</span> <span class="o">=</span> <span class="s1">&#39;Warning: removing everything in &#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span>
+          <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">warn_message</span><span class="p">)</span>
+          <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span>
+          <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="init_pta"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.init_pta">[docs]</a><span class="k">def</span> <span class="nf">init_pta</span><span class="p">(</span><span class="n">params_all</span><span class="p">):</span>
+  <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">  Initiate enterprise signal models and enterprise.signals.signal_base.PTA.</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="n">ptas</span> <span class="o">=</span> <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">params_all</span><span class="o">.</span><span class="n">models</span><span class="p">)</span>
+  <span class="k">for</span> <span class="n">ii</span><span class="p">,</span> <span class="n">params</span> <span class="ow">in</span> <span class="n">params_all</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+
+    <span class="n">allpsr_model</span> <span class="o">=</span> <span class="n">params_all</span><span class="o">.</span><span class="n">noise_model_obj</span><span class="p">(</span><span class="n">psr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">)</span>
+
+    <span class="n">models</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">from_par_file</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+    <span class="n">ecorrexists</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">params_all</span><span class="o">.</span><span class="n">psrs</span><span class="p">))</span>
+    
+    <span class="c1"># Including parameters common for all pulsars</span>
+    <span class="k">if</span> <span class="n">params</span><span class="o">.</span><span class="n">tm</span><span class="o">==</span><span class="s1">&#39;default&#39;</span><span class="p">:</span>
+      <span class="n">tm</span> <span class="o">=</span> <span class="n">gp_signals</span><span class="o">.</span><span class="n">TimingModel</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">params</span><span class="o">.</span><span class="n">tm</span><span class="o">==</span><span class="s1">&#39;ridge_regression&#39;</span><span class="p">:</span>
+      <span class="n">log10_variance</span> <span class="o">=</span> <span class="n">parameter</span><span class="o">.</span><span class="n">Uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">20</span><span class="p">,</span> <span class="o">-</span><span class="mi">10</span><span class="p">)</span>
+      <span class="n">basis</span> <span class="o">=</span> <span class="n">scaled_tm_basis</span><span class="p">()</span>
+      <span class="n">prior</span> <span class="o">=</span> <span class="n">ridge_prior</span><span class="p">(</span><span class="n">log10_variance</span><span class="o">=</span><span class="n">log10_variance</span><span class="p">)</span>
+      <span class="n">tm</span> <span class="o">=</span> <span class="n">gp_signals</span><span class="o">.</span><span class="n">BasisGP</span><span class="p">(</span><span class="n">prior</span><span class="p">,</span> <span class="n">basis</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;ridge&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">params</span><span class="o">.</span><span class="n">tm</span><span class="o">!=</span><span class="s1">&#39;none&#39;</span><span class="p">:</span> <span class="n">m</span> <span class="o">=</span> <span class="n">tm</span>
+
+    <span class="c1"># Adding common noise terms for all pulsars</span>
+    <span class="c1"># Only those common signals are added that are listed in the noise model</span>
+    <span class="c1"># file, getting Enterprise models from the noise model object.</span>
+    <span class="k">for</span> <span class="n">psp</span><span class="p">,</span> <span class="n">option</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">common_signals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">m</span> <span class="o">+=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">allpsr_model</span><span class="p">,</span> <span class="n">psp</span><span class="p">)(</span><span class="n">option</span><span class="o">=</span><span class="n">option</span><span class="p">)</span>
+  
+    <span class="c1"># Including single pulsar noise models</span>
+    <span class="k">for</span> <span class="n">pnum</span><span class="p">,</span> <span class="n">psr</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">params_all</span><span class="o">.</span><span class="n">psrs</span><span class="p">):</span>
+   
+      <span class="n">singlepsr_model</span> <span class="o">=</span> <span class="n">params_all</span><span class="o">.</span><span class="n">noise_model_obj</span><span class="p">(</span><span class="n">psr</span><span class="o">=</span><span class="n">psr</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">)</span>
+ 
+      <span class="c1"># Determine if ecorr is mentioned in par file</span>
+      <span class="k">try</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span><span class="n">val</span> <span class="ow">in</span> <span class="n">psr</span><span class="o">.</span><span class="n">t2pulsar</span><span class="o">.</span><span class="n">noisemodel</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+          <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;ecorr&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;ECORR&#39;</span><span class="p">):</span>
+            <span class="n">ecorrexists</span><span class="p">[</span><span class="n">pnum</span><span class="p">]</span><span class="o">=</span><span class="kc">True</span>
+      <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">pint_problem</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">pint_problem</span><span class="p">)</span>
+        <span class="n">ecorrexists</span><span class="p">[</span><span class="n">pnum</span><span class="p">]</span><span class="o">=</span><span class="kc">False</span>
+
+      <span class="c1"># Add noise models</span>
+      <span class="k">if</span> <span class="n">psr</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">noisemodel</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">noise_model_dict_psr</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">noisemodel</span><span class="p">[</span><span class="n">psr</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">noise_model_dict_psr</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">universal</span>
+      <span class="k">for</span> <span class="n">psp</span><span class="p">,</span> <span class="n">option</span> <span class="ow">in</span> <span class="n">noise_model_dict_psr</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="s1">&#39;m_sep&#39;</span> <span class="ow">in</span> <span class="nb">locals</span><span class="p">():</span>
+          <span class="n">m_sep</span> <span class="o">+=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">singlepsr_model</span><span class="p">,</span> <span class="n">psp</span><span class="p">)(</span><span class="n">option</span><span class="o">=</span><span class="n">option</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="n">m_sep</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">singlepsr_model</span><span class="p">,</span> <span class="n">psp</span><span class="p">)(</span><span class="n">option</span><span class="o">=</span><span class="n">option</span><span class="p">)</span>
+
+      <span class="n">models</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m_sep</span><span class="p">(</span><span class="n">psr</span><span class="p">))</span>
+      <span class="k">del</span> <span class="n">m_sep</span>
+
+    <span class="n">pta</span> <span class="o">=</span> <span class="n">signal_base</span><span class="o">.</span><span class="n">PTA</span><span class="p">(</span><span class="n">models</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="s1">&#39;noisefiles&#39;</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+      <span class="n">noisedict</span> <span class="o">=</span> <span class="n">get_noise_dict</span><span class="p">(</span><span class="n">psrlist</span><span class="o">=</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">params_all</span><span class="o">.</span><span class="n">psrs</span><span class="p">],</span>\
+                                 <span class="n">noisefiles</span><span class="o">=</span><span class="n">params</span><span class="o">.</span><span class="n">noisefiles</span><span class="p">)</span>
+      <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;For constant parameters using noise files in PAL2 format&#39;</span><span class="p">)</span>
+      <span class="n">pta</span><span class="o">.</span><span class="n">set_default_params</span><span class="p">(</span><span class="n">noisedict</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Model&#39;</span><span class="p">,</span><span class="n">ii</span><span class="p">,</span><span class="s1">&#39;params order: &#39;</span><span class="p">,</span> <span class="n">pta</span><span class="o">.</span><span class="n">param_names</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">params</span><span class="o">.</span><span class="n">opts</span><span class="o">.</span><span class="n">mpi_regime</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+      <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">+</span> <span class="s1">&#39;/pars.txt&#39;</span><span class="p">,</span> <span class="n">pta</span><span class="o">.</span><span class="n">param_names</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">ptas</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span><span class="o">=</span><span class="n">pta</span>
+
+  <span class="k">return</span> <span class="n">ptas</span></div>
+
+<span class="k">def</span> <span class="nf">checkifconstpar</span><span class="p">(</span><span class="n">params</span><span class="p">):</span>
+    <span class="p">[</span><span class="n">doconstpar_ef</span><span class="p">,</span> <span class="n">doconstpar_eq</span><span class="p">,</span> <span class="n">doconstpar_ec</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">efacpr</span><span class="p">)</span> <span class="ow">and</span> <span class="n">params</span><span class="o">.</span><span class="n">efacpr</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">:</span>
+      <span class="n">doconstpar_ef</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">equadpr</span><span class="p">)</span> <span class="ow">and</span> <span class="n">params</span><span class="o">.</span><span class="n">equadpr</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">:</span>
+      <span class="n">doconstpar_eq</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">ecorrpr</span><span class="p">)</span> <span class="ow">and</span> <span class="n">params</span><span class="o">.</span><span class="n">ecorrpr</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">:</span>
+      <span class="n">doconstpar_ec</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">doconstpar_ef</span> <span class="ow">or</span> <span class="n">doconstpar_eq</span> <span class="ow">or</span> <span class="n">doconstpar_ec</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">readconstpar</span><span class="p">(</span><span class="n">prior</span><span class="p">,</span><span class="n">noisemodel</span><span class="p">,</span><span class="n">mark</span><span class="p">,</span><span class="n">psrname</span><span class="p">,</span><span class="n">constpar</span><span class="p">):</span>
+    <span class="n">islg</span><span class="o">=</span><span class="s1">&#39;&#39;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">mark</span><span class="o">==</span><span class="s1">&#39;efac&#39;</span><span class="p">:</span> <span class="n">islg</span><span class="o">=</span><span class="s1">&#39;log10_&#39;</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">prior</span><span class="p">)</span> <span class="ow">and</span> <span class="n">prior</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span><span class="n">val</span> <span class="ow">in</span> <span class="n">noisemodel</span><span class="o">.</span><span class="n">items</span><span class="p">():</span> 
+            <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">mark</span><span class="p">):</span>
+              <span class="n">constpar_dictkey</span> <span class="o">=</span> <span class="n">psrname</span><span class="o">+</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="n">val</span><span class="o">.</span><span class="n">flagval</span><span class="o">+</span><span class="s1">&#39;_&#39;</span><span class="o">+</span><span class="n">islg</span><span class="o">+</span><span class="n">mark</span>
+              <span class="k">if</span> <span class="n">mark</span><span class="o">==</span><span class="s1">&#39;efac&#39;</span><span class="p">:</span> <span class="n">constpar</span><span class="p">[</span><span class="n">constpar_dictkey</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span><span class="o">.</span><span class="n">val</span>
+              <span class="k">else</span><span class="p">:</span> <span class="n">constpar</span><span class="p">[</span><span class="n">constpar_dictkey</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">val</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
+              <span class="c1">#constpar[constpar_dictkey] = val.val</span>
+    <span class="k">return</span> <span class="n">constpar</span>
+
+<div class="viewcode-block" id="get_noise_dict"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.get_noise_dict">[docs]</a><span class="k">def</span> <span class="nf">get_noise_dict</span><span class="p">(</span><span class="n">psrlist</span><span class="p">,</span><span class="n">noisefiles</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reads in list of pulsar names and returns dictionary</span>
+<span class="sd">    of {parameter_name: value} for all noise parameters.</span>
+<span class="sd">    By default the input list is None and we use the 34 pulsars used in</span>
+<span class="sd">    the stochastic background analysis.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">json_files</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">noisefiles</span> <span class="o">+</span> <span class="s1">&#39;*.json&#39;</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">ff</span> <span class="ow">in</span> <span class="n">json_files</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">pp</span> <span class="ow">in</span> <span class="n">ff</span> <span class="k">for</span> <span class="n">pp</span> <span class="ow">in</span> <span class="n">psrlist</span><span class="p">]):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">ff</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fin</span><span class="p">:</span>
+                <span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fin</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">params</span></div>
+
+<div class="viewcode-block" id="get_noise_dict_psr"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.get_noise_dict_psr">[docs]</a><span class="k">def</span> <span class="nf">get_noise_dict_psr</span><span class="p">(</span><span class="n">psrname</span><span class="p">,</span><span class="n">noisefiles</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    get_noise_dict for only one pulsar</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">noisefiles</span><span class="o">+</span><span class="n">psrname</span><span class="o">+</span><span class="s1">&#39;_noise.json&#39;</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fin</span><span class="p">:</span>
+        <span class="n">params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fin</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">params</span></div>
+
+<span class="k">def</span> <span class="nf">read_json_dict</span><span class="p">(</span><span class="n">json_file</span><span class="p">):</span>
+    <span class="n">out_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">json_file</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fin</span><span class="p">:</span>
+        <span class="n">out_dict</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fin</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">out_dict</span>
+
+<div class="viewcode-block" id="load_to_dict"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.load_to_dict">[docs]</a><span class="k">def</span> <span class="nf">load_to_dict</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load file to Python dictionary</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dictionary</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">ff</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">ff</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="n">dictionary</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="k">return</span> <span class="n">dictionary</span></div>
+
+<div class="viewcode-block" id="dict_to_label_attr_map"><a class="viewcode-back" href="../../api.html#enterprise_warp.enterprise_warp.dict_to_label_attr_map">[docs]</a><span class="k">def</span> <span class="nf">dict_to_label_attr_map</span><span class="p">(</span><span class="n">input_dict</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Converting python dict with one value into Params.label_attr_map format</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;:&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">key</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">)]</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">input_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Boris Goncharov
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

@@ -1,6 +1,16 @@
 import bilby
 
 class PTABilbyLikelihood(bilby.Likelihood):
+    """
+    The class that wraps Enterprise likelihood in Bilby likelihood.
+
+    Parameters
+    ----------
+    pta: enterprise.signals.signal_base.PTA
+      Enterprise PTA object that contains pulsar data and noise models
+    parameters: list
+      A list of signal parameter names
+    """
     def __init__(self, pta, parameters):
         self.pta = pta
         self.parameters = parameters
@@ -12,7 +22,15 @@ class PTABilbyLikelihood(bilby.Likelihood):
         return {par.name: par.sample() for par in pta[0].params}
 
 def get_bilby_prior_dict(pta):
-    ''' Get Bilby parameter dict from Enterprise PTA object '''
+    """
+    Get Bilby parameter dict from Enterprise PTA object.
+    Currently only works with uniform priors.
+
+    Parameters
+    ----------
+    pta: enterprise.signals.signal_base.PTA
+      Enterprise PTA object that contains pulsar data and noise models
+    """
     priors = dict()
     for param in pta.params:
 

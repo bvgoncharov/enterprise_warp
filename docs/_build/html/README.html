@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Search &mdash; enterprise_warp  documentation</title>
+  <title>Documentation how-to &mdash; enterprise_warp  documentation</title>
   
 
   
@@ -34,7 +34,6 @@
         <script type="text/javascript" src="_static/jquery.js"></script>
         <script type="text/javascript" src="_static/underscore.js"></script>
         <script type="text/javascript" src="_static/doctools.js"></script>
-        <script type="text/javascript" src="_static/searchtools.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
@@ -44,7 +43,7 @@
   <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="#" /> 
+    <link rel="search" title="Search" href="search.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -71,7 +70,7 @@
 
           
 <div role="search">
-  <form id="rtd-search-form" class="wy-form" action="#" method="get">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
@@ -90,9 +89,8 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="paramfile.html">Parameter file</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="paramfile.html">Parameter file usage</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api.html">enterprise_warp API</a></li>
 </ul>
 
             
@@ -138,12 +136,14 @@
     
       <li><a href="index.html">Docs</a> &raquo;</li>
         
-      <li>Search</li>
+      <li>Documentation how-to</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
+            <a href="_sources/README.txt" rel="nofollow"> View page source</a>
+          
         
       </li>
     
@@ -155,19 +155,14 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <noscript>
-  <div id="fallback" class="admonition warning">
-    <p class="last">
-      Please activate JavaScript to enable the search
-      functionality.
-    </p>
-  </div>
-  </noscript>
+  <div class="section" id="documentation-how-to">
+<h1>Documentation how-to<a class="headerlink" href="#documentation-how-to" title="Permalink to this headline">¶</a></h1>
+<p>Web pages are designed in .rst files.</p>
+<p>Compilation is done through &#8220;Readthedocs&#8220; account online, automatically.</p>
+<p>To perform build/compilation locally, Sphinx must be installed. Compilation with Sphinx-2.1.2 did not work. I had to do: <code class="docutils literal"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">sphinx==1.4.8</span> <span class="pre">--user</span></code>. On my OzStar account, Sphinx is installed with Python 3.</p>
+<p>Then, one has to run <code class="docutils literal"><span class="pre">make</span> <span class="pre">html</span></code>.</p>
+</div>
 
-  
-  <div id="search-results">
-  
-  </div>
 
            </div>
            
@@ -205,14 +200,7 @@
   
   
     
-  
-  <script type="text/javascript">
-    jQuery(function() { Search.loadIndex("searchindex.js"); });
-  </script>
-  
-  <script type="text/javascript" id="searchindexloader"></script>
    
-
 
 </body>
 </html>
