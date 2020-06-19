@@ -192,7 +192,7 @@ class StandardModels(object):
 
     - Pulse scattering in the ISM: chi = 4 (Lyne A., Graham-Smith F., 2012,
       Pulsar astronomy)
-    - Refractive propagation: chi ≈ 6.4 (Shannon, R. M., and J. M. Cordes.
+    - Refractive propagation: chi = 6.4 (Shannon, R. M., and J. M. Cordes.
       MNRAS, 464.2 (2017): 2075-2089).
     """
     log10_A = parameter.Uniform(self.params.dmn_lgA[0],self.params.dmn_lgA[1])
