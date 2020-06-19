@@ -16,7 +16,7 @@ Welcome to enterprise_warp's documentation!
 enterprise_warp
 ===============
 
-enterprise_warp is a set of tools for pulsar timing analysis with `Enterprise <https://github.com/nanograv/enterprise/>`__, `Libstempo <https://github.com/vallis/libstempo/>`__ and `Tempo2 <https://bitbucket.org/psrsoft/tempo2>`. It uses the `Bilby <https://git.ligo.org/lscsoft/bilby/>`__ to enable Bayesian inference for pulsar timing arrays using many different samplers and all other advantages of Bilby.
+enterprise_warp is a set of tools for pulsar timing analysis with `Enterprise <https://github.com/nanograv/enterprise/>`__, `Libstempo <https://github.com/vallis/libstempo/>`__ and `Tempo2 <https://bitbucket.org/psrsoft/tempo2>`__. It uses the `Bilby <https://git.ligo.org/lscsoft/bilby/>`__ to enable Bayesian inference for pulsar timing arrays using many different samplers and all other advantages of Bilby.
 
 Look how easy it is to run from the command line:
 
