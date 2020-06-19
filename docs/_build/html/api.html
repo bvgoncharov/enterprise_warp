@@ -1,8 +1,7 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
   <meta charset="utf-8">
   
@@ -12,36 +11,29 @@
   
 
   
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
   
   
   
 
   
-  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
-      <script type="text/javascript">
-          var DOCUMENTATION_OPTIONS = {
-              URL_ROOT:'./',
-              VERSION:'',
-              LANGUAGE:'None',
-              COLLAPSE_INDEX:false,
-              FILE_SUFFIX:'.html',
-              HAS_SOURCE:  true,
-              SOURCELINK_SUFFIX: ''
-          };
-      </script>
-        <script type="text/javascript" src="_static/jquery.js"></script>
-        <script type="text/javascript" src="_static/underscore.js"></script>
-        <script type="text/javascript" src="_static/doctools.js"></script>
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="prev" title="Parameter file usage" href="paramfile.html" /> 
@@ -58,7 +50,7 @@
           
 
           
-            <a href="index.html" class="icon icon-home"> enterprise_warp
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> enterprise_warp
           
 
           
@@ -81,6 +73,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -105,6 +98,7 @@
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -143,7 +137,7 @@
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="index.html">Docs</a> &raquo;</li>
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
         
       <li>enterprise_warp API</li>
     
@@ -151,7 +145,7 @@
       <li class="wy-breadcrumbs-aside">
         
             
-            <a href="_sources/api.txt" rel="nofollow"> View page source</a>
+            <a href="_sources/api.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -168,383 +162,31 @@
 <h1>enterprise_warp API<a class="headerlink" href="#enterprise-warp-api" title="Permalink to this headline">¶</a></h1>
 <p>Below is the information about different modules of enterprise_warp.</p>
 <ul class="simple">
-<li><a class="reference internal" href="#enterprise-warp"><span class="std std-ref">enterprise_warp</span></a></li>
-<li><a class="reference internal" href="#enterprise-models"><span class="std std-ref">enterprise_models</span></a></li>
-<li><a class="reference internal" href="#bilby-warp"><span class="std std-ref">bilby_warp</span></a></li>
-<li><a class="reference internal" href="#tempo2-warp"><span class="std std-ref">tempo2_warp</span></a></li>
-<li><a class="reference internal" href="#libstempo-warp"><span class="std std-ref">libstempo_warp</span></a></li>
+<li><p><a class="reference internal" href="#enterprise-warp"><span class="std std-ref">enterprise_warp</span></a></p></li>
+<li><p><a class="reference internal" href="#enterprise-models"><span class="std std-ref">enterprise_models</span></a></p></li>
+<li><p><a class="reference internal" href="#bilby-warp"><span class="std std-ref">bilby_warp</span></a></p></li>
+<li><p><a class="reference internal" href="#tempo2-warp"><span class="std std-ref">tempo2_warp</span></a></p></li>
+<li><p><a class="reference internal" href="#libstempo-warp"><span class="std std-ref">libstempo_warp</span></a></p></li>
 </ul>
 <div class="section" id="enterprise-warp">
 <span id="id1"></span><h2>enterprise_warp<a class="headerlink" href="#enterprise-warp" title="Permalink to this headline">¶</a></h2>
 <p>This is the main module that allows to load parameter file, noise model files, python noise model functions and possible noise files for fixed white noise parameters into Enterprise.</p>
-<span class="target" id="module-enterprise_warp.enterprise_warp"></span><dl class="class">
-<dt id="enterprise_warp.enterprise_warp.ModelParams">
-<em class="property">class </em><code class="descclassname">enterprise_warp.enterprise_warp.</code><code class="descname">ModelParams</code><span class="sig-paren">(</span><em>model_id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#ModelParams"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.ModelParams" title="Permalink to this definition">¶</a></dt>
-<dd><p>A simple template for a new class. Used as a nested enterprise_warp.Params
-class for multiple model parameters within ont enterprise_warp.Params class.
-It is used with product-space sampling method and ptmcmcsampler, which
-evaluate posterior odds ratios (Bayes factors) for a given number of 
-compared models.</p>
-<dl class="docutils">
-<dt>model_id: int</dt>
-<dd>Index of a model</dd>
-</dl>
-</dd></dl>
-
-<dl class="class">
-<dt id="enterprise_warp.enterprise_warp.Params">
-<em class="property">class </em><code class="descclassname">enterprise_warp.enterprise_warp.</code><code class="descname">Params</code><span class="sig-paren">(</span><em>input_file_name</em>, <em>opts=None</em>, <em>custom_models_obj=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#Params"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.Params" title="Permalink to this definition">¶</a></dt>
-<dd><p>Load parameters with instructions for how to run Enterprise.</p>
-<dl class="method">
-<dt id="enterprise_warp.enterprise_warp.Params.init_pulsars">
-<code class="descname">init_pulsars</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#Params.init_pulsars"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.Params.init_pulsars" title="Permalink to this definition">¶</a></dt>
-<dd><p>Initiate Enterprise pulsar objects.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_warp.Params.override_params_using_opts">
-<code class="descname">override_params_using_opts</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#Params.override_params_using_opts"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.Params.override_params_using_opts" title="Permalink to this definition">¶</a></dt>
-<dd><p>If opts from command line parser has a non-None parameter argument,
-override this parameter for all models.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_warp.Params.read_modeldicts">
-<code class="descname">read_modeldicts</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#Params.read_modeldicts"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.Params.read_modeldicts" title="Permalink to this definition">¶</a></dt>
-<dd><p>Reading general noise model (which will overwrite model-specific ones,
-if they exists).</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_warp.Params.set_default_params">
-<code class="descname">set_default_params</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#Params.set_default_params"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.Params.set_default_params" title="Permalink to this definition">¶</a></dt>
-<dd><p>Setting some default parameters here</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.enterprise_warp.dict_to_label_attr_map">
-<code class="descclassname">enterprise_warp.enterprise_warp.</code><code class="descname">dict_to_label_attr_map</code><span class="sig-paren">(</span><em>input_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#dict_to_label_attr_map"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.dict_to_label_attr_map" title="Permalink to this definition">¶</a></dt>
-<dd><p>Converting python dict with one value into Params.label_attr_map format</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.enterprise_warp.get_noise_dict">
-<code class="descclassname">enterprise_warp.enterprise_warp.</code><code class="descname">get_noise_dict</code><span class="sig-paren">(</span><em>psrlist</em>, <em>noisefiles</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#get_noise_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.get_noise_dict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Reads in list of pulsar names and returns dictionary
-of {parameter_name: value} for all noise parameters.
-By default the input list is None and we use the 34 pulsars used in
-the stochastic background analysis.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.enterprise_warp.get_noise_dict_psr">
-<code class="descclassname">enterprise_warp.enterprise_warp.</code><code class="descname">get_noise_dict_psr</code><span class="sig-paren">(</span><em>psrname</em>, <em>noisefiles</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#get_noise_dict_psr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.get_noise_dict_psr" title="Permalink to this definition">¶</a></dt>
-<dd><p>get_noise_dict for only one pulsar</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.enterprise_warp.init_pta">
-<code class="descclassname">enterprise_warp.enterprise_warp.</code><code class="descname">init_pta</code><span class="sig-paren">(</span><em>params_all</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#init_pta"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.init_pta" title="Permalink to this definition">¶</a></dt>
-<dd><p>Initiate enterprise signal models and enterprise.signals.signal_base.PTA.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.enterprise_warp.load_to_dict">
-<code class="descclassname">enterprise_warp.enterprise_warp.</code><code class="descname">load_to_dict</code><span class="sig-paren">(</span><em>filename</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#load_to_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.load_to_dict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Load file to Python dictionary</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.enterprise_warp.parse_commandline">
-<code class="descclassname">enterprise_warp.enterprise_warp.</code><code class="descname">parse_commandline</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_warp.html#parse_commandline"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_warp.parse_commandline" title="Permalink to this definition">¶</a></dt>
-<dd><p>Parse the command-line options.</p>
-<p>Most important options:</p>
-<ul class="simple">
-<li>&#8211;prfile: parameter file, the only option that must be set.</li>
-<li>&#8211;num: index of a pulsar in a data directory (default: 0).</li>
-</ul>
-<p>See other options and their description in the code.</p>
-</dd></dl>
-
 </div>
 <div class="section" id="enterprise-models">
 <span id="id2"></span><h2>enterprise_models<a class="headerlink" href="#enterprise-models" title="Permalink to this headline">¶</a></h2>
 <p>This module contains basic models for pulsar timing analyses and serves as a base class for custom noise models. Timing model is set up in enterprise_warp.py.</p>
-<span class="target" id="module-enterprise_warp.enterprise_models"></span><dl class="class">
-<dt id="enterprise_warp.enterprise_models.StandardModels">
-<em class="property">class </em><code class="descclassname">enterprise_warp.enterprise_models.</code><code class="descname">StandardModels</code><span class="sig-paren">(</span><em>psr=None</em>, <em>params=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels" title="Permalink to this definition">¶</a></dt>
-<dd><p>Standard models for pulsar timing analyses.</p>
-<p>Single-pulsar signals include white noise (efac, equad, ecorr), spin noise,
-DM noise, band noise, system noise, chromatic noise.
-Common signals include errors in Solar System ephemerides and
-gravitational-wave background with Hellings-Downs spatial correlations.</p>
-<p>Custom models should be derived from this class. See /examples.</p>
-<dl class="docutils">
-<dt>psr: enterprise.pulsar.Pulsar</dt>
-<dd><p class="first">Enterprise Pulsar object, where custom atrributes are written for 
-band noise and system noise because enterprise.selections function
-have access to Pulsar object attributes to select certain parts of data.</p>
-<p class="last">For common signals between multiple pulsars this parameter is not needed
-and can remain as &#8220;None&#8221;.</p>
-</dd>
-<dt>params: enterprise_warp.Params</dt>
-<dd>Parameter object, where default prior distribution parameters are added
-from self.priors if not specified in a parameter file (&#8211;prfile ...)</dd>
-</dl>
-<dl class="docutils">
-<dt>psr: enterprise.pulsar.Pulsar</dt>
-<dd>Enterprise Pulsar object</dd>
-<dt>params: enterprise_warp.Params</dt>
-<dd>Parameter object</dd>
-<dt>priors: dict</dt>
-<dd>Dictionary with keys being prior probability parameters for models
-or some model-specific settings, described in the current model object
-(if not hard-coded). Dictionary values serve as default parameters and as
-parameter format for input from parameter files.</dd>
-<dt>sys_noise_count: int</dt>
-<dd>Internal variable that counts how many times we created a new selection
-function for band noise, system noise, or any other noise with
-multiple terms for different segments of the data.</dd>
-</dl>
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.bayes_ephem">
-<code class="descname">bayes_ephem</code><span class="sig-paren">(</span><em>option='default'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.bayes_ephem"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.bayes_ephem" title="Permalink to this definition">¶</a></dt>
-<dd><p>Deterministic signal from errors in Solar System ephemerides.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.chromred">
-<code class="descname">chromred</code><span class="sig-paren">(</span><em>option='vary'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.chromred"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.chromred" title="Permalink to this definition">¶</a></dt>
-<dd><p>This is an generalization of DM noise, with the dependence of Fourier 
-amplitudes on radio frequency nu as ~ 1/nu^chi, where chi is a free
-parameter.</p>
-<p>Examples of chi:</p>
-<ul class="simple">
-<li>Pulse scattering in the ISM: chi = 4 (Lyne A., Graham-Smith F., 2012,
-Pulsar astronomy)</li>
-<li>Refractive propagation: chi = 6.4 (Shannon, R. M., and J. M. Cordes.
-MNRAS, 464.2 (2017): 2075-2089).</li>
-</ul>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.determine_nfreqs">
-<code class="descname">determine_nfreqs</code><span class="sig-paren">(</span><em>sel_func_name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.determine_nfreqs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.determine_nfreqs" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determine whether to model red noise process with a fixed number of 
-Fourier frequencies or whether to choose a number frequencies
-between the inverse of observation time and 60 days.</p>
-<dl class="docutils">
-<dt>sel_func_name: str</dt>
-<dd>Name of the selection function, stored in the current noise model
-object. It is needed to determine the observation span for a selected
-data (which is equal or smaller than the total observation span).
-If None, then enterprise.signals.selections.no_selection is assumed.</dd>
-</dl>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.dm_noise">
-<code class="descname">dm_noise</code><span class="sig-paren">(</span><em>option='powerlaw'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.dm_noise"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.dm_noise" title="Permalink to this definition">¶</a></dt>
-<dd><p>A term to account for stochastic variations in DM. It is based on spin
-noise model, with Fourier amplitudes depending on radio frequency nu
-as ~ 1/nu^2.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.ecorr">
-<code class="descname">ecorr</code><span class="sig-paren">(</span><em>option='by_backend'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.ecorr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.ecorr" title="Permalink to this definition">¶</a></dt>
-<dd><p>Similar to EFAC and EQUAD, ECORR is a white noise parameter that
-describes a correlation between ToAs in a single epoch (observation).</p>
-<p>Arzoumanian, Zaven, et al. The Astrophysical Journal 859.1 (2018): 47.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.efac">
-<code class="descname">efac</code><span class="sig-paren">(</span><em>option='by_backend'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.efac"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.efac" title="Permalink to this definition">¶</a></dt>
-<dd><p>EFAC signal:  multiplies ToA variance by EFAC**2, where ToA variance 
-are diagonal components of the Likelihood covariance matrix.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.equad">
-<code class="descname">equad</code><span class="sig-paren">(</span><em>option='by_backend'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.equad"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.equad" title="Permalink to this definition">¶</a></dt>
-<dd><p>EQUAD signal: adds EQUAD**2 to the ToA variance, where ToA variance
-are diagonal components of the Likelihood covariance matrix.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.get_label_attr_map">
-<code class="descname">get_label_attr_map</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.get_label_attr_map"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.get_label_attr_map" title="Permalink to this definition">¶</a></dt>
-<dd><p>Convert self.priors dict to enterprise_warp.Params.label_attr_map dict</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.gwb">
-<code class="descname">gwb</code><span class="sig-paren">(</span><em>option='common_pl'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.gwb"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.gwb" title="Permalink to this definition">¶</a></dt>
-<dd><p>Spatially-correlated quadrupole signal from the nanohertz stochastic
-gravitational-wave background.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.ppta_band_noise">
-<code class="descname">ppta_band_noise</code><span class="sig-paren">(</span><em>option=[]</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.ppta_band_noise"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.ppta_band_noise" title="Permalink to this definition">¶</a></dt>
-<dd><p>Including red noise terms by the PPTA &#8220;-B&#8221; flag, only with flagvals in
-noise model file. It is considered a derivative of system noise in our code.</p>
-<p>See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.save_nfreqs_information">
-<code class="descname">save_nfreqs_information</code><span class="sig-paren">(</span><em>sel_func_name</em>, <em>n_freqs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.save_nfreqs_information"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.save_nfreqs_information" title="Permalink to this definition">¶</a></dt>
-<dd><p>Enterprise does not store a number of Fourier frequencies for red noise
-processes. This function stores this information in the output folder.</p>
-<dl class="docutils">
-<dt>sel_func_name: str</dt>
-<dd>Selection function name (None for no selection)</dd>
-<dt>n_freqs: int</dt>
-<dd>Number of Fourier frequencies of a red noise process</dd>
-</dl>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.spin_noise">
-<code class="descname">spin_noise</code><span class="sig-paren">(</span><em>option='powerlaw'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.spin_noise"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.spin_noise" title="Permalink to this definition">¶</a></dt>
-<dd><p>Achromatic red noise process is called spin noise, although generally
-this model is used to model any unknown red noise. If this model is 
-preferred over chromatic models then the observed noise is really spin
-noise, associated with pulsar rotational irregularities.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="enterprise_warp.enterprise_models.StandardModels.system_noise">
-<code class="descname">system_noise</code><span class="sig-paren">(</span><em>option=[]</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#StandardModels.system_noise"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.StandardModels.system_noise" title="Permalink to this definition">¶</a></dt>
-<dd><p>Including red noise terms by &#8220;-group&#8221; flag, only with flagvals in noise 
-model file.</p>
-<p>See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.enterprise_models.interpret_white_noise_prior">
-<code class="descclassname">enterprise_warp.enterprise_models.</code><code class="descname">interpret_white_noise_prior</code><span class="sig-paren">(</span><em>prior</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#interpret_white_noise_prior"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.interpret_white_noise_prior" title="Permalink to this definition">¶</a></dt>
-<dd><p>Interpret prior distribution parameters, passed from parameter file.
-Adding only one numbers sets prior to be a constant, while two numbers
-are interpreted as Uniform prior bounds.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.enterprise_models.powerlaw_bpl">
-<code class="descclassname">enterprise_warp.enterprise_models.</code><code class="descname">powerlaw_bpl</code><span class="sig-paren">(</span><em>f</em>, <em>log10_A=-16</em>, <em>gamma=5</em>, <em>fc=-9</em>, <em>components=2</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#powerlaw_bpl"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.powerlaw_bpl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Broken power law red noise from Goncharov, Zhu, Thrane (2019):
-<a class="reference external" href="https://arxiv.org/abs/1910.05961">arXiv:1910.05961</a>
-If fc &lt; 0, lg(fc) is assumed instead of fc.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.enterprise_models.selection_factory">
-<code class="descclassname">enterprise_warp.enterprise_models.</code><code class="descname">selection_factory</code><span class="sig-paren">(</span><em>new_selection_name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#selection_factory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.selection_factory" title="Permalink to this definition">¶</a></dt>
-<dd><p>This function constructs new selection functions for band and system noise,
-so that the specific band/system selection with flag and flag values (i.e., 
-&#8220;group&#8221; and &#8220;CPSR2_50CM&#8221;) are passed as arrays &#8220;sys_flags&#8221; and &#8220;sys_flagvals&#8221;
-in enterprise.pulsar.Pulsar object. The selection function name contains an
-index for these arrays, which tell the function which flag and value to use.</p>
-<p>This method is not ideal, but it allows to create the right number of
-selection functions for any given number of band/system noise terms,
-without the need to pre-define them or modify the Enterprise code.</p>
-<dl class="docutils">
-<dt>new_selection_name: str</dt>
-<dd>Python string with selection function name that we need to create. 
-Selection function name format is &#8220;name_N&#8221;, where N is an integer,
-an array index for &#8220;sys_flags&#8221; and &#8220;sys_flagvals&#8221;.</dd>
-</dl>
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.enterprise_models.toa_mask_from_selection_function">
-<code class="descclassname">enterprise_warp.enterprise_models.</code><code class="descname">toa_mask_from_selection_function</code><span class="sig-paren">(</span><em>psr</em>, <em>selfunc</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/enterprise_models.html#toa_mask_from_selection_function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.enterprise_models.toa_mask_from_selection_function" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create numpy array mask for ToA array, by applying selection function
-to enterprise.pulsar.Pulsar object.</p>
-<dl class="docutils">
-<dt>psr: enterprise.pulsar.Pulsar</dt>
-<dd>Pulsar object in Enterprise format</dd>
-<dt>selfunc: function</dt>
-<dd>Selection function. Examples are in enterprise.signals.selections</dd>
-</dl>
-</dd></dl>
-
 </div>
 <div class="section" id="bilby-warp">
 <span id="id3"></span><h2>bilby_warp<a class="headerlink" href="#bilby-warp" title="Permalink to this headline">¶</a></h2>
 <p>This module contains a wrapper for Bilby (the Bayesian Inference LiBrarY), a software developed in the LIGO collaboration. Bilby provides access to multiple likelihood samplers and other useful tools for data analysis.</p>
-<span class="target" id="module-enterprise_warp.bilby_warp"></span><dl class="class">
-<dt id="enterprise_warp.bilby_warp.PTABilbyLikelihood">
-<em class="property">class </em><code class="descclassname">enterprise_warp.bilby_warp.</code><code class="descname">PTABilbyLikelihood</code><span class="sig-paren">(</span><em>pta</em>, <em>parameters</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/bilby_warp.html#PTABilbyLikelihood"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.bilby_warp.PTABilbyLikelihood" title="Permalink to this definition">¶</a></dt>
-<dd><p>The class that wraps Enterprise likelihood in Bilby likelihood.</p>
-<dl class="docutils">
-<dt>pta: enterprise.signals.signal_base.PTA</dt>
-<dd>Enterprise PTA object that contains pulsar data and noise models</dd>
-<dt>parameters: list</dt>
-<dd>A list of signal parameter names</dd>
-</dl>
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.bilby_warp.get_bilby_prior_dict">
-<code class="descclassname">enterprise_warp.bilby_warp.</code><code class="descname">get_bilby_prior_dict</code><span class="sig-paren">(</span><em>pta</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/bilby_warp.html#get_bilby_prior_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.bilby_warp.get_bilby_prior_dict" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get Bilby parameter dict from Enterprise PTA object.
-Currently only works with uniform priors.</p>
-<dl class="docutils">
-<dt>pta: enterprise.signals.signal_base.PTA</dt>
-<dd>Enterprise PTA object that contains pulsar data and noise models</dd>
-</dl>
-</dd></dl>
-
 </div>
 <div class="section" id="tempo2-warp">
 <span id="id4"></span><h2>tempo2_warp<a class="headerlink" href="#tempo2-warp" title="Permalink to this headline">¶</a></h2>
 <p>This module contains a function to run tempo2 in Python, in order to produce maximum-likelihood time-correlated (red) noise realizations.</p>
-<span class="target" id="module-enterprise_warp.tempo2_warp"></span><dl class="function">
-<dt id="enterprise_warp.tempo2_warp.get_tempo2_prediction">
-<code class="descclassname">enterprise_warp.tempo2_warp.</code><code class="descname">get_tempo2_prediction</code><span class="sig-paren">(</span><em>par</em>, <em>tim</em>, <em>configuration</em>, <em>output_file</em>, <em>execute='tempo2'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/tempo2_warp.html#get_tempo2_prediction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.tempo2_warp.get_tempo2_prediction" title="Permalink to this definition">¶</a></dt>
-<dd><p>Runs tempo2 and returns noise reconstruction in a file.
-Plugin &#8220;general2&#8221; for Tempo2 is required.</p>
-<p>See tempo2 manual online for more information.
-Output can be loaded with numpy.loadtxt().</p>
-<dl class="docutils">
-<dt>par: str</dt>
-<dd>Path to a .par file</dd>
-<dt>tim: str</dt>
-<dd>Path to a .tim file</dd>
-<dt>configuration: str</dt>
-<dd>String in a string, with tempo2-general2 parameters:
-&#8216;&#8221;{bat}t{freq}t{post}t{err}t{posttn}t{tndm}t{tnrn}n&#8221;&#8217;</dd>
-<dt>output_file: str</dt>
-<dd>Output file name with a full path</dd>
-<dt>execute: str</dt>
-<dd>A shell command to run Tempo2 or the full path to the tempo2 executable
-file, if other user&#8217;s tempo2 executable is sourced and aliased.</dd>
-</dl>
-</dd></dl>
-
 </div>
 <div class="section" id="libstempo-warp">
 <span id="id5"></span><h2>libstempo_warp<a class="headerlink" href="#libstempo-warp" title="Permalink to this headline">¶</a></h2>
 <p>This model contains useful tools for pulsar timing array data simulation with libstempo. It extends libstempo simulations to realistic pulsar data with multiple observing backends, based on real pulsar data.</p>
-<span class="target" id="module-enterprise_warp.libstempo_warp"></span><dl class="function">
-<dt id="enterprise_warp.libstempo_warp.add_noise">
-<code class="descclassname">enterprise_warp.libstempo_warp.</code><code class="descname">add_noise</code><span class="sig-paren">(</span><em>t2pulsar</em>, <em>noise_dict</em>, <em>sim_dm=True</em>, <em>sim_white=True</em>, <em>sim_red=True</em>, <em>seed=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/libstempo_warp.html#add_noise"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.libstempo_warp.add_noise" title="Permalink to this definition">¶</a></dt>
-<dd><p>Recognize noise from noise parameter name, and add to t2pulsar.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="enterprise_warp.libstempo_warp.added_noise_psd_to_vector">
-<code class="descclassname">enterprise_warp.libstempo_warp.</code><code class="descname">added_noise_psd_to_vector</code><span class="sig-paren">(</span><em>added_noise_psd_params</em>, <em>param='efac'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/enterprise_warp/libstempo_warp.html#added_noise_psd_to_vector"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#enterprise_warp.libstempo_warp.added_noise_psd_to_vector" title="Permalink to this definition">¶</a></dt>
-<dd><p>Conversion of dict to vector to simulate efac/equad in libstempo</p>
-</dd></dl>
-
 </div>
 </div>
 
@@ -566,11 +208,19 @@ file, if other user&#8217;s tempo2 executable is sourced and aliased.</dd>
 
   <div role="contentinfo">
     <p>
+        
         &copy; Copyright 2019, Boris Goncharov
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
 
@@ -581,7 +231,6 @@ file, if other user&#8217;s tempo2 executable is sourced and aliased.</dd>
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {

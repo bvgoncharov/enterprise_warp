@@ -1,8 +1,7 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
   <meta charset="utf-8">
   
@@ -12,36 +11,29 @@
   
 
   
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
   
   
   
 
   
-  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
-      <script type="text/javascript">
-          var DOCUMENTATION_OPTIONS = {
-              URL_ROOT:'./',
-              VERSION:'',
-              LANGUAGE:'None',
-              COLLAPSE_INDEX:false,
-              FILE_SUFFIX:'.html',
-              HAS_SOURCE:  true,
-              SOURCELINK_SUFFIX: ''
-          };
-      </script>
-        <script type="text/javascript" src="_static/jquery.js"></script>
-        <script type="text/javascript" src="_static/underscore.js"></script>
-        <script type="text/javascript" src="_static/doctools.js"></script>
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Installation" href="installation.html" /> 
@@ -58,7 +50,7 @@
           
 
           
-            <a href="#" class="icon icon-home"> enterprise_warp
+            <a href="#" class="icon icon-home" alt="Documentation Home"> enterprise_warp
           
 
           
@@ -81,6 +73,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -98,6 +91,7 @@
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -136,15 +130,15 @@
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="#">Docs</a> &raquo;</li>
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
         
-      <li>Welcome to enterprise_warp&#8217;s documentation!</li>
+      <li>Welcome to enterprise_warp’s documentation!</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
-            <a href="_sources/index.txt" rel="nofollow"> View page source</a>
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -158,9 +152,9 @@
            <div itemprop="articleBody">
             
   <div class="section" id="welcome-to-enterprise-warp-s-documentation">
-<h1>Welcome to enterprise_warp&#8217;s documentation!<a class="headerlink" href="#welcome-to-enterprise-warp-s-documentation" title="Permalink to this headline">¶</a></h1>
-<div class="toctree-wrapper compound" id="contents">
-<p class="caption"><span class="caption-text">Contents:</span><a class="headerlink" href="#contents" title="Permalink to this toctree">¶</a></p>
+<h1>Welcome to enterprise_warp’s documentation!<a class="headerlink" href="#welcome-to-enterprise-warp-s-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+<p class="caption"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="paramfile.html">Parameter file usage</a><ul>
@@ -182,21 +176,21 @@
 <h1>enterprise_warp<a class="headerlink" href="#enterprise-warp" title="Permalink to this headline">¶</a></h1>
 <p>enterprise_warp is a set of tools for pulsar timing analysis with <a class="reference external" href="https://github.com/nanograv/enterprise/">Enterprise</a>, <a class="reference external" href="https://github.com/vallis/libstempo/">Libstempo</a> and <a class="reference external" href="https://bitbucket.org/psrsoft/tempo2">Tempo2</a>. It uses the <a class="reference external" href="https://git.ligo.org/lscsoft/bilby/">Bilby</a> to enable Bayesian inference for pulsar timing arrays using many different samplers and all other advantages of Bilby.</p>
 <p>Look how easy it is to run from the command line:</p>
-<div class="highlight-console"><div class="highlight"><pre><span></span><span class="gp">$</span> python run_example_paramfile.py --prfile example_params/default_model_dynesty.dat --num <span class="m">0</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python run_example_paramfile.py --prfile example_params/default_model_dynesty.dat --num <span class="m">0</span>
 </pre></div>
 </div>
 <p>More examples are available. Browse the documentation website for more details.</p>
 <div class="section" id="features">
 <h2>Features<a class="headerlink" href="#features" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
-<li>Configure your runs with parameter files instead of editing python scripts. This allows easier management of your data analysis progress. Keep track of your input and output directories.</li>
-<li>The code is optimized for parallel computing via the usage of command line arguments (i.e., for different pulsars)</li>
-<li>Simply choose any MCMC/Nested sampler that is available in Bilby: PTMCMCSampler, Dynesty, Nestle, PyPolyChord, PyMC3, ptmcee, and more. Evaluate evidence, perform parameter estimation, or directly compare models with product-space method and PTMCMCSampler.</li>
-<li>Accellerate your data analysis with MPI using PyPolychord sampler: distribute heavy calculations between ~10-100 cores of a supercomputer. The code has special options for MPI runs.</li>
-<li>Use noise model files with tailored noise models for each pulsar and common noise processes in all pulsars. Run analysis with individual pulsars or the whole pulsar timing array.</li>
-<li>Save time on setting up runs: all sampler keyword arguments, your custom noise models and priors are automatically recongized in parameter files.</li>
-<li>Easily add your own models, using several examples. Or load models from <a class="reference external" href="https://github.com/nanograv/enterprise_extensions/">enterprise_extensions</a> or other code.</li>
-<li>And more!</li>
+<li><p>Configure your runs with parameter files instead of editing python scripts. This allows easier management of your data analysis progress. Keep track of your input and output directories.</p></li>
+<li><p>The code is optimized for parallel computing via the usage of command line arguments (i.e., for different pulsars)</p></li>
+<li><p>Simply choose any MCMC/Nested sampler that is available in Bilby: PTMCMCSampler, Dynesty, Nestle, PyPolyChord, PyMC3, ptmcee, and more. Evaluate evidence, perform parameter estimation, or directly compare models with product-space method and PTMCMCSampler.</p></li>
+<li><p>Accellerate your data analysis with MPI using PyPolychord sampler: distribute heavy calculations between ~10-100 cores of a supercomputer. The code has special options for MPI runs.</p></li>
+<li><p>Use noise model files with tailored noise models for each pulsar and common noise processes in all pulsars. Run analysis with individual pulsars or the whole pulsar timing array.</p></li>
+<li><p>Save time on setting up runs: all sampler keyword arguments, your custom noise models and priors are automatically recongized in parameter files.</p></li>
+<li><p>Easily add your own models, using several examples. Or load models from <a class="reference external" href="https://github.com/nanograv/enterprise_extensions/">enterprise_extensions</a> or other code.</p></li>
+<li><p>And more!</p></li>
 </ul>
 </div>
 <div class="section" id="license">
@@ -207,9 +201,9 @@
 <div class="section" id="indices-and-tables">
 <h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
 <ul class="simple">
-<li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
-<li><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></li>
-<li><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></li>
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
 </ul>
 </div>
 
@@ -231,11 +225,19 @@
 
   <div role="contentinfo">
     <p>
+        
         &copy; Copyright 2019, Boris Goncharov
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
 
@@ -246,7 +248,6 @@
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {
