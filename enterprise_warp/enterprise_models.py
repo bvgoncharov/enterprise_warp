@@ -236,8 +236,9 @@ class StandardModels(object):
       self.psr.sys_flagvals.append(sys_noise_term)
 
       nfreqs = self.determine_nfreqs(sel_func_name=selection_function_name)
+      tspan = self.determine_tspan(sel_func_name=selection_function_name)
 
-      syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=self.params.Tspan,
+      syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=tspan,
                                       name='system_noise_' + \
                                       str(self.sys_noise_count),
                                       selection=selections.Selection( \
@@ -274,8 +275,9 @@ class StandardModels(object):
       self.psr.sys_flagvals.append(band_term)
 
       nfreqs = self.determine_nfreqs(sel_func_name=selection_function_name)
+      tspan = self.determine_tspan(sel_func_name=selection_function_name)
 
-      syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=self.params.Tspan,
+      syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=tspan,
                                       name='band_noise_' + \
                                       str(self.sys_noise_count),
                                       selection=selections.Selection( \
@@ -318,12 +320,38 @@ class StandardModels(object):
 
   # Utility functions for noise model object
 
-  def determine_nfreqs(self, sel_func_name=None):
+  def determine_nfreqs(self, sel_func_name=None, cadence=60):
     """
     Determine whether to model red noise process with a fixed number of 
     Fourier frequencies or whether to choose a number frequencies
-    between the inverse of observation time and 60 days.
+    between the inverse of observation time and cadence (default 60) days.
 
+    Parameters
+    ----------
+    sel_func_name: str
+      Name of the selection function, stored in the current noise model
+      object. It is needed to determine the observation span for a selected
+      data (which is equal or smaller than the total observation span).
+      If None, then enterprise.signals.selections.no_selection is assumed.
+    cadence: float
+      Period of highest-frequency component modelled (days) 
+    """
+    tobs = determine_tspan(self, sel_func_name=sel_func_name)
+
+    if self.params.red_general_freqs.isdigit():
+      n_freqs = int(self.params.red_general_freqs)
+    elif self.params.red_general_freqs == "tobs_60days":
+      n_freqs = int(np.round((1./cadence/const.day - 1/tobs)/(1/tobs)))
+
+    if self.params.opts.mpi_regime != 2:
+      self.save_nfreqs_information(sel_func_name, n_freqs)
+
+    return n_freqs
+  
+  def determine_tspan(self, sel_func_name=None):
+    """
+    Determine the time span of TOAs under a given selection
+    
     Parameters
     ----------
     sel_func_name: str
@@ -336,21 +364,11 @@ class StandardModels(object):
       selfunc = selections.no_selection
     else:
       selfunc = self.__dict__[sel_func_name]
-
     selection_mask = toa_mask_from_selection_function(self.psr, selfunc)
-
     toas = self.psr.toas[selection_mask]
-    tobs = np.max(toas) - np.min(toas)
-
-    if self.params.red_general_freqs.isdigit():
-      n_freqs = int(self.params.red_general_freqs)
-    elif self.params.red_general_freqs == "tobs_60days":
-      n_freqs = int(np.round((1./60./const.day - 1/tobs)/(1/tobs)))
-
-    if self.params.opts.mpi_regime != 2:
-      self.save_nfreqs_information(sel_func_name, n_freqs)
-
-    return n_freqs
+    tspan = np.max(toas) - np.min(toas)
+    
+    return tspan
 
   def save_nfreqs_information(self, sel_func_name, n_freqs):
     """
