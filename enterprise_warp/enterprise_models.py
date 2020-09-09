@@ -136,7 +136,7 @@ class StandardModels(object):
     se=selections.Selection(selections.__dict__[option])
     ecorrpr = interpret_white_noise_prior(self.params.ecorr)
     ecs = white_signals.EcorrKernelNoise(efac=efacpr,selection=se)
-    return efs
+    return ecs
 
   def spin_noise(self,option="powerlaw"):
     """
