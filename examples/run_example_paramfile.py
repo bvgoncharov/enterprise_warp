@@ -37,7 +37,8 @@ if params.sampler == 'ptmcmcsampler':
 
     # Remove extra kwargs that Bilby took from PTSampler module, not ".sample"
     ptmcmc_sample_kwargs = inspect.getargspec(sampler.sample).args
-    upd_sample_kwargs = {key: val for key, val in params.sampler_kwargs.items()                                   if key in ptmcmc_sample_kwargs}
+    upd_sample_kwargs = {key: val for key, val in params.sampler_kwargs.items()\
+                         if key in ptmcmc_sample_kwargs}
     del upd_sample_kwargs['Niter']
     del upd_sample_kwargs['p0']
 

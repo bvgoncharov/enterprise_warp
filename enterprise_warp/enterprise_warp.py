@@ -4,6 +4,8 @@ import glob
 import os
 import optparse
 import warnings
+import hashlib
+import pickle
 
 import enterprise.signals.parameter as parameter
 from enterprise.signals import signal_base
@@ -88,7 +90,7 @@ class Params(object):
       "datadir:": ["datadir", str],
       "out:": ["out", str],
       "overwrite:": ["overwrite", str],
-      "allpulsars:": ["allpulsars", str],
+      "array_analysis:": ["array_analysis", str],
       "noisefiles:": ["noisefiles", str],
       "noise_model_file:": ["noise_model_file", str],
       "sampler:": ["sampler", str],
@@ -205,12 +207,12 @@ class Params(object):
     """
     print('------------------')
     print('Setting default parameters with file ', self.input_file_name)
-    #if 'ssephem' not in self.__dict__:
-    #  self.__dict__['ssephem'] = 'DE436'
-    #  print('Setting default Solar System Ephemeris: DE436')
-    #if 'clock' not in self.__dict__:
-    #  self.__dict__['clock'] = None
-    #  print('Setting a default Enterprise clock convention (check the code)')
+    if 'ssephem' not in self.__dict__:
+      self.__dict__['ssephem'] = 'DE436'
+      print('Setting default Solar System Ephemeris: DE436')
+    if 'clock' not in self.__dict__:
+      self.__dict__['clock'] = None
+      print('Setting a default Enterprise clock convention (check the code)')
     if 'setupsamp' not in self.__dict__:
       self.__dict__['setupsamp'] = False
     if 'psrlist' in self.__dict__:
@@ -280,35 +282,37 @@ class Params(object):
       Initiate Enterprise pulsar objects.
       """
       
-      cachedir = self.datadir+'.psrs_cache/'
-      if not os.path.exists(cachedir):
-        if self.opts.mpi_regime != 2:
-          os.makedirs(cachedir)
-      
-      if not self.psrcachefile==None or (not self.psrlist==[]):
-          print('Attempting to load pulsar objects from cache')
-          if self.psrcachefile is not None:
-              cached_file = self.psrcachefile
-          else:
-              psr_str = ''.join(sorted(self.psrlist)) + self.ssephem
-              psr_hash = hashlib.sha1(psr_str.encode()).hexdigest()
-              cached_file = cachedir + psr_hash
+      cachedir = self.out+'.psrs_cache/'
+      psrs_cache = None
+      # Caching is disabled due to problems: Part 1
+      #if not os.path.exists(cachedir):
+      #  if self.opts.mpi_regime != 2:
+      #    os.makedirs(cachedir)
+      #
+      #if not self.psrcachefile==None or (not self.psrlist==[]):
+      #    print('Attempting to load pulsar objects from cache')
+      #    if self.psrcachefile is not None:
+      #        cached_file = self.psrcachefile
+      #    else:
+      #        psr_str = ''.join(sorted(self.psrlist)) + self.ssephem
+      #        psr_hash = hashlib.sha1(psr_str.encode()).hexdigest()
+      #        cached_file = cachedir + psr_hash
 
-          if os.path.exists(cached_file):
-              if bool(self.opts.clearcache):
-                  os.remove(cached_file)
-                  print('Cache file existed, but got removed, following \
-                         command line options')
-              else:
-                  with open(cached_file, 'rb') as fin:
-                      print('Loading pulsars from cache')
-                      psrs_cache = pickle.load(fin)
-          else:
-              print('Could not load pulsars from cache: file does not exist')
-              psrs_cache = None
-      else:
-          psrs_cache = None
-          print('Condition for loading pulsars from cache is not satisfied')
+      #    if os.path.exists(cached_file):
+      #        if bool(self.opts.clearcache):
+      #            os.remove(cached_file)
+      #            print('Cache file existed, but got removed, following \
+      #                   command line options')
+      #        else:
+      #            with open(cached_file, 'rb') as fin:
+      #                print('Loading pulsars from cache')
+      #                psrs_cache = pickle.load(fin)
+      #    else:
+      #        print('Could not load pulsars from cache: file does not exist')
+      #        psrs_cache = None
+      #else:
+      #    psrs_cache = None
+      #    print('Condition for loading pulsars from cache is not satisfied')
       
       parfiles = sorted(glob.glob(self.datadir + '/*.par'))
       timfiles = sorted(glob.glob(self.datadir + '/*.tim'))
@@ -318,7 +322,7 @@ class Params(object):
         print('Error - there should be the same number of .par and .tim files.')
         exit()
       
-      if self.allpulsars=='True':
+      if self.array_analysis=='True':
         self.output_dir = self.out + self.label_models + '/'
         if psrs_cache == None:
           print('Loading pulsars')
@@ -326,15 +330,17 @@ class Params(object):
           for p, t in zip(parfiles, timfiles):
             pname = p.split('/')[-1].split('_')[0].split('.')[0]
             if (pname in self.psrlist) or self.psrlist==[]:
-                psr = Pulsar(p, t, ephem=self.ssephem, clk=self.clock,drop_t2pulsar=False)
+                psr = Pulsar(p, t, ephem=self.ssephem, clk=self.clock, \
+                             drop_t2pulsar=False)
                 self.psrs.append(psr)
                 self.psrlist_new.append(pname)
-          print('Writing pulsars to cache.\n')
-          psr_str = ''.join(sorted(self.psrlist_new)) + self.ssephem
-          psr_hash = hashlib.sha1(psr_str.encode()).hexdigest()
-          cached_file = cachedir + psr_hash
-          with open(cached_file, 'wb') as fout:
-            pickle.dump(self.psrs, fout)
+          # Caching is disabled due to problems: Part 2
+          #print('Writing pulsars to cache.\n')
+          #psr_str = ''.join(sorted(self.psrlist_new)) + self.ssephem
+          #psr_hash = hashlib.sha1(psr_str.encode()).hexdigest()
+          #cached_file = cachedir + psr_hash
+          #with open(cached_file, 'wb') as fout:
+          #  pickle.dump(self.psrs, fout)
         else:
           print('Using pulsars from cache')
           self.psrs = psrs_cache
@@ -345,8 +351,10 @@ class Params(object):
         #psr = []
         exit_message = "PTA analysis has already been carried out using a given parameter file"
       
-      elif self.allpulsars=='False':
-        self.psrs = Pulsar(parfiles[self.opts.num], timfiles[self.opts.num],drop_t2pulsar=False)#, ephem=params.ssephem, clk=params.clock)
+      elif self.array_analysis=='False':
+        self.psrs = Pulsar(parfiles[self.opts.num], timfiles[self.opts.num], \
+                           drop_t2pulsar=False, \
+                           ephem=self.ssephem) #, clk=self.clock)
         self.Tspan = self.psrs.toas.max() - self.psrs.toas.min() # observation time in seconds
         self.output_dir = self.out + self.label_models + '/' + \
                           str(self.opts.num)+'_'+self.psrs.name+'/'
@@ -376,7 +384,8 @@ def init_pta(params_all):
   ptas = dict.fromkeys(params_all.models)
   for ii, params in params_all.models.items():
 
-    allpsr_model = params_all.noise_model_obj(psr=None,params=params)
+    allpsr_model = params_all.noise_model_obj(psr=params_all.psrs,
+                                              params=params)
 
     models = list()
     from_par_file = list()

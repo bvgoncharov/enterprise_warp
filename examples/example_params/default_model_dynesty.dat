@@ -1,7 +1,7 @@
 datadir: data/
 out: out/
 overwrite: True
-allpulsars: False
+array_analysis: False
 sampler: dynesty
 dlogz: 0.1
 nlive: 800

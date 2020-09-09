@@ -1,7 +1,7 @@
 datadir: data/
 out: out/
 overwrite: True
-allpulsars: False
+array_analysis: False
 sampler: dynesty
 efac: -1
 equad: -1

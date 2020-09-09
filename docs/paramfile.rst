@@ -14,7 +14,7 @@ Parameter file options
 - **datadir**: directory with .par and .tim files
 - **out**: output directory with Enterprise/Bilby results
 - **overwrite**: option to overwrite overwrite an old Enterprise output
-- **allpulsars**: whether to run analysis on all pulsars, or on a single pulsar (True/False)
+- **array_analysis**: whether to run analysis on a pulsar timing array, or on a single pulsar (True for array, False for single pulsars)
 - **noisefiles**: path to .json noise files needed to fix white noise parameters
 - **sampler**: choose ptmcmcsampler or any of the samplers compatible with Bilby
 

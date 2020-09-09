@@ -75,7 +75,7 @@ class StandardModels(object):
       "red_general_freqs": "tobs_60days",
       "red_general_nfouriercomp": 2
     }
-    if self.psr is not None:
+    if self.psr is not None and type(self.psr) is not list:
       if not hasattr(self.psr,'sys_flags'):
         setattr(self.psr,'sys_flags',[])
         setattr(self.psr,'sys_flagvals',[])
@@ -135,7 +135,7 @@ class StandardModels(object):
                         name')
     se=selections.Selection(selections.__dict__[option])
     ecorrpr = interpret_white_noise_prior(self.params.ecorr)
-    ecs = white_signals.EcorrKernelNoise(efac=efacpr,selection=se)
+    ecs = white_signals.EcorrKernelNoise(log10_ecorr=ecorrpr,selection=se)
     return ecs
 
   def spin_noise(self,option="powerlaw"):
@@ -299,15 +299,17 @@ class StandardModels(object):
     Spatially-correlated quadrupole signal from the nanohertz stochastic
     gravitational-wave background.
     """
-    gwb_log10_A = parameter.Uniform(params.gwb_lgA[0],params.gwb_lgA[1])
+    gwb_log10_A = parameter.Uniform(self.params.gwb_lgA[0],
+                                    self.params.gwb_lgA[1])
     if option=="common_pl":
-      gwb_gamma = parameter.Uniform(params.gwb_gamma[0],params.gwb_gamma[1])
+      gwb_gamma = parameter.Uniform(self.params.gwb_gamma[0],
+                                    self.params.gwb_gamma[1])
     elif option=="fixed_gamma":
       gwb_gamma = parameter.Constant(4.33)
     gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
-    nfreqs = self.determine_nfreqs(sel_func_name=None)
+    nfreqs = self.determine_nfreqs(sel_func_name=None, common_signal=True)
     orf = utils.hd_orf()
-    gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs, \
+    gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs, 
                                           name='gwb', Tspan=self.params.Tspan)
     return gwb
 
@@ -320,7 +322,8 @@ class StandardModels(object):
 
   # Utility functions for noise model object
 
-  def determine_nfreqs(self, sel_func_name=None, cadence=60):
+  def determine_nfreqs(self, sel_func_name=None, cadence=60,
+                       common_signal=False):
     """
     Determine whether to model red noise process with a fixed number of 
     Fourier frequencies or whether to choose a number frequencies
@@ -335,20 +338,24 @@ class StandardModels(object):
       If None, then enterprise.signals.selections.no_selection is assumed.
     cadence: float
       Period of highest-frequency component modelled (days) 
+    common_signal: bool
+      True if determining a baseline observation span for a whole pulsar
+      timing array with several pulsars.
     """
-    tobs = determine_tspan(self, sel_func_name=sel_func_name)
 
     if self.params.red_general_freqs.isdigit():
       n_freqs = int(self.params.red_general_freqs)
     elif self.params.red_general_freqs == "tobs_60days":
+      tobs = self.determine_tspan(sel_func_name=sel_func_name,
+                                  common_signal=common_signal)
       n_freqs = int(np.round((1./cadence/const.day - 1/tobs)/(1/tobs)))
 
     if self.params.opts.mpi_regime != 2:
       self.save_nfreqs_information(sel_func_name, n_freqs)
 
     return n_freqs
-  
-  def determine_tspan(self, sel_func_name=None):
+
+  def determine_tspan(self, sel_func_name=None, common_signal=False):
     """
     Determine the time span of TOAs under a given selection
     
@@ -359,15 +366,26 @@ class StandardModels(object):
       object. It is needed to determine the observation span for a selected
       data (which is equal or smaller than the total observation span).
       If None, then enterprise.signals.selections.no_selection is assumed.
+    common_signal: bool
+      True if determining a baseline observation span for a whole pulsar
+      timing array with several pulsars.
     """
-    if sel_func_name is None:
-      selfunc = selections.no_selection
+    if common_signal:
+      if not type(self.psr) is list:
+        raise ValueError('Expecting a list of enterprise.pulsar.Pulsar objects \
+                          in self.psr for a common signal')
+      tmin_global = np.min([np.min(pp.toas) for pp in self.psr])
+      tmax_global = np.max([np.max(pp.toas) for pp in self.psr])
+      tspan = tmax_global - tmin_global
     else:
-      selfunc = self.__dict__[sel_func_name]
-    selection_mask = toa_mask_from_selection_function(self.psr, selfunc)
-    toas = self.psr.toas[selection_mask]
-    tspan = np.max(toas) - np.min(toas)
-    
+      if sel_func_name is None:
+        selfunc = selections.no_selection
+      else:
+        selfunc = self.__dict__[sel_func_name]
+      selection_mask = toa_mask_from_selection_function(self.psr, selfunc)
+      toas = self.psr.toas[selection_mask]
+      tspan = np.max(toas) - np.min(toas)
+
     return tspan
 
   def save_nfreqs_information(self, sel_func_name, n_freqs):
