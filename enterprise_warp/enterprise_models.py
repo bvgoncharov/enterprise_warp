@@ -6,8 +6,10 @@ from enterprise.signals import utils
 from enterprise_extensions import models
 import enterprise.signals.parameter as parameter
 import enterprise.signals.gp_signals as gp_signals
+import enterprise.signals.deterministic_signals as deterministic_signals
 import enterprise.signals.white_signals as white_signals
 import enterprise.signals.selections as selections
+from enterprise.signals.parameter import function as parameter_function
 
 import inspect
 import types
@@ -307,12 +309,14 @@ class StandardModels(object):
     elif "fixed_gamma" in option:
       gwb_gamma = parameter.Constant(4.33)
     gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
+
     nfreqs = self.determine_nfreqs(sel_func_name=None, common_signal=True)
+
     if "hd" in option:
       orf = utils.hd_orf()
     else:
-      orf = None
-    gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs, 
+      orf = no_orf()
+    gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
                                           name='gwb', Tspan=self.params.Tspan)
     return gwb
 
@@ -527,3 +531,11 @@ def toa_mask_from_selection_function(psr,selfunc):
     return selection_mask_dict.values()[0]
   else:
     raise NotImplementedError
+
+@parameter_function
+def no_orf(pos1, pos2):
+    """No spatial correlation"""
+    if np.all(pos1 == pos2):
+        return 1
+    else:
+        return 0

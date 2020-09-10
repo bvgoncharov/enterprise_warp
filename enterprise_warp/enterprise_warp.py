@@ -399,13 +399,15 @@ def init_pta(params_all):
       basis = scaled_tm_basis()
       prior = ridge_prior(log10_variance=log10_variance)
       tm = gp_signals.BasisGP(prior, basis, name='ridge')
-    if params.tm!='none': m = tm
 
     # Adding common noise terms for all pulsars
     # Only those common signals are added that are listed in the noise model
     # file, getting Enterprise models from the noise model object.
     for psp, option in params.common_signals.items():
-        m += getattr(allpsr_model, psp)(option=option)
+      if 'm_all' in locals():
+        m_all += getattr(allpsr_model, psp)(option=option)
+      else:
+        m_all = tm + getattr(allpsr_model, psp)(option=option)
   
     # Including single pulsar noise models
     for pnum, psr in enumerate(params_all.psrs):
@@ -429,8 +431,10 @@ def init_pta(params_all):
       for psp, option in noise_model_dict_psr.items():
         if 'm_sep' in locals():
           m_sep += getattr(singlepsr_model, psp)(option=option)
+        elif 'm_all' in locals():
+          m_sep = m_all + getattr(singlepsr_model, psp)(option=option)
         else:
-          m_sep = getattr(singlepsr_model, psp)(option=option)
+          m_sep = tm + getattr(singlepsr_model, psp)(option=option)
 
       models.append(m_sep(psr))
       del m_sep
@@ -443,7 +447,8 @@ def init_pta(params_all):
       print('For constant parameters using noise files in PAL2 format')
       pta.set_default_params(noisedict)
 
-    print('Model',ii,'params order: ', pta.param_names)
+    print('Model',ii,'params (',len(pta.param_names),') in order: ', \
+          pta.param_names)
     if params.opts.mpi_regime != 2:
       np.savetxt(params.output_dir + '/pars.txt', pta.param_names, fmt='%s')
     ptas[ii]=pta
