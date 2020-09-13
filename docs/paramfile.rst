@@ -11,6 +11,7 @@ To run Enterprise from a command line using a parameter file on a first pair of 
 Parameter file options
 ----------------------
 - **{x} (a number in curly brackets)**: a separator, indicating that following parameters are only for model 'x'. If we specify more than one model and choose ptmcmc sampeler, Enterprise is launched in model comparison mode using the product-space method and :code:`class HyperModel` from `enterprise_extensions <https://github.com/stevertaylor/enterprise_extensions/>`__.
+- **paramfile_label**: a unique label for the output directory, associated with the given parameter file. The label inside a noise model file(s) is (are) also added to the output directory name.
 - **datadir**: directory with .par and .tim files
 - **out**: output directory with Enterprise/Bilby results
 - **overwrite**: option to overwrite overwrite an old Enterprise output

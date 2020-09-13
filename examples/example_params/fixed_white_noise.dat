@@ -1,3 +1,4 @@
+paramfile_label: v1
 datadir: data/
 out: out/
 overwrite: True
@@ -9,8 +10,8 @@ DEweight: 50
 nsamp: 1000000
 efac: -1
 equad: -1
-noisefiles: /home/bgonchar/fork_enterprise_warp/enterprise_warp/examples/example_noisefiles/
+noisefiles: example_noisefiles/
 {0}
-noise_model_file: /home/bgonchar/fork_enterprise_warp/enterprise_warp/examples/example_noisemodels/default_noise_example_1.json
+noise_model_file: example_noisemodels/default_noise_example_1.json
 {1}
-noise_model_file: /home/bgonchar/fork_enterprise_warp/enterprise_warp/examples/example_noisemodels/default_noise_example_2.json
+noise_model_file: example_noisemodels/default_noise_example_2.json

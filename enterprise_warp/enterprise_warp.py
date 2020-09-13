@@ -87,6 +87,7 @@ class Params(object):
     self.custom_models_obj = custom_models_obj
     self.sampler_kwargs = {}
     self.label_attr_map = {
+      "paramfile_label:": ["paramfile_label", str],
       "datadir:": ["datadir", str],
       "out:": ["out", str],
       "overwrite:": ["overwrite", str],
@@ -323,7 +324,8 @@ class Params(object):
         exit()
       
       if self.array_analysis=='True':
-        self.output_dir = self.out + self.label_models + '/'
+        self.output_dir = self.out + self.label_models + '_' + \
+                          self.paramfile_label + '/'
         if psrs_cache == None:
           print('Loading pulsars')
           self.psrlist_new = list()
@@ -356,8 +358,9 @@ class Params(object):
                            drop_t2pulsar=False, \
                            ephem=self.ssephem) #, clk=self.clock)
         self.Tspan = self.psrs.toas.max() - self.psrs.toas.min() # observation time in seconds
-        self.output_dir = self.out + self.label_models + '/' + \
-                          str(self.opts.num)+'_'+self.psrs.name+'/'
+        self.output_dir = self.out + self.label_models + '_' + \
+                          self.paramfile_label + '/' + str(self.opts.num) + \
+                          '_' + self.psrs.name + '/'
 
         parfiles = parfiles[self.opts.num]
         timfiles = timfiles[self.opts.num]
