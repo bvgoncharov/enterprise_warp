@@ -25,13 +25,13 @@ Look how easy it is to run from the command line:
 
    $ python run_example_paramfile.py --prfile example_params/default_model_dynesty.dat --num 0
 
-Here ``run_example_paramfile.py`` is the script available in ``examples/``. To view analyze the results, run:
+Here ``run_example_paramfile.py`` is the script available in ``examples/``. To view and analyze the results, run:
 
 .. code-block:: console
 
    $ python -m enterprise_warp.results --result example_params/default_model_dynesty.dat --info 1 --corner 1
 
-Where ``--result`` can be the parameter file or the output directory. This command saves a corner plot to the output directory. Other command line options are related to noise files, Bayes factors, chain plots, etc. Please run ``python -m enterprise_warp.results -h`` to list available options.
+Where ``--result`` can be a parameter file or an output directory. The above command saves a corner plot to the output directory. Other command line options are related to noise files, Bayes factors, chain plots, etc. Please run ``python -m enterprise_warp.results -h`` to list available options.
 
 Features
 --------

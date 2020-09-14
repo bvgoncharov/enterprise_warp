@@ -7,6 +7,7 @@ import re
 import optparse
 import itertools
 import numpy as np
+from corner import corner
 
 from . import enterprise_warp
 
@@ -188,7 +189,7 @@ def main():
       for jj in unique:
         model_mask = np.round(chain_burn[:,ind_model]) == jj
         figure = corner(chain_burn[model_mask,:-4], 30, labels=pars)
-        plt.savefig(outdir_all + '/' + psr_name + '_' + 'corner_' + str(jj) + \
+        plt.savefig(outdir_all + '/' + psr_dir + '_' + 'corner_' + str(jj) + \
                     '.png')
         plt.close()
 
@@ -204,7 +205,7 @@ def main():
           plt.xlabel('Thinned MCMC iterations')
           plt.ylabel('Value')
        plt.tight_layout()
-       plt.savefig(outdir_all + '/' + psr_name + '_mcmc_samples_trace_' + \
+       plt.savefig(outdir_all + '/' + psr_dir + '_samples_trace_' + \
                    '.png')
        plt.close()
 
