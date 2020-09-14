@@ -79,7 +79,8 @@ class Params(object):
   """
   Load parameters with instructions for how to run Enterprise.
   """
-  def __init__(self, input_file_name, opts=None, custom_models_obj=None):
+  def __init__(self, input_file_name, opts=None, custom_models_obj=None,
+               init_pulsars=True):
     self.input_file_name = input_file_name
     self.opts = opts
     self.psrs = list()
@@ -165,8 +166,9 @@ class Params(object):
     self.set_default_params()
     self.read_modeldicts()
     self.update_sampler_kwargs()
-    self.init_pulsars()
-    self.clone_all_params_to_models()
+    if init_pulsars:
+      self.init_pulsars()
+      self.clone_all_params_to_models()
 
   def override_params_using_opts(self):
     """

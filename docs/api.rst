@@ -32,6 +32,16 @@ This module contains basic models for pulsar timing analyses and serves as a bas
 
 .. _bilby_warp:
 
+results
+-------
+
+This module is used to load and analyze the results: calculate Bayes factors, plot posterior distributions, make noise files.
+
+.. automodule:: enterprise_warp.results
+          :members:
+
+.. _enterprise_models:
+
 bilby_warp
 ----------
 
