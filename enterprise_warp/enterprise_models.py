@@ -13,6 +13,7 @@ from enterprise.signals.parameter import function as parameter_function
 
 import inspect
 import types
+import sys
 
 class StandardModels(object):
   """
@@ -314,10 +315,12 @@ class StandardModels(object):
 
     if "hd" in option:
       orf = utils.hd_orf()
+      gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
+                                            name='gwb', Tspan=self.params.Tspan)
     else:
-      orf = no_orf()
-    gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                          name='gwb', Tspan=self.params.Tspan)
+      gwb = gp_signals.FourierBasisGP(gwb_pl, components=nfreqs,
+                                      name='gwb', Tspan=self.params.Tspan)
+
     return gwb
 
   def bayes_ephem(self,option="default"):
@@ -495,20 +498,27 @@ def selection_factory(new_selection_name):
     seldict[sys_flagvals[idx]] = flags[sys_flags[idx]]==sys_flagvals[idx]
     return seldict
 
-  template_selection_code = types.CodeType(template_sel.func_code.co_argcount,
-                            template_sel.func_code.co_nlocals,
-                            template_sel.func_code.co_stacksize,
-                            template_sel.func_code.co_flags,
-                            template_sel.func_code.co_code,
-                            template_sel.func_code.co_consts,
-                            template_sel.func_code.co_names,
-                            template_sel.func_code.co_varnames,
-                            template_sel.func_code.co_filename,
-                            new_selection_name,
-                            template_sel.func_code.co_firstlineno,
-                            template_sel.func_code.co_lnotab)
+  list_codetype_args = [template_sel.__code__.co_argcount,
+                        template_sel.__code__.co_nlocals,
+                        template_sel.__code__.co_stacksize,
+                        template_sel.__code__.co_flags,
+                        template_sel.__code__.co_code,
+                        template_sel.__code__.co_consts,
+                        template_sel.__code__.co_names,
+                        template_sel.__code__.co_varnames,
+                        template_sel.__code__.co_filename,
+                        new_selection_name,
+                        template_sel.__code__.co_firstlineno,
+                        template_sel.__code__.co_lnotab]
 
-  return types.FunctionType(template_selection_code, template_sel.func_globals,
+  if sys.version[0] == '3':
+    list_codetype_args = list_codetype_args[:1] + \
+                         [template_sel.__code__.co_kwonlyargcount] + \
+                         list_codetype_args[1:]
+
+  template_selection_code = types.CodeType(*list_codetype_args)
+
+  return types.FunctionType(template_selection_code, template_sel.__globals__,
                             new_selection_name) 
 
 def toa_mask_from_selection_function(psr,selfunc):
@@ -528,14 +538,7 @@ def toa_mask_from_selection_function(psr,selfunc):
                                               if attr in args_selfunc}
   selection_mask_dict = selfunc(**argdict)
   if len(selection_mask_dict.keys())==1:
-    return selection_mask_dict.values()[0]
+    return [val for val in selection_mask_dict.values()][0]
   else:
     raise NotImplementedError
 
-@parameter_function
-def no_orf(pos1, pos2):
-    """No spatial correlation"""
-    if np.all(pos1 == pos2):
-        return 1
-    else:
-        return 0

@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from chainconsumer import ChainConsumer
 
 import os
 import re
@@ -33,12 +34,12 @@ def parse_commandline():
   parser.add_option("-n", "--name", help="Pulsar name or number (or \"all\")", \
                     default="all", type=str)
 
-  parser.add_option("-c", "--corner", help="Plot corner (1/0)", \
-                    default=0, type=int)
+  parser.add_option("-c", "--corner", help="Plot corner (0 - no corner, 1 - \
+                    corner, 2 - chainconsumer), ", default=0, type=int)
 
-  parser.add_option("-p", "--par", help="Include only specific model \
-                    parameters for a corner plot (more than one could and \
-                    should be added)", action="append", default=None, type=str)
+  parser.add_option("-p", "--par", help="Include only model parameters that \
+                    contain \"par\" (more than one could be added)",
+                    action="append", default=None, type=str)
 
   parser.add_option("-a", "--chains", help="Plot chains (1/0)", \
                     default=0, type=int)
@@ -149,7 +150,7 @@ def main():
         print('Could not find chain file in ', outdir)
 
     pars = np.loadtxt(outdir + '/pars.txt', dtype=np.unicode_)
-    if opts.info and opts.name != 'all':
+    if opts.info and (opts.name != 'all' or psr_dir == ''):
       print('Parameter names:')
       for par in pars:
         print(par)
@@ -160,12 +161,22 @@ def main():
     # Loading PTMCMC chains
     chain = np.loadtxt(chain_file)
     burn = int(0.25*chain.shape[0])
-    chain_burn = chain[burn:,:]
+    chain_burn = chain[burn:,:-4]
 
     ind_model = list(pars).index('nmodel')
     unique, counts = np.unique(np.round(chain_burn[:, ind_model]),
                                return_counts=True)
     dict_real_counts = dict(zip(unique.astype(int), counts.astype(float)))
+
+    if opts.par is not None:
+      masks = list()
+      for pp in opts.par:
+        masks.append( [True if pp in label else False for label in pars] )
+      par_mask = np.sum(masks, dtype=bool, axis=0)
+      par_out_label = '_'.join(opts.par)
+    else:
+      par_mask = np.repeat(True, len(pars))
+      par_out_label = ''
 
     # Noise files part
     if opts.noisefiles:
@@ -185,13 +196,32 @@ def main():
                 int(combination[0]),': ', logbf)
 
     # Corner plots
-    if opts.corner:
+    if opts.corner == 1:
       for jj in unique:
         model_mask = np.round(chain_burn[:,ind_model]) == jj
-        figure = corner(chain_burn[model_mask,:-4], 30, labels=pars)
-        plt.savefig(outdir_all + '/' + psr_dir + '_' + 'corner_' + str(jj) + \
-                    '.png')
+        chain_plot = chain_burn[model_mask,:]
+        chain_plot = chain_plot[:,par_mask]
+        figure = corner(chain_plot, 30, labels=pars[par_mask])
+        plt.savefig(outdir_all + '/' + psr_dir + '_corner_' + str(jj) + \
+                    '_' + par_out_label + '.png')
         plt.close()
+    elif opts.corner == 2:
+      cobj = ChainConsumer()
+      pars = pars.astype(str)
+      pars = np.array(['$'+pp+'$' for pp in pars],dtype=str)
+      for jj in unique:
+        model_mask = np.round(chain_burn[:,ind_model]) == jj
+        chain_plot = chain_burn[model_mask,:]
+        chain_plot = chain_plot[:,par_mask]
+        cobj.add_chain(chain_plot, name=str(jj),
+                       parameters=pars[par_mask].tolist())
+      cobj.configure(serif=True, label_font_size=12, tick_font_size=12,
+                     legend_color_text=False, legend_artists=True)
+      corner_name = outdir_all + '/' + psr_dir + '_' + par_out_label + '_' + \
+                    '_corner.png'
+      fig = cobj.plotter.plot(filename=corner_name)
+      plt.close()
+        
 
     # MCMC chain plots (evolution in time)
     if opts.chains:
