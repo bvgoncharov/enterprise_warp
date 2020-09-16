@@ -102,6 +102,184 @@ def check_if_psr_dir(folder_name):
   """
   return bool(re.match(r'^\d{1,}_[J,B]\d{2,4}[+,-]\d{4,4}$', folder_name))
 
+class EnterpriseWarpResult(object):
+
+  def __init__(self, opts):
+    self.opts = opts
+    self.iterpret_opts_result()
+    self.get_psr_dirs()
+
+  def main_pipeline(self):
+    for psr_dir in self.psr_dirs:
+
+      self.psr_dir = psr_dir
+      success = self._scan_psr_output()
+      if not success:
+        continue
+
+      if not (self.opts.noisefiles or self.opts.logbf or self.opts.corner or \
+              self.opts.chains):
+        continue
+
+      success = self.load_chains()
+      if not success:
+        continue
+
+      self._get_par_mask()
+      self._make_noisefiles()
+      self._print_logbf()
+      self._make_corner_plot()
+      self._make_chain_plot()
+
+  def _scan_psr_output(self):
+
+    self.outdir = self.outdir_all + '/' + self.psr_dir + '/'
+    if self.opts.name is not 'all' and self.opts.name not in self.psr_dir:
+      return False
+    print('Processing ', self.psr_dir)
+
+    self.get_chain_file_name()
+    self.get_pars()
+
+    return True
+
+  def iterpret_opts_result(self):
+    """ Determine output directory from the --results argument """
+    if os.path.isdir(self.opts.result):
+      self.outdir_all = self.opts.result
+    elif os.path.isfile(self.opts.result):
+      params = enterprise_warp.Params(self.opts.result, init_pulsars=False)
+      self.outdir_all = params.out + params.label_models + '_' + \
+                        params.paramfile_label + '/'
+    else:
+      raise ValueError('--result seems to be neither a file, not a directory')
+
+
+  def get_psr_dirs(self):
+    """ Check if we need to loop over pulsar directories, or not """
+    out_subdirs = np.array(os.listdir(self.outdir_all))
+    psr_dir_mask = [check_if_psr_dir(dd) for dd in out_subdirs]
+    self.psr_dirs = out_subdirs[psr_dir_mask]
+    if self.psr_dirs.size == 0:
+      self.psr_dirs = np.array([''])
+
+
+  def get_chain_file_name(self):
+    if os.path.isfile(self.outdir + '/chain_1.0.txt'):
+      self.chain_file = self.outdir + '/chain_1.0.txt'
+    elif os.path.isfile(self.outdir + '/chain_1.txt'):
+      self.chain_file = self.outdir + '/chain_1.txt'
+    else:
+      self.chain_file = None
+      print('Could not find chain file in ',self.outdir)
+
+    if self.opts.info and self.chain_file is not None:
+      print('Available chain file ', self.chain_file, '(',
+            int(np.round(os.path.getsize(self.chain_file)/1e6)), ' Mb)')
+
+
+  def get_pars(self):
+    self.pars = np.loadtxt(self.outdir + '/pars.txt', dtype=np.unicode_)
+    if self.opts.info and (self.opts.name != 'all' or self.psr_dir == ''):
+      print('Parameter names:')
+      for par in self.pars:
+        print(par)
+
+
+  def load_chains(self):
+    """ Loading PTMCMC chains """
+    self.chain = np.loadtxt(self.chain_file)
+    if len(self.chain)==0:
+      print('Empty chain file in ', self.outdir)
+      return False
+    burn = int(0.25*self.chain.shape[0])
+    self.chain_burn = self.chain[burn:,:-4]
+
+    self.ind_model = list(self.pars).index('nmodel')
+    self.unique, self.counts = np.unique(np.round( \
+                               self.chain_burn[:, self.ind_model]), \
+                               return_counts=True)
+    self.dict_real_counts = dict(zip(self.unique.astype(int),
+                                     self.counts.astype(float)))
+    return True
+
+
+  def _get_par_mask(self):
+    """ Get an array mask to select only parameters chosen with --par """
+    if self.opts.par is not None:
+      masks = list()
+      for pp in self.opts.par:
+        masks.append( [True if pp in label else False for label in self.pars] )
+      self.par_mask = np.sum(masks, dtype=bool, axis=0)
+      self.par_out_label = '_'.join(self.opts.par)
+    else:
+      self.par_mask = np.repeat(True, len(self.pars))
+      self.par_out_label = ''
+
+
+  def _make_noisefiles(self):
+    if self.opts.noisefiles:
+      make_noise_files(self.psr_dir, self.chain_burn, self.pars,
+                       outdir = self.outdir_all + '/noisefiles/')
+
+  def _print_logbf(self):
+    """ Print log Bayes factors (product-space) from PTMCMC on the screen """
+    if self.opts.logbf:
+      print('=====', self.psr_dir, ' model selection results', '=====')
+      print('Samples in favor of models: ', self.dict_real_counts)
+      if len(self.unique) > 1:
+        count_by_pairs = list(itertools.combinations(sorted(self.unique), 2))
+        for combination in count_by_pairs:
+          logbf = np.log(self.dict_real_counts[combination[1]] / \
+                         self.dict_real_counts[combination[0]])
+          print('logBF for ', int(combination[1]), 'over ', \
+                int(combination[0]),': ', logbf)
+
+
+  def _make_corner_plot(self):
+    """ Corner plot for a posterior distribution from the result """
+    if self.opts.corner == 1:
+      for jj in self.unique:
+        model_mask = np.round(self.chain_burn[:,self.ind_model]) == jj
+        chain_plot = self.chain_burn[model_mask,:]
+        chain_plot = chain_plot[:,self.par_mask]
+        figure = corner(chain_plot, 30, labels=self.pars[self.par_mask])
+        plt.savefig(self.outdir_all + '/' + self.psr_dir + '_corner_' + \
+                    str(jj) + '_' + self.par_out_label + '.png')
+        plt.close()
+    elif self.opts.corner == 2:
+      cobj = ChainConsumer()
+      pars = self.pars.astype(str)
+      pars = np.array(['$'+pp+'$' for pp in pars],dtype=str)
+      for jj in self.unique:
+        model_mask = np.round(self.chain_burn[:,self.ind_model]) == jj
+        chain_plot = self.chain_burn[model_mask,:]
+        chain_plot = chain_plot[:,self.par_mask]
+        cobj.add_chain(chain_plot, name=str(jj),
+                       parameters=pars[self.par_mask].tolist())
+      cobj.configure(serif=True, label_font_size=12, tick_font_size=12,
+                     legend_color_text=False, legend_artists=True)
+      corner_name = self.outdir_all + '/' + self.psr_dir + '_' + \
+                    self.par_out_label + '_corner.png'
+      fig = cobj.plotter.plot(filename=corner_name)
+      plt.close()
+
+  def _make_chain_plot(self):
+    """ MCMC chain plots (evolution in time) """
+    if self.opts.chains:
+       thin_factor = 200
+       plt.figure(figsize=[6.4,4.8*len(self.pars)])
+       for pp, par in enumerate(self.pars):
+          plt.subplot(len(self.pars), 1, pp+1)
+          cut_chain = self.chain[::int(self.chain[:,pp].size/thin_factor),pp]
+          plt.plot(cut_chain,label=par)
+          plt.legend()
+          plt.xlabel('Thinned MCMC iterations')
+          plt.ylabel('Value')
+       plt.tight_layout()
+       plt.savefig(self.outdir_all + '/' + self.psr_dir + '_samples_trace_' + \
+                   '.png')
+       plt.close()
 
 def main():
   """
@@ -110,134 +288,140 @@ def main():
 
   opts = parse_commandline()
 
-  # Determine output directory from the --results argument
-  if os.path.isdir(opts.result):
-    outdir_all = opts.result
-  elif os.path.isfile(opts.result):
-    params = enterprise_warp.Params(opts.result, init_pulsars=False)
-    outdir_all = params.out + params.label_models + '_' + \
-                 params.paramfile_label + '/'
-  else:
-    raise ValueError('--result seems to be neither a file, not a directory')
+  result_obj = EnterpriseWarpResult(opts)
+  result_obj.main_pipeline()
 
-  # Check if we need to loop over pulsar directories, or not
-  out_subdirs = np.array(os.listdir(outdir_all))
-  psr_dir_mask = [check_if_psr_dir(dd) for dd in out_subdirs]
-  psr_dirs = out_subdirs[psr_dir_mask]
-  if psr_dirs.size == 0:
-    psr_dirs = np.array([''])
-
-  for psr_dir in psr_dirs:
-
-    outdir = outdir_all + '/' + psr_dir + '/'
-    if opts.name is not 'all' and opts.name not in psr_dir:
-      continue
-    print('Processing ', psr_dir)
-
-    if os.path.isfile(outdir + '/chain_1.0.txt'):
-      chain_file = outdir + '/chain_1.0.txt'
-    elif os.path.isfile(outdir + '/chain_1.txt'):
-      chain_file = outdir + '/chain_1.txt'
-    else:
-      chain_file = None
-      print('Could not find chain file in ',outdir)
-
-    if opts.info:
-      if chain_file is not None:
-        print('Available chain file ', chain_file, '(', 
-              int(np.round(os.path.getsize(chain_file)/1e6)), ' Mb)')
-      else:
-        print('Could not find chain file in ', outdir)
-
-    pars = np.loadtxt(outdir + '/pars.txt', dtype=np.unicode_)
-    if opts.info and (opts.name != 'all' or psr_dir == ''):
-      print('Parameter names:')
-      for par in pars:
-        print(par)
-
-    if not (opts.noisefiles or opts.logbf or opts.corner or opts.chains):
-      continue
-
-    # Loading PTMCMC chains
-    chain = np.loadtxt(chain_file)
-    burn = int(0.25*chain.shape[0])
-    chain_burn = chain[burn:,:-4]
-
-    ind_model = list(pars).index('nmodel')
-    unique, counts = np.unique(np.round(chain_burn[:, ind_model]),
-                               return_counts=True)
-    dict_real_counts = dict(zip(unique.astype(int), counts.astype(float)))
-
-    if opts.par is not None:
-      masks = list()
-      for pp in opts.par:
-        masks.append( [True if pp in label else False for label in pars] )
-      par_mask = np.sum(masks, dtype=bool, axis=0)
-      par_out_label = '_'.join(opts.par)
-    else:
-      par_mask = np.repeat(True, len(pars))
-      par_out_label = ''
-
-    # Noise files part
-    if opts.noisefiles:
-      make_noise_files(psr_dir, chain_burn, pars,
-                       outdir = outdir_all + '/noisefiles/')
-
-    # Bayes Factors
-    if opts.logbf:
-      print('=====', psr_dir, ' model selection results', '=====')
-      print('Samples in favor of models: ', dict_real_counts)
-      if len(unique) > 1:
-        count_by_pairs = list(itertools.combinations(sorted(unique), 2))
-        for combination in count_by_pairs:
-          logbf = np.log(dict_real_counts[combination[1]] / \
-                         dict_real_counts[combination[0]])
-          print('logBF for ', int(combination[1]), 'over ', \
-                int(combination[0]),': ', logbf)
-
-    # Corner plots
-    if opts.corner == 1:
-      for jj in unique:
-        model_mask = np.round(chain_burn[:,ind_model]) == jj
-        chain_plot = chain_burn[model_mask,:]
-        chain_plot = chain_plot[:,par_mask]
-        figure = corner(chain_plot, 30, labels=pars[par_mask])
-        plt.savefig(outdir_all + '/' + psr_dir + '_corner_' + str(jj) + \
-                    '_' + par_out_label + '.png')
-        plt.close()
-    elif opts.corner == 2:
-      cobj = ChainConsumer()
-      pars = pars.astype(str)
-      pars = np.array(['$'+pp+'$' for pp in pars],dtype=str)
-      for jj in unique:
-        model_mask = np.round(chain_burn[:,ind_model]) == jj
-        chain_plot = chain_burn[model_mask,:]
-        chain_plot = chain_plot[:,par_mask]
-        cobj.add_chain(chain_plot, name=str(jj),
-                       parameters=pars[par_mask].tolist())
-      cobj.configure(serif=True, label_font_size=12, tick_font_size=12,
-                     legend_color_text=False, legend_artists=True)
-      corner_name = outdir_all + '/' + psr_dir + '_' + par_out_label + '_' + \
-                    '_corner.png'
-      fig = cobj.plotter.plot(filename=corner_name)
-      plt.close()
-        
-
-    # MCMC chain plots (evolution in time)
-    if opts.chains:
-       thin_factor = 200
-       plt.figure(figsize=[6.4,4.8*len(pars)])
-       for pp, par in enumerate(pars):
-          plt.subplot(len(pars), 1, pp+1)
-          cut_chain = chain[::int(chain[:,pp].size/thin_factor),pp]
-          plt.plot(cut_chain,label=par)
-          plt.legend()
-          plt.xlabel('Thinned MCMC iterations')
-          plt.ylabel('Value')
-       plt.tight_layout()
-       plt.savefig(outdir_all + '/' + psr_dir + '_samples_trace_' + \
-                   '.png')
-       plt.close()
+#  # Determine output directory from the --results argument
+#  if os.path.isdir(opts.result):
+#    outdir_all = opts.result
+#  elif os.path.isfile(opts.result):
+#    params = enterprise_warp.Params(opts.result, init_pulsars=False)
+#    outdir_all = params.out + params.label_models + '_' + \
+#                 params.paramfile_label + '/'
+#  else:
+#    raise ValueError('--result seems to be neither a file, not a directory')
+#
+#  # Check if we need to loop over pulsar directories, or not
+#  out_subdirs = np.array(os.listdir(outdir_all))
+#  psr_dir_mask = [check_if_psr_dir(dd) for dd in out_subdirs]
+#  psr_dirs = out_subdirs[psr_dir_mask]
+#  if psr_dirs.size == 0:
+#    psr_dirs = np.array([''])
+#
+#  for psr_dir in psr_dirs:
+#
+#    outdir = outdir_all + '/' + psr_dir + '/'
+#    if opts.name is not 'all' and opts.name not in psr_dir:
+#      continue
+#    print('Processing ', psr_dir)
+#
+#    if os.path.isfile(outdir + '/chain_1.0.txt'):
+#      chain_file = outdir + '/chain_1.0.txt'
+#    elif os.path.isfile(outdir + '/chain_1.txt'):
+#      chain_file = outdir + '/chain_1.txt'
+#    else:
+#      chain_file = None
+#      print('Could not find chain file in ',outdir)
+#
+#    if opts.info:
+#      if chain_file is not None:
+#        print('Available chain file ', chain_file, '(', 
+#              int(np.round(os.path.getsize(chain_file)/1e6)), ' Mb)')
+#      else:
+#        print('Could not find chain file in ', outdir)
+#
+#    pars = np.loadtxt(outdir + '/pars.txt', dtype=np.unicode_)
+#    if opts.info and (opts.name != 'all' or psr_dir == ''):
+#      print('Parameter names:')
+#      for par in pars:
+#        print(par)
+#
+#    if not (opts.noisefiles or opts.logbf or opts.corner or opts.chains):
+#      continue
+#
+#    # Loading PTMCMC chains
+#    chain = np.loadtxt(chain_file)
+#    if len(chain)==0:
+#      print('Empty chain file in ', outdir)
+#      continue
+#    burn = int(0.25*chain.shape[0])
+#    chain_burn = chain[burn:,:-4]
+#
+#    ind_model = list(pars).index('nmodel')
+#    unique, counts = np.unique(np.round(chain_burn[:, ind_model]),
+#                               return_counts=True)
+#    dict_real_counts = dict(zip(unique.astype(int), counts.astype(float)))
+#
+#    if opts.par is not None:
+#      masks = list()
+#      for pp in opts.par:
+#        masks.append( [True if pp in label else False for label in pars] )
+#      par_mask = np.sum(masks, dtype=bool, axis=0)
+#      par_out_label = '_'.join(opts.par)
+#    else:
+#      par_mask = np.repeat(True, len(pars))
+#      par_out_label = ''
+#
+#    # Noise files part
+#    if opts.noisefiles:
+#      make_noise_files(psr_dir, chain_burn, pars,
+#                       outdir = outdir_all + '/noisefiles/')
+#
+#    # Bayes Factors
+#    if opts.logbf:
+#      print('=====', psr_dir, ' model selection results', '=====')
+#      print('Samples in favor of models: ', dict_real_counts)
+#      if len(unique) > 1:
+#        count_by_pairs = list(itertools.combinations(sorted(unique), 2))
+#        for combination in count_by_pairs:
+#          logbf = np.log(dict_real_counts[combination[1]] / \
+#                         dict_real_counts[combination[0]])
+#          print('logBF for ', int(combination[1]), 'over ', \
+#                int(combination[0]),': ', logbf)
+#
+#    # Corner plots
+#    if opts.corner == 1:
+#      for jj in unique:
+#        model_mask = np.round(chain_burn[:,ind_model]) == jj
+#        chain_plot = chain_burn[model_mask,:]
+#        chain_plot = chain_plot[:,par_mask]
+#        figure = corner(chain_plot, 30, labels=pars[par_mask])
+#        plt.savefig(outdir_all + '/' + psr_dir + '_corner_' + str(jj) + \
+#                    '_' + par_out_label + '.png')
+#        plt.close()
+#    elif opts.corner == 2:
+#      cobj = ChainConsumer()
+#      pars = pars.astype(str)
+#      pars = np.array(['$'+pp+'$' for pp in pars],dtype=str)
+#      for jj in unique:
+#        model_mask = np.round(chain_burn[:,ind_model]) == jj
+#        chain_plot = chain_burn[model_mask,:]
+#        chain_plot = chain_plot[:,par_mask]
+#        cobj.add_chain(chain_plot, name=str(jj),
+#                       parameters=pars[par_mask].tolist())
+#      cobj.configure(serif=True, label_font_size=12, tick_font_size=12,
+#                     legend_color_text=False, legend_artists=True)
+#      corner_name = outdir_all + '/' + psr_dir + '_' + par_out_label + '_' + \
+#                    '_corner.png'
+#      fig = cobj.plotter.plot(filename=corner_name)
+#      plt.close()
+#        
+#
+#    # MCMC chain plots (evolution in time)
+#    if opts.chains:
+#       thin_factor = 200
+#       plt.figure(figsize=[6.4,4.8*len(pars)])
+#       for pp, par in enumerate(pars):
+#          plt.subplot(len(pars), 1, pp+1)
+#          cut_chain = chain[::int(chain[:,pp].size/thin_factor),pp]
+#          plt.plot(cut_chain,label=par)
+#          plt.legend()
+#          plt.xlabel('Thinned MCMC iterations')
+#          plt.ylabel('Value')
+#       plt.tight_layout()
+#       plt.savefig(outdir_all + '/' + psr_dir + '_samples_trace_' + \
+#                   '.png')
+#       plt.close()
 
 
 if __name__=='__main__':

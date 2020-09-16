@@ -137,7 +137,8 @@ class Params(object):
         if len(datatypes)==1 and len(data)>1:
           datatypes = [datatypes[0] for dd in data]
 
-        values = [(datatypes[i](data[i])) for i in range(len(data))]
+        values = [(datatypes[i](data[i])) if not datatypes[i] is type(None) \
+                  else int(data[i]) for i in range(len(data))]
 
         # Adding sampler kwargs to self.label_attr_map
         if attr == 'sampler' and 'bimpler' in globals():
