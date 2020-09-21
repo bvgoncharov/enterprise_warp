@@ -309,6 +309,9 @@ class StandardModels(object):
                                     self.params.gwb_gamma[1])
     elif "fixed_gamma" in option:
       gwb_gamma = parameter.Constant(4.33)
+    elif "_gamma" in option:
+      split_idx_gamma = option.split('_').index('gamma') - 1
+      gwb_gamma = parameter.Constant(float(option.split('_')[split_idx_gamma]))
     gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
 
     nfreqs = self.determine_nfreqs(sel_func_name=None, common_signal=True)

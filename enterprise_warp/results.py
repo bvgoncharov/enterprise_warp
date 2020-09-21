@@ -188,7 +188,11 @@ class EnterpriseWarpResult(object):
 
   def load_chains(self):
     """ Loading PTMCMC chains """
-    self.chain = np.loadtxt(self.chain_file)
+    try:
+      self.chain = np.loadtxt(self.chain_file)
+    except:
+      print('Could not load file ', self.chain_file)
+      return False
     if len(self.chain)==0:
       print('Empty chain file in ', self.outdir)
       return False
