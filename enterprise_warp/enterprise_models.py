@@ -302,16 +302,20 @@ class StandardModels(object):
     Spatially-correlated quadrupole signal from the nanohertz stochastic
     gravitational-wave background.
     """
+    name = 'gw'
+    amp_name = '{}_log10_A'.format(name)
+    gam_name = '{}_gamma'.format(name)
     gwb_log10_A = parameter.Uniform(self.params.gwb_lgA[0],
-                                    self.params.gwb_lgA[1])
+                                    self.params.gwb_lgA[1])(amp_name)
     if "vary_gamma" in option:
       gwb_gamma = parameter.Uniform(self.params.gwb_gamma[0],
-                                    self.params.gwb_gamma[1])
+                                    self.params.gwb_gamma[1])(gam_name)
     elif "fixed_gamma" in option:
-      gwb_gamma = parameter.Constant(4.33)
+      gwb_gamma = parameter.Constant(4.33)(gam_name)
     elif "_gamma" in option:
       split_idx_gamma = option.split('_').index('gamma') - 1
-      gwb_gamma = parameter.Constant(float(option.split('_')[split_idx_gamma]))
+      gamma_val = float(option.split('_')[split_idx_gamma])
+      gwb_gamma = parameter.Constant(gamma_val)(gam_name)
     gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
 
     nfreqs = self.determine_nfreqs(sel_func_name=None, common_signal=True)

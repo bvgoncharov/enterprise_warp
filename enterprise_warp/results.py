@@ -5,6 +5,7 @@ from chainconsumer import ChainConsumer
 
 import os
 import re
+import json
 import optparse
 import itertools
 import numpy as np
@@ -74,7 +75,7 @@ def estimate_from_distribution(values, method='mode'):
   if method == 'median':
     return np.median(values)
   elif method == 'mode':
-    nb, bins, patches = plt.hist(chain[:,ct], bins=50)
+    nb, bins, patches = plt.hist(values, bins=50)
     plt.close()
     return bins[np.argmax(nb)]
 
@@ -100,7 +101,8 @@ def check_if_psr_dir(folder_name):
   Check if the folder name (without path) is in the enterprise_warp format: 
   integer, underscore, pulsar name.
   """
-  return bool(re.match(r'^\d{1,}_[J,B]\d{2,4}[+,-]\d{4,4}$', folder_name))
+  return bool(re.match(r'^\d{1,}_[J,B]\d{2,4}[+,-]\d{4,4}[A,B]{0,1}$', 
+                       folder_name))
 
 class EnterpriseWarpResult(object):
 
