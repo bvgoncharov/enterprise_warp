@@ -3,7 +3,7 @@ import enterprise.constants as const
 from enterprise.signals import signal_base
 from enterprise.signals import utils
 #import model_constants as mc
-from enterprise_extensions import models
+from enterprise.signals import gp_bases
 import enterprise.signals.parameter as parameter
 import enterprise.signals.gp_signals as gp_signals
 import enterprise.signals.deterministic_signals as deterministic_signals
@@ -210,7 +210,7 @@ class StandardModels(object):
     else:
       idx = option
 
-    chr_basis = models.createfourierdesignmatrix_chromatic(nmodes=nfreqs,
+    chr_basis = gp_bases.createfourierdesignmatrix_chromatic(nmodes=nfreqs,
                                                    Tspan=self.params.Tspan,
                                                    idx=idx)
 
