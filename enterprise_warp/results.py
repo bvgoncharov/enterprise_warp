@@ -1,5 +1,7 @@
 import matplotlib
 matplotlib.use('Agg')
+from matplotlib import rcParams
+rcParams['text.latex.preamble'] = r'\newcommand{\mathdefault}[1][]{}'
 import matplotlib.pyplot as plt
 from chainconsumer import ChainConsumer
 

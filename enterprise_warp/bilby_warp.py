@@ -14,7 +14,8 @@ class PTABilbyLikelihood(bilby.Likelihood):
     def __init__(self, pta, parameters):
         self.pta = pta
         self.parameters = parameters
-        
+        self._marginalized_parameters = []
+
     def log_likelihood(self):
         return self.pta.get_lnlikelihood(self.parameters)
 
