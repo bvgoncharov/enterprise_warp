@@ -276,14 +276,17 @@ class EnterpriseWarpResult(object):
     """ MCMC chain plots (evolution in time) """
     if self.opts.chains:
        thin_factor = 200
-       plt.figure(figsize=[6.4,4.8*len(self.pars)])
+       x_tiles = np.floor(len(self.pars)**0.5)
+       y_tiles = np.ceil(len(self.pars)/x_tiles)
+       plt.figure(figsize=[6.4*x_tiles,4.8*y_tiles])
        for pp, par in enumerate(self.pars):
-          plt.subplot(len(self.pars), 1, pp+1)
+          plt.subplot(x_tiles, y_tiles, pp + 1)
           cut_chain = self.chain[::int(self.chain[:,pp].size/thin_factor),pp]
-          plt.plot(cut_chain,label=par)
+          plt.plot(cut_chain,label=par.replace('_','\n'))
           plt.legend()
           plt.xlabel('Thinned MCMC iterations')
           plt.ylabel('Value')
+       plt.subplots_adjust(wspace=0.)
        plt.tight_layout()
        plt.savefig(self.outdir_all + '/' + self.psr_dir + '_samples_trace_' + \
                    '.png')
