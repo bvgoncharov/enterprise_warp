@@ -4,6 +4,7 @@ from enterprise.signals import signal_base
 from enterprise.signals import utils
 #import model_constants as mc
 from enterprise.signals import gp_bases
+from enterprise.signals import gp_priors
 import enterprise.signals.parameter as parameter
 import enterprise.signals.gp_signals as gp_signals
 import enterprise.signals.deterministic_signals as deterministic_signals
@@ -74,6 +75,8 @@ class StandardModels(object):
       "syn_lgA": [-20., -6.],
       "syn_gamma": [0., 10.],
       "gwb_lgA": [-20., -6.],
+      "gwb_lgA_prior": "uniform",
+      "gwb_lgrho": [-10., -4.],
       "gwb_gamma": [0., 10.],
       "red_general_freqs": "tobs_60days",
       "red_general_nfouriercomp": 2
@@ -303,22 +306,39 @@ class StandardModels(object):
     gravitational-wave background.
     """
     name = 'gw'
-    amp_name = '{}_log10_A'.format(name)
-    gam_name = '{}_gamma'.format(name)
-    gwb_log10_A = parameter.Uniform(self.params.gwb_lgA[0],
-                                    self.params.gwb_lgA[1])(amp_name)
-    if "vary_gamma" in option:
-      gwb_gamma = parameter.Uniform(self.params.gwb_gamma[0],
-                                    self.params.gwb_gamma[1])(gam_name)
-    elif "fixed_gamma" in option:
-      gwb_gamma = parameter.Constant(4.33)(gam_name)
-    elif "_gamma" in option:
-      split_idx_gamma = option.split('_').index('gamma') - 1
-      gamma_val = float(option.split('_')[split_idx_gamma])
-      gwb_gamma = parameter.Constant(gamma_val)(gam_name)
-    gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
 
-    nfreqs = self.determine_nfreqs(sel_func_name=None, common_signal=True)
+    if "_nfreqs" in option:
+      split_idx_nfreqs = option.split('_').index('nfreqs') - 1
+      nfreqs = int(option.split('_')[split_idx_nfreqs])
+    else:
+      nfreqs = self.determine_nfreqs(sel_func_name=None, common_signal=True)
+
+    if "_gamma" in option:
+      amp_name = '{}_log10_A'.format(name)
+      if self.params.gwb_lgA_prior == "uniform":
+        gwb_log10_A = parameter.Uniform(self.params.gwb_lgA[0],
+                                        self.params.gwb_lgA[1])(amp_name)
+      elif self.params.gwb_lgA_prior == "linexp":
+        gwb_log10_A = parameter.LinearExp(self.params.gwb_lgA[0],
+                                          self.params.gwb_lgA[1])(amp_name)
+
+      gam_name = '{}_gamma'.format(name)
+      if "vary_gamma" in option:
+        gwb_gamma = parameter.Uniform(self.params.gwb_gamma[0],
+                                      self.params.gwb_gamma[1])(gam_name)
+      elif "fixed_gamma" in option:
+        gwb_gamma = parameter.Constant(4.33)(gam_name)
+      else:
+        split_idx_gamma = option.split('_').index('gamma') - 1
+        gamma_val = float(option.split('_')[split_idx_gamma])
+        gwb_gamma = parameter.Constant(gamma_val)(gam_name)
+      gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
+    elif "freesp" in option:
+      amp_name = '{}_log10_rho'.format(name)
+      log10_rho = parameter.Uniform(self.params.gwb_lgrho[0], 
+                                    self.params.gwb_lgrho[1], 
+                                    size=nfreqs)(amp_name)
+      gwb_pl = gp_priors.free_spectrum(log10_rho=log10_rho)
 
     if "hd" in option:
       orf = utils.hd_orf()

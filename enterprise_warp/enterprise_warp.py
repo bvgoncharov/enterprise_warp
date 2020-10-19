@@ -409,6 +409,8 @@ def init_pta(params_all):
     # Adding common noise terms for all pulsars
     # Only those common signals are added that are listed in the noise model
     # file, getting Enterprise models from the noise model object.
+    if 'm_all' in locals():
+      del m_all
     for psp, option in params.common_signals.items():
       if 'm_all' in locals():
         m_all += getattr(allpsr_model, psp)(option=option)
