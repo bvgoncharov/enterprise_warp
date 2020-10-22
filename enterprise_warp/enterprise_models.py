@@ -312,6 +312,7 @@ class StandardModels(object):
       nfreqs = int(option.split('_')[split_idx_nfreqs])
     else:
       nfreqs = self.determine_nfreqs(sel_func_name=None, common_signal=True)
+    print('Number of Fourier frequencies for the GWB/CPL signal: ', nfreqs)
 
     if "_gamma" in option:
       amp_name = '{}_log10_A'.format(name)
@@ -341,7 +342,23 @@ class StandardModels(object):
       gwb_pl = gp_priors.free_spectrum(log10_rho=log10_rho)
 
     if "hd" in option:
+      print('Adding HD ORF')
       orf = utils.hd_orf()
+      gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
+                                            name='gwb', Tspan=self.params.Tspan)
+    elif "mono" in option:
+      print('Adding monopole ORF')
+      orf = utils.monopole_orf()
+      gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
+                                            name='gwb', Tspan=self.params.Tspan)
+    elif "dipo" in option:
+      print('Adding dipole ORF')
+      orf = utils.dipole_orf()
+      gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
+                                            name='gwb', Tspan=self.params.Tspan)
+    elif "varorf" in option:
+      corr_coeff = parameter.Uniform(-1., 1., size=7)('corr_coeff')
+      orf = infer_orf(corr_coeff=corr_coeff)
       gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
                                             name='gwb', Tspan=self.params.Tspan)
     else:
@@ -486,6 +503,19 @@ def powerlaw_bpl(f, log10_A=-16, gamma=5, fc=-9, components=2):
     if fc < 0 : fc = 10**fc
     return ((10**log10_A)**2 / 12.0 / np.pi**2 *
             const.fyr**(-3) * ((f+fc)/const.fyr)**(-gamma) * np.repeat(df, components))
+
+@parameter_function
+def infer_orf(pos1, pos2, corr_coeff=np.zeros(7)):
+    """
+    Approximation of spatial correlations at seven angles, with borders at
+    30 degrees. 
+    """
+    if np.all(pos1 == pos2):
+        return 1.
+    else:
+        eta = np.arccos(np.dot(pos1, pos2))
+        idx = np.round( eta / np.pi * 180/30.).astype(int)
+        return corr_coeff[idx]
 
 # Selection functions
 

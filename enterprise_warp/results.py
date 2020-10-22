@@ -53,12 +53,45 @@ def parse_commandline():
   parser.add_option("-f", "--noisefiles", help="Make noisefiles (1/0)", \
                     default=0, type=int)
 
+  parser.add_option("-l", "--credlevels", help="Credible levels (1/0)", \
+                    default=0, type=int)
+
   opts, args = parser.parse_args()
 
   return opts
 
 
-def estimate_from_distribution(values, method='mode'):
+def dist_mode_position(values, nbins=50):
+  """
+  Parameters
+  ----------
+  values: float
+    Values of a distribution
+  method: int
+    Approximating a distribution with a histogram with this number of bins
+
+  Returns
+  -------
+  value : float
+    Position of the largest frequency bin
+  """
+  nb, bins, patches = plt.hist(values, bins=nbins)
+  plt.close()
+  return bins[np.argmax(nb)]
+
+def suitable_estimator(levels, errorbars_cdf = [16,84]):
+  """
+  Returns maximum-posterior value (posterior mode position) if it is within
+  credible levels, otherwise returns 50%-CDF value.
+  The function complements estimate_from_distribution().
+  """
+  if levels['maximum'] < levels[str(errorbars_cdf[1])] and \
+     levels['maximum'] > levels[str(errorbars_cdf[0])]:
+    return levels['maximum'], 'maximum'
+  else:
+    return levels['50'], '50'
+
+def estimate_from_distribution(values, method='mode', errorbars_cdf = [16,84]):
   """
   Return estimate of a value from a distribution (i.e., an MCMC posterior)
 
@@ -77,25 +110,32 @@ def estimate_from_distribution(values, method='mode'):
   if method == 'median':
     return np.median(values)
   elif method == 'mode':
-    nb, bins, patches = plt.hist(values, bins=50)
-    plt.close()
-    return bins[np.argmax(nb)]
-
+    return dist_mode_position(values)
+  elif method == 'credlvl':
+    levels = dict()
+    levels['median'] = np.median(values)
+    levels['maximum'] = dist_mode_position(values)
+    levels[str(errorbars_cdf[0])] = \
+           np.percentile(values, errorbars_cdf[0], axis=0)
+    levels[str(errorbars_cdf[1])] = \
+           np.percentile(values, errorbars_cdf[1], axis=0)
+    levels[str(50)] = np.percentile(values, 50, axis=0)
+    return levels
 
 def make_noise_files(psrname, chain, pars, outdir='noisefiles/',
-                     method='mode'):
+                     method='mode', postfix='noise'):
   """
   Create noise files from a given MCMC or nested sampling chain.
   Noise file is a dict that assigns a characteristic value (mode/median)
   to a parameter from the distribution of parameter values in a chain.
   """
-  x = {}
+  xx = {}
   for ct, par in enumerate(pars):
-    x[par] = estimate_from_distribution(chain[:,ct], method=method)
+    xx[par] = estimate_from_distribution(chain[:,ct], method=method)
 
   os.system('mkdir -p {}'.format(outdir))
-  with open(outdir + '/{}_noise.json'.format(psrname), 'w') as fout:
-      json.dump(x, fout, sort_keys=True, indent=4, separators=(',', ': '))
+  with open(outdir + '/' + psrname + '_' + postfix + '.json', 'w') as fout:
+      json.dump(xx, fout, sort_keys=True, indent=4, separators=(',', ': '))
 
 
 def check_if_psr_dir(folder_name):
@@ -131,6 +171,7 @@ class EnterpriseWarpResult(object):
 
       self._get_par_mask()
       self._make_noisefiles()
+      self._get_credible_levels()
       self._print_logbf()
       self._make_corner_plot()
       self._make_chain_plot()
@@ -229,6 +270,12 @@ class EnterpriseWarpResult(object):
     if self.opts.noisefiles:
       make_noise_files(self.psr_dir, self.chain_burn, self.pars,
                        outdir = self.outdir_all + '/noisefiles/')
+
+  def _get_credible_levels(self):
+    if self.opts.credlevels:
+      make_noise_files(self.psr_dir, self.chain_burn, self.pars,
+                       outdir = self.outdir_all + '/noisefiles/', 
+                       postfix = 'credlvl', method='credlvl')
 
   def _print_logbf(self):
     """ Print log Bayes factors (product-space) from PTMCMC on the screen """
