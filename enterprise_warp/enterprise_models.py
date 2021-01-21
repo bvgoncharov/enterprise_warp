@@ -144,6 +144,27 @@ class StandardModels(object):
     ecs = white_signals.EcorrKernelNoise(log10_ecorr=ecorrpr,selection=se)
     return ecs
 
+  def option_nfreqs(self, option, sel_func_name=None, selection_flag=None):
+    """
+    Selecting and removing nfreqs from option, otherwise from 1/Tobs to 1/60days
+    """
+    condition = type(option) is str and "_nfreqs" in option
+    if condition:
+      op_sp = option.split('_')
+      split_idx_nfreqs = op_sp.index('nfreqs') - 1
+      nfreqs = int(op_sp[split_idx_nfreqs])
+      del op_sp[split_idx_nfreqs]
+      del op_sp[op_sp.index('nfreqs')]
+      option = '_'.join(op_sp)
+      if option.replace('.','',1).isdigit():
+        option = float(option)
+    if selection_flag is not None:
+      self.psr.sys_flags.append(selection_flag)
+      self.psr.sys_flagvals.append(option)
+    if not condition:
+      nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name)
+    return option, nfreqs
+
   def spin_noise(self,option="powerlaw"):
     """
     Achromatic red noise process is called spin noise, although generally
@@ -153,6 +174,7 @@ class StandardModels(object):
     """
     log10_A = parameter.Uniform(self.params.sn_lgA[0],self.params.sn_lgA[1])
     gamma = parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1])
+    option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
     if option=="powerlaw":
       pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
                           components=self.params.red_general_nfouriercomp)
@@ -160,7 +182,6 @@ class StandardModels(object):
       fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
       pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
                         components=self.params.red_general_nfouriercomp)
-    nfreqs = self.determine_nfreqs(sel_func_name=None)
     sn = gp_signals.FourierBasisGP(spectrum=pl, Tspan=self.params.Tspan,
                                    name='red_noise', components=nfreqs)
     return sn
@@ -173,6 +194,7 @@ class StandardModels(object):
     """
     log10_A = parameter.Uniform(self.params.dmn_lgA[0],self.params.dmn_lgA[1])
     gamma = parameter.Uniform(self.params.dmn_gamma[0],self.params.dmn_gamma[1])
+    option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
     if option=="powerlaw":
       pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
                           components=self.params.red_general_nfouriercomp)
@@ -180,7 +202,6 @@ class StandardModels(object):
       fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
       pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
                         components=self.params.red_general_nfouriercomp)
-    nfreqs = self.determine_nfreqs(sel_func_name=None)
     dm_basis = utils.createfourierdesignmatrix_dm(nmodes = nfreqs,
                                                   Tspan=self.params.Tspan,
                                                   fref=self.params.fref)
@@ -203,10 +224,20 @@ class StandardModels(object):
     """
     log10_A = parameter.Uniform(self.params.dmn_lgA[0],self.params.dmn_lgA[1])
     gamma = parameter.Uniform(self.params.dmn_gamma[0],self.params.dmn_gamma[1])
-    pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
+    option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
+    if type(option) is str and "turnover" in option:
+      fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
+      pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
                         components=self.params.red_general_nfouriercomp)
-    nfreqs = self.determine_nfreqs(sel_func_name=None)
+      option_split = option.split("_")
+      del option_split[option_split.index("turnover")]
+      option = "_".join(option_split)
+      if option.isdigit(): option = float(option)
+    else:
+      pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
+                          components=self.params.red_general_nfouriercomp)
 
+    #idx_code = option.split"_").index("idx") + 1
     if option=="vary":
       idx = parameter.Uniform(self.params.chrom_idx[0], \
                               self.params.chrom_idx[1])
@@ -234,14 +265,14 @@ class StandardModels(object):
                                 self.params.syn_gamma[1])
       pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
                           components=self.params.red_general_nfouriercomp)
-  
+ 
       selection_function_name = 'sys_noise_selection_'+str(self.sys_noise_count)
-      setattr(self, selection_function_name, 
+      setattr(self, selection_function_name,
               selection_factory(selection_function_name))
-      self.psr.sys_flags.append('group')
-      self.psr.sys_flagvals.append(sys_noise_term)
+      sys_noise_term, nfreqs = self.option_nfreqs(sys_noise_term, \
+                                    selection_flag='group', \
+                                    sel_func_name=selection_function_name)
 
-      nfreqs = self.determine_nfreqs(sel_func_name=selection_function_name)
       tspan = self.determine_tspan(sel_func_name=selection_function_name)
 
       syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=tspan,
@@ -270,17 +301,24 @@ class StandardModels(object):
       log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
       gamma = parameter.Uniform(self.params.syn_gamma[0],\
                                 self.params.syn_gamma[1])
-      pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-                          components=self.params.red_general_nfouriercomp)
-
       selection_function_name = 'band_noise_selection_' + \
                                 str(self.sys_noise_count)
       setattr(self, selection_function_name,
               selection_factory(selection_function_name))
-      self.psr.sys_flags.append('B')
-      self.psr.sys_flagvals.append(band_term)
+      band_term, nfreqs = self.option_nfreqs(band_term, \
+                                      selection_flag='B', \
+                                      sel_func_name=selection_function_name)
+      if "turnover" in band_term:
+        fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
+        pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
+                          components=self.params.red_general_nfouriercomp)
+        option_split = band_term.split("_")
+        del option_split[option_split.index("turnover")]
+        band_term = "_".join(option_split)
+      else:
+        pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
+                            components=self.params.red_general_nfouriercomp)
 
-      nfreqs = self.determine_nfreqs(sel_func_name=selection_function_name)
       tspan = self.determine_tspan(sel_func_name=selection_function_name)
 
       syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=tspan,
@@ -306,66 +344,84 @@ class StandardModels(object):
     gravitational-wave background.
     """
     name = 'gw'
-
-    if "_nfreqs" in option:
-      split_idx_nfreqs = option.split('_').index('nfreqs') - 1
-      nfreqs = int(option.split('_')[split_idx_nfreqs])
-    else:
-      nfreqs = self.determine_nfreqs(sel_func_name=None, common_signal=True)
-    print('Number of Fourier frequencies for the GWB/CPL signal: ', nfreqs)
-
-    if "_gamma" in option:
-      amp_name = '{}_log10_A'.format(name)
-      if self.params.gwb_lgA_prior == "uniform":
-        gwb_log10_A = parameter.Uniform(self.params.gwb_lgA[0],
-                                        self.params.gwb_lgA[1])(amp_name)
-      elif self.params.gwb_lgA_prior == "linexp":
-        gwb_log10_A = parameter.LinearExp(self.params.gwb_lgA[0],
-                                          self.params.gwb_lgA[1])(amp_name)
-
-      gam_name = '{}_gamma'.format(name)
-      if "vary_gamma" in option:
-        gwb_gamma = parameter.Uniform(self.params.gwb_gamma[0],
-                                      self.params.gwb_gamma[1])(gam_name)
-      elif "fixed_gamma" in option:
-        gwb_gamma = parameter.Constant(4.33)(gam_name)
+    optsp = option.split('+')
+    for option in optsp:
+      if "_nfreqs" in option:
+        split_idx_nfreqs = option.split('_').index('nfreqs') - 1
+        nfreqs = int(option.split('_')[split_idx_nfreqs])
       else:
-        split_idx_gamma = option.split('_').index('gamma') - 1
-        gamma_val = float(option.split('_')[split_idx_gamma])
-        gwb_gamma = parameter.Constant(gamma_val)(gam_name)
-      gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
-    elif "freesp" in option:
-      amp_name = '{}_log10_rho'.format(name)
-      log10_rho = parameter.Uniform(self.params.gwb_lgrho[0], 
-                                    self.params.gwb_lgrho[1], 
-                                    size=nfreqs)(amp_name)
-      gwb_pl = gp_priors.free_spectrum(log10_rho=log10_rho)
+        nfreqs = self.determine_nfreqs(sel_func_name=None, common_signal=True)
+      print('Number of Fourier frequencies for the GWB/CPL signal: ', nfreqs)
+  
+      if "_gamma" in option:
+        amp_name = '{}_log10_A'.format(name)
+        if (len(optsp) > 1 and 'hd' in option) or ('namehd' in option):
+          amp_name += '_hd'
+        elif (len(optsp) > 1 and ('varorf' in option or \
+                                  'interporf' in option)) \
+                                  or ('nameorf' in option):
+          amp_name += '_orf'
+        if self.params.gwb_lgA_prior == "uniform":
+          gwb_log10_A = parameter.Uniform(self.params.gwb_lgA[0],
+                                          self.params.gwb_lgA[1])(amp_name)
+        elif self.params.gwb_lgA_prior == "linexp":
+          gwb_log10_A = parameter.LinearExp(self.params.gwb_lgA[0],
+                                            self.params.gwb_lgA[1])(amp_name)
+  
+        gam_name = '{}_gamma'.format(name)
+        if "vary_gamma" in option:
+          gwb_gamma = parameter.Uniform(self.params.gwb_gamma[0],
+                                        self.params.gwb_gamma[1])(gam_name)
+        elif "fixed_gamma" in option:
+          gwb_gamma = parameter.Constant(4.33)(gam_name)
+        else:
+          split_idx_gamma = option.split('_').index('gamma') - 1
+          gamma_val = float(option.split('_')[split_idx_gamma])
+          gwb_gamma = parameter.Constant(gamma_val)(gam_name)
+        gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
+      elif "freesp" in option:
+        amp_name = '{}_log10_rho'.format(name)
+        log10_rho = parameter.Uniform(self.params.gwb_lgrho[0], 
+                                      self.params.gwb_lgrho[1], 
+                                      size=nfreqs)(amp_name)
+        gwb_pl = gp_priors.free_spectrum(log10_rho=log10_rho)
+  
+      if "hd" in option:
+        print('Adding HD ORF')
+        if "noauto" in option:
+          print('Removing auto-correlation')
+          orf = hd_orf_noauto()
+        else:
+          orf = utils.hd_orf()
+        if len(optsp) > 1 or 'namehd' in option:
+          gwname = 'gwb_hd'
+        else:
+          gwname = 'gwb'
+        gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
+                                              name=gwname, 
+                                              Tspan=self.params.Tspan)
+      elif "mono" in option:
+        print('Adding monopole ORF')
+        orf = utils.monopole_orf()
+        gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
+                                              name='gwb', 
+                                              Tspan=self.params.Tspan)
+      elif "dipo" in option:
+        print('Adding dipole ORF')
+        orf = utils.dipole_orf()
+        gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
+                                              name='gwb', 
+                                              Tspan=self.params.Tspan)
 
-    if "hd" in option:
-      print('Adding HD ORF')
-      orf = utils.hd_orf()
-      gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                            name='gwb', Tspan=self.params.Tspan)
-    elif "mono" in option:
-      print('Adding monopole ORF')
-      orf = utils.monopole_orf()
-      gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                            name='gwb', Tspan=self.params.Tspan)
-    elif "dipo" in option:
-      print('Adding dipole ORF')
-      orf = utils.dipole_orf()
-      gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                            name='gwb', Tspan=self.params.Tspan)
-    elif "varorf" in option:
-      corr_coeff = parameter.Uniform(-1., 1., size=7)('corr_coeff')
-      orf = infer_orf(corr_coeff=corr_coeff)
-      gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                            name='gwb', Tspan=self.params.Tspan)
-    else:
-      gwb = gp_signals.FourierBasisGP(gwb_pl, components=nfreqs,
-                                      name='gwb', Tspan=self.params.Tspan)
-
-    return gwb
+      else:
+        gwb = gp_signals.FourierBasisGP(gwb_pl, components=nfreqs,
+                                        name='gwb', Tspan=self.params.Tspan)
+      if 'gwb_total' in locals():
+        gwb_total += gwb
+      else:
+        gwb_total = gwb
+ 
+    return gwb_total
 
   def bayes_ephem(self,option="default"):
     """
@@ -505,17 +561,13 @@ def powerlaw_bpl(f, log10_A=-16, gamma=5, fc=-9, components=2):
             const.fyr**(-3) * ((f+fc)/const.fyr)**(-gamma) * np.repeat(df, components))
 
 @parameter_function
-def infer_orf(pos1, pos2, corr_coeff=np.zeros(7)):
-    """
-    Approximation of spatial correlations at seven angles, with borders at
-    30 degrees. 
-    """
+def hd_orf_noauto(pos1, pos2):
+    """Hellings & Downs spatial correlation function."""
     if np.all(pos1 == pos2):
-        return 1.
+        return 0
     else:
-        eta = np.arccos(np.dot(pos1, pos2))
-        idx = np.round( eta / np.pi * 180/30.).astype(int)
-        return corr_coeff[idx]
+        omc2 = (1 - np.dot(pos1, pos2)) / 2
+        return 1.5 * omc2 * np.log(omc2) - 0.25 * omc2 + 0.5
 
 # Selection functions
 

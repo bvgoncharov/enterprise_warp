@@ -3,15 +3,21 @@ matplotlib.use('Agg')
 #from matplotlib import rcParams
 #rcParams['text.latex.preamble'] = r'\newcommand{\mathdefault}[1][]{}'
 import matplotlib.pyplot as plt
-from chainconsumer import ChainConsumer
 
 import os
 import re
 import json
+import shutil
+import pickle
 import optparse
 import itertools
 import numpy as np
+import scipy as sp
+import pandas as pd
 from corner import corner
+from datetime import datetime
+from chainconsumer import ChainConsumer
+from dateutil.parser import parse as pdate
 
 from . import enterprise_warp
 
@@ -55,6 +61,18 @@ def parse_commandline():
 
   parser.add_option("-l", "--credlevels", help="Credible levels (1/0)", \
                     default=0, type=int)
+
+  parser.add_option("-m", "--covm", help="Collect PTMCMCSampler covariance \
+                    matrices (1/0)", default=0, type=int)
+
+  parser.add_option("-u", "--separate_earliest", help="Separate the first MCMC \
+                    samples (fraction). Optional: add --par to also separate \
+                    the chain with only --par columns.", default=0., type=float)
+
+  parser.add_option("-s", "--load_separated", help="Attempt to load separated \
+                    chain files with names chain_DATETIME(14-symb)_PARS.txt. \
+                    If --par are supplied, load only files with --par \
+                    columns.", default=0, type=int)
 
   opts, args = parser.parse_args()
 
@@ -154,12 +172,15 @@ class EnterpriseWarpResult(object):
     self.get_psr_dirs()
 
   def main_pipeline(self):
+    self._reset_covm()
     for psr_dir in self.psr_dirs:
 
       self.psr_dir = psr_dir
       success = self._scan_psr_output()
       if not success:
         continue
+
+      self._get_covm()
 
       if not (self.opts.noisefiles or self.opts.logbf or self.opts.corner or \
               self.opts.chains):
@@ -169,12 +190,14 @@ class EnterpriseWarpResult(object):
       if not success:
         continue
 
-      self._get_par_mask()
+      self._separate_earliest()
       self._make_noisefiles()
       self._get_credible_levels()
       self._print_logbf()
       self._make_corner_plot()
       self._make_chain_plot()
+
+    self._save_covm()
 
   def _scan_psr_output(self):
 
@@ -183,8 +206,8 @@ class EnterpriseWarpResult(object):
       return False
     print('Processing ', self.psr_dir)
 
-    self.get_chain_file_name()
     self.get_pars()
+    self.get_chain_file_name()
 
     return True
 
@@ -210,13 +233,30 @@ class EnterpriseWarpResult(object):
 
 
   def get_chain_file_name(self):
-    if os.path.isfile(self.outdir + '/chain_1.0.txt'):
-      self.chain_file = self.outdir + '/chain_1.0.txt'
-    elif os.path.isfile(self.outdir + '/chain_1.txt'):
-      self.chain_file = self.outdir + '/chain_1.txt'
+    if self.opts.load_separated:
+      outdirfiles = next(os.walk(self.outdir))[2]
+      self.chain_file = list()
+      for ff in outdirfiles:
+        if len(ff.split('_')) < 2: continue
+        timestr = ff.split('_')[1]
+        if not (timestr.isdigit() and len(timestr)==14):
+          continue
+        if self.par_out_label=='':
+          if ff.split('_')[2]!=self.par_out_label:
+            continue
+        self.chain_file.append(self.outdir + ff)
+      if not self.chain_file:
+        self.chain_file = None
+        print('Could not find chain file in ',self.outdir)
+        
     else:
-      self.chain_file = None
-      print('Could not find chain file in ',self.outdir)
+      if os.path.isfile(self.outdir + '/chain_1.0.txt'):
+        self.chain_file = self.outdir + '/chain_1.0.txt'
+      elif os.path.isfile(self.outdir + '/chain_1.txt'):
+        self.chain_file = self.outdir + '/chain_1.txt'
+      else:
+        self.chain_file = None
+        print('Could not find chain file in ',self.outdir)
 
     if self.opts.info and self.chain_file is not None:
       print('Available chain file ', self.chain_file, '(',
@@ -224,7 +264,14 @@ class EnterpriseWarpResult(object):
 
 
   def get_pars(self):
-    self.pars = np.loadtxt(self.outdir + '/pars.txt', dtype=np.unicode_)
+    self.par_out_label = '' if self.opts.par is None \
+                            else '_'.join(self.opts.par)
+    if self.opts.load_separated and self.par_out_label!='':
+      self.pars = np.loadtxt(self.outdir + '/pars_' + self.par_out_label + \
+                             '.txt', dtype=np.unicode_)
+    else:
+      self.pars = np.loadtxt(self.outdir + '/pars.txt', dtype=np.unicode_)
+    self._get_par_mask()
     if self.opts.info and (self.opts.name != 'all' or self.psr_dir == ''):
       print('Parameter names:')
       for par in self.pars:
@@ -233,23 +280,36 @@ class EnterpriseWarpResult(object):
 
   def load_chains(self):
     """ Loading PTMCMC chains """
-    try:
-      self.chain = np.loadtxt(self.chain_file)
-    except:
-      print('Could not load file ', self.chain_file)
-      return False
-    if len(self.chain)==0:
-      print('Empty chain file in ', self.outdir)
-      return False
+    if self.opts.load_separated:
+      self.chain = np.empty((0,len(self.pars)))
+      for ii, cf in enumerate(self.chain_file):
+        if ii==0:
+          self.chain = np.loadtxt(cf)
+        else:
+          self.chain = np.concatenate([self.chain, np.loadtxt(cf)])
+    else:
+      try:
+        self.chain = np.loadtxt(self.chain_file)
+      except:
+        print('Could not load file ', self.chain_file)
+        return False
+      if len(self.chain)==0:
+        print('Empty chain file in ', self.outdir)
+        return False
     burn = int(0.25*self.chain.shape[0])
     self.chain_burn = self.chain[burn:,:-4]
 
-    self.ind_model = list(self.pars).index('nmodel')
-    self.unique, self.counts = np.unique(np.round( \
-                               self.chain_burn[:, self.ind_model]), \
-                               return_counts=True)
-    self.dict_real_counts = dict(zip(self.unique.astype(int),
-                                     self.counts.astype(float)))
+    if 'nmodel' in self.pars:
+      self.ind_model = list(self.pars).index('nmodel')
+      self.unique, self.counts = np.unique(np.round( \
+                                 self.chain_burn[:, self.ind_model]), \
+                                 return_counts=True)
+      self.dict_real_counts = dict(zip(self.unique.astype(int),
+                                       self.counts.astype(float)))
+    else:
+      self.ind_model = 0
+      self.unique, self.counts, self.dict_real_counts = [None], None, None
+
     return True
 
 
@@ -260,11 +320,8 @@ class EnterpriseWarpResult(object):
       for pp in self.opts.par:
         masks.append( [True if pp in label else False for label in self.pars] )
       self.par_mask = np.sum(masks, dtype=bool, axis=0)
-      self.par_out_label = '_'.join(self.opts.par)
     else:
       self.par_mask = np.repeat(True, len(self.pars))
-      self.par_out_label = ''
-
 
   def _make_noisefiles(self):
     if self.opts.noisefiles:
@@ -276,6 +333,74 @@ class EnterpriseWarpResult(object):
       make_noise_files(self.psr_dir, self.chain_burn, self.pars,
                        outdir = self.outdir_all + '/noisefiles/', 
                        postfix = 'credlvl', method='credlvl')
+
+  def _reset_covm(self):
+    self.covm = np.empty((0,0))
+    self.covm_pars = np.array([])
+    self.covm_repeating_pars = np.array([])
+
+  def _save_covm(self):
+    if self.opts.covm:
+      out_dict = {
+                 'covm': self.covm, 
+                 'covm_pars': self.covm_pars,
+                 'covm_repeating_pars': self.covm_repeating_pars,
+                 }
+      with open(self.outdir_all+'covm_all.pkl', 'wb') as handle:
+        pickle.dump(out_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+      df = pd.DataFrame(self.covm, index=self.covm_pars, columns=self.covm_pars)
+      df.to_csv(self.outdir_all+'covm_all.csv')
+
+  def _get_covm(self):
+    """
+    Save available PTMCMCSampler covariance matrices in Pandas format, 
+    exclude repeating parameters.
+    """
+    if self.opts.covm:
+      covm_pars_add = self.pars
+      covm_add = np.load(self.outdir_all + self.psr_dir + '/cov.npy')
+      common_pars = set(self.covm_pars) & set(self.pars)
+      for cp in common_pars:
+        if cp not in self.covm_repeating_pars:
+          self.covm_repeating_pars = np.append(self.covm_repeating_pars, cp)
+      for rp in self.covm_repeating_pars:
+        if rp in covm_pars_add:
+          mask_delete = covm_pars_add==rp
+          covm_pars_add = covm_pars_add[~mask_delete]
+          covm_add = covm_add[~mask_delete,:][:,~mask_delete]
+        if rp in self.covm_pars:
+          mask_delete = self.covm_pars==rp
+          self.covm_pars = self.covm_pars[~mask_delete]
+          self.covm = self.covm[~mask_delete,:][:,~mask_delete]
+      self.covm_pars = np.concatenate([self.covm_pars, covm_pars_add])
+      self.covm = sp.linalg.block_diag(self.covm, covm_add)
+
+  def _separate_earliest(self):
+    if self.opts.separate_earliest:
+      chain_shape = self.chain.shape
+      earliest_nlines = int(np.round(chain_shape[0] * \
+                                     self.opts.separate_earliest))
+      earliest_chain = self.chain[0:earliest_nlines,:]
+      time_now = datetime.now().strftime("%Y%m%d%H%M%S")
+      earliest_name = 'chain_' + time_now + '.txt'
+      np.savetxt(self.outdir + earliest_name, earliest_chain)
+
+      if self.opts.par is not None:
+        earliest_name_par = 'chain_' + time_now + '_' + self.par_out_label + \
+                            '.txt'
+        mask_full_chain = np.append(self.par_mask, [True,True,True,True])
+        earliest_chain_par = earliest_chain[:,mask_full_chain]
+        np.savetxt(self.outdir + earliest_name_par, earliest_chain_par)
+        np.savetxt(self.outdir + 'pars_' + self.par_out_label + '.txt', \
+                   self.pars[self.par_mask], fmt="%s")
+
+      shutil.copyfile(self.chain_file, self.chain_file+'.bckp')
+      np.savetxt(self.chain_file, self.chain[earliest_nlines:,:])
+
+      print('Earlier chain fraction (', self.opts.separate_earliest*100, \
+            ' %) is separated, exiting.')
+      exit()
 
   def _print_logbf(self):
     """ Print log Bayes factors (product-space) from PTMCMC on the screen """
@@ -295,7 +420,10 @@ class EnterpriseWarpResult(object):
     """ Corner plot for a posterior distribution from the result """
     if self.opts.corner == 1:
       for jj in self.unique:
-        model_mask = np.round(self.chain_burn[:,self.ind_model]) == jj
+        if jj is not None:
+          model_mask = np.round(self.chain_burn[:,self.ind_model]) == jj
+        else:
+          model_mask = np.repeat(True, self.chain_burn.shape[0])
         chain_plot = self.chain_burn[model_mask,:]
         chain_plot = chain_plot[:,self.par_mask]
         figure = corner(chain_plot, 30, labels=self.pars[self.par_mask])
@@ -307,7 +435,10 @@ class EnterpriseWarpResult(object):
       pars = self.pars.astype(str)
       pars = np.array(['$'+pp+'$' for pp in pars],dtype=str)
       for jj in self.unique:
-        model_mask = np.round(self.chain_burn[:,self.ind_model]) == jj
+        if jj is not None:
+          model_mask = np.round(self.chain_burn[:,self.ind_model]) == jj
+        else:
+          model_mask = np.repeat(True, self.chain_burn.shape[0])
         chain_plot = self.chain_burn[model_mask,:]
         chain_plot = chain_plot[:,self.par_mask]
         cobj.add_chain(chain_plot, name=str(jj),

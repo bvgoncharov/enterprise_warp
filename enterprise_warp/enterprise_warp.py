@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import json
 import glob
 import os
@@ -35,6 +36,9 @@ def parse_commandline():
 
   parser.add_option("-n", "--num", help="Pulsar number",  default=0, type=int)
   parser.add_option("-p", "--prfile", help="Parameter file", type=str)
+  parser.add_option("-d", "--drop", \
+                    help="Drop pulsar with index --num in a full-PTA run \
+                          (0 - No / 1 - Yes)", default=0, type=int)
   parser.add_option("-c", "--clearcache", \
                     help="Clear psrs cache file, associated with the run \
                           (to-do after changes to .par and .tim files)", \
@@ -98,6 +102,7 @@ class Params(object):
       "sampler:": ["sampler", str],
       "nsamp:": ["nsamp", int],
       "setupsamp:": ["setupsamp", bool],
+      "mcmc_covm_csv:": ["mcmc_covm_csv", str],
       "psrlist:": ["psrlist", str],
       "ssephem:": ["ssephem", str],
       "clock:": ["clock", str],
@@ -236,6 +241,11 @@ class Params(object):
     if 'fref' not in self.__dict__:
       self.fref = 1400 # MHz
       print('Setting reference radio frequency to 1400 MHz')
+    if 'mcmc_covm_csv' in self.__dict__ and os.path.isfile(self.mcmc_covm_csv):
+      print('MCMC jump covariance matrix is available')
+      self.__dict__['mcmc_covm'] = pd.read_csv(self.mcmc_covm_csv, index_col=0)
+    else:
+      self.__dict__['mcmc_covm'] = None
     # Copying default priors from StandardModels/CustomModels object
     # Priors are chosen not to be model-specific because HyperModel
     # (which is the only reason to have multiple models) does not support
@@ -332,11 +342,17 @@ class Params(object):
         if psrs_cache == None:
           print('Loading pulsars')
           self.psrlist_new = list()
-          for p, t in zip(parfiles, timfiles):
+          for num, (p, t) in enumerate(zip(parfiles, timfiles)):
             pname = p.split('/')[-1].split('_')[0].split('.')[0]
             if (pname in self.psrlist) or self.psrlist==[]:
+                if self.opts.drop and self.opts.num==num:
+                  print('Dropping pulsar ', pname)
+                  self.output_dir += str(num) + '_' + pname + '/'
+                  continue
                 psr = Pulsar(p, t, ephem=self.ssephem, clk=self.clock, \
                              drop_t2pulsar=False)
+                psr.__dict__['parfile_name'] = p
+                psr.__dict__['timfile_name'] = t
                 self.psrs.append(psr)
                 self.psrlist_new.append(pname)
           # Caching is disabled due to problems: Part 2
@@ -360,6 +376,8 @@ class Params(object):
         self.psrs = Pulsar(parfiles[self.opts.num], timfiles[self.opts.num], \
                            drop_t2pulsar=False, \
                            ephem=self.ssephem) #, clk=self.clock)
+        self.psrs.__dict__['parfile_name'] = parfiles[self.opts.num]
+        self.psrs.__dict__['timfile_name'] = timfiles[self.opts.num]
         self.Tspan = self.psrs.toas.max() - self.psrs.toas.min() # observation time in seconds
         self.output_dir = self.out + self.label_models + '_' + \
                           self.paramfile_label + '/' + str(self.opts.num) + \
