@@ -78,6 +78,7 @@ class StandardModels(object):
       "gwb_lgA_prior": "uniform",
       "gwb_lgrho": [-10., -4.],
       "gwb_gamma": [0., 10.],
+      "gwb_gamma_prior": "uniform",
       "red_general_freqs": "tobs_60days",
       "red_general_nfouriercomp": 2
     }
