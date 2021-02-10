@@ -239,11 +239,15 @@ class EnterpriseWarpResult(object):
       for ff in outdirfiles:
         if len(ff.split('_')) < 2: continue
         timestr = ff.split('_')[1]
+        if self.par_out_label=='' and timestr[-4:]=='.txt':
+          timestr = timestr[:-4]
+        else:
+          continue
         if not (timestr.isdigit() and len(timestr)==14):
           continue
-        if self.par_out_label=='':
-          if ff.split('_')[2]!=self.par_out_label:
-            continue
+        #if self.par_out_label=='':
+        #  if ff.split('_')[2]!=self.par_out_label:
+        #    continue
         self.chain_file.append(self.outdir + ff)
       if not self.chain_file:
         self.chain_file = None
@@ -266,6 +270,8 @@ class EnterpriseWarpResult(object):
   def get_pars(self):
     self.par_out_label = '' if self.opts.par is None \
                             else '_'.join(self.opts.par)
+    if not os.path.exists(self.outdir + '/pars_' + self.par_out_label + '.txt'):
+      self.par_out_label = ''
     if self.opts.load_separated and self.par_out_label!='':
       self.pars = np.loadtxt(self.outdir + '/pars_' + self.par_out_label + \
                              '.txt', dtype=np.unicode_)
