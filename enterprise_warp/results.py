@@ -241,6 +241,8 @@ class EnterpriseWarpResult(object):
         timestr = ff.split('_')[1]
         if self.par_out_label=='' and timestr[-4:]=='.txt':
           timestr = timestr[:-4]
+        elif self.par_out_label!='':
+          pass
         else:
           continue
         if not (timestr.isdigit() and len(timestr)==14):

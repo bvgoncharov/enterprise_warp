@@ -328,12 +328,19 @@ class Params(object):
       #    psrs_cache = None
       #    print('Condition for loading pulsars from cache is not satisfied')
       
-      parfiles = sorted(glob.glob(self.datadir + '/*.par'))
-      timfiles = sorted(glob.glob(self.datadir + '/*.tim'))
-      print('Number of .par files: ',len(parfiles))
-      print('Number of .tim files: ',len(timfiles))
+      if '.pkl' in self.datadir:
+        with open(self.datadir, 'rb') as pif:
+          pkl_data = pickle.load(pif)
+        parfiles = sorted([po.name+'.par' for po in pkl_data])
+        timfiles = sorted([po.name+'.tim' for po in pkl_data])
+        pkl_data = {pp: psrobj for pp, psrobj in zip(parfiles, pkl_data)}
+      else:
+        parfiles = sorted(glob.glob(self.datadir + '/*.par'))
+        timfiles = sorted(glob.glob(self.datadir + '/*.tim'))
+        print('Number of .par files: ',len(parfiles))
+        print('Number of .tim files: ',len(timfiles))
       if len(parfiles)!=len(timfiles):
-        print('Error - there should be the same number of .par and .tim files.')
+        print('Error: there should be the same number of .par and .tim files.')
         exit()
       
       if self.array_analysis=='True':
@@ -349,8 +356,11 @@ class Params(object):
                   print('Dropping pulsar ', pname)
                   self.output_dir += str(num) + '_' + pname + '/'
                   continue
-                psr = Pulsar(p, t, ephem=self.ssephem, clk=self.clock, \
-                             drop_t2pulsar=False)
+                if '.pkl' in self.datadir:
+                  psr = pkl_data[p]
+                else:
+                  psr = Pulsar(p, t, ephem=self.ssephem, clk=self.clock, \
+                               drop_t2pulsar=False)
                 psr.__dict__['parfile_name'] = p
                 psr.__dict__['timfile_name'] = t
                 self.psrs.append(psr)
@@ -373,9 +383,12 @@ class Params(object):
         exit_message = "PTA analysis has already been carried out using a given parameter file"
       
       elif self.array_analysis=='False':
-        self.psrs = Pulsar(parfiles[self.opts.num], timfiles[self.opts.num], \
-                           drop_t2pulsar=False, \
-                           ephem=self.ssephem) #, clk=self.clock)
+        if '.pkl' in self.datadir:
+          self.psrs = psr = pkl_data[parfiles[self.opts.num]]
+        else:
+          self.psrs = Pulsar(parfiles[self.opts.num], timfiles[self.opts.num], \
+                             drop_t2pulsar=False, \
+                             ephem=self.ssephem) #, clk=self.clock)
         self.psrs.__dict__['parfile_name'] = parfiles[self.opts.num]
         self.psrs.__dict__['timfile_name'] = timfiles[self.opts.num]
         self.Tspan = self.psrs.toas.max() - self.psrs.toas.min() # observation time in seconds
