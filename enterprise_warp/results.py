@@ -74,6 +74,17 @@ def parse_commandline():
                     If --par are supplied, load only files with --par \
                     columns.", default=0, type=int)
 
+  parser.add_option("-o", "--optimal_statistic", help="Calculate optimal \
+                    statistic and make key plots", default = 0,
+                    type = int)
+
+  parser.add_option("--optimal_statistic_orf", help = "Set overlap reduction \
+                    function form for optimal statistic analysis. Allowed \
+                    options: hd (Hellings-Downs), quadrupole, dipole, monopole",
+                    default = "hd", type = str)
+
+  
+
   opts, args = parser.parse_args()
 
   return opts
@@ -140,6 +151,20 @@ def estimate_from_distribution(values, method='mode', errorbars_cdf = [16,84]):
     levels[str(50)] = np.percentile(values, 50, axis=0)
     return levels
 
+def make_noise_dict(psrname, chain, pars, method='mode'):
+  """
+  Create noise dictionary for a given MCMC or nested sampling chain.
+  This is a dict that assigns a characteristic value (mode/median)
+  to a parameter from the distribution of parameter values in a chain.
+  Can be used for outputting a noise file or for use in further
+  analysis (e.g. optimal statistic)
+  """
+
+  xx = {}
+  for ct, par in enumerate(pars):
+    xx[par] = estimate_from_distribution(chain[:,ct], method=method)
+  return xx
+  
 def make_noise_files(psrname, chain, pars, outdir='noisefiles/',
                      method='mode', postfix='noise'):
   """
@@ -147,9 +172,8 @@ def make_noise_files(psrname, chain, pars, outdir='noisefiles/',
   Noise file is a dict that assigns a characteristic value (mode/median)
   to a parameter from the distribution of parameter values in a chain.
   """
-  xx = {}
-  for ct, par in enumerate(pars):
-    xx[par] = estimate_from_distribution(chain[:,ct], method=method)
+
+  xx = make_noise_dict(psrname, chain, pars, methode = method)
 
   os.system('mkdir -p {}'.format(outdir))
   with open(outdir + '/' + psrname + '_' + postfix + '.json', 'w') as fout:
@@ -164,13 +188,43 @@ def check_if_psr_dir(folder_name):
   return bool(re.match(r'^\d{1,}_[J,B]\d{2,4}[+,-]\d{4,4}[A,B]{0,1}$', 
                        folder_name))
 
+
+class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
+  from enterprise_extensions.frequentist.optimal_statistic import OptimalStatistic as OptStat
+  def __init__(self, opts):
+    super().__init__(opts)
+    
+  def main_pipeline(self):
+
+
+    pta = signal_base.PTA(models)
+
+    if 'noisefiles' in params.__dict__.keys():
+      noisedict = get_noise_dict(psrlist=[p.name for p in params_all.psrs],\
+                                 noisefiles=params.noisefiles)
+      print('For constant parameters using noise files in PAL2 format')
+      pta.set_default_params(noisedict)
+
+    print('Model',ii,'params (',len(pta.param_names),') in order: ', \
+          pta.param_names)
+    if params.opts.mpi_regime != 2:
+      np.savetxt(params.output_dir + '/pars.txt', pta.param_names, fmt='%s')
+
+    ostat = opt_stat.OptimalStatistic(psrs, pta = pta, orf = self.opts.optimal_statistic_orf)
+
+    
+    
+    xi, rho, sig, OS, OS_sig = ostat.compute_os(params=ml_params)#
+    
+
 class EnterpriseWarpResult(object):
 
   def __init__(self, opts):
     self.opts = opts
     self.iterpret_opts_result()
-    self.get_psr_dirs()
-
+    self.get_psr_dirs()                       
+    
+    
   def main_pipeline(self):
     self._reset_covm()
     for psr_dir in self.psr_dirs:
@@ -484,9 +538,12 @@ def main():
   """
 
   opts = parse_commandline()
-
+  
   result_obj = EnterpriseWarpResult(opts)
   result_obj.main_pipeline()
+
+  os_obj = EnterpriseWarpOptimalStatistic(opts)
+  os_obj.main_pipeline()
 
 if __name__=='__main__':
   main()
