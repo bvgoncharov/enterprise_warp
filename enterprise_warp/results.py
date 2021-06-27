@@ -16,6 +16,7 @@ import scipy as sp
 import pandas as pd
 from corner import corner
 from datetime import datetime
+from bilby import result as br
 from chainconsumer import ChainConsumer
 from dateutil.parser import parse as pdate
 
@@ -73,6 +74,9 @@ def parse_commandline():
                     chain files with names chain_DATETIME(14-symb)_PARS.txt. \
                     If --par are supplied, load only files with --par \
                     columns.", default=0, type=int)
+
+  parser.add_option("-y", "--bilby", help="Load bilby result", \
+                    default=0, type=int)
 
   opts, args = parser.parse_args()
 
@@ -478,6 +482,42 @@ class EnterpriseWarpResult(object):
                    '.png')
        plt.close()
 
+class BilbyWarpResult(EnterpriseWarpResult):
+
+  def __init__(self, opts):
+    super(BilbyWarpResult, self).__init__(opts)
+
+  def get_chain_file_name(self):
+      label = os.path.basename(os.path.normpath(self.outdir))
+      if os.path.isfile(self.outdir + '/' + label + '_result.json'):
+        self.chain_file = self.outdir + '/' + label + '_result.json'
+      else:
+        self.chain_file = None
+        print('Could not find chain file in ',self.outdir)
+
+      if self.opts.info and self.chain_file is not None:
+        print('Available chain file ', self.chain_file, '(',
+              int(np.round(os.path.getsize(self.chain_file)/1e6)), ' Mb)')
+
+  def load_chains(self):
+    """ Loading Bilby result """
+    try:
+      self.result = br.read_in_result(filename=self.chain_file)
+    except:
+      print('Could not load file ', self.chain_file)
+      return False
+    self.chain = self.result.posterior
+    self.chain_burn = self.chain
+    return True
+
+  def get_pars(self):
+    return
+
+  def _make_corner_plot(self):
+    """ Corner plot for a posterior distribution from the result """
+    if self.opts.corner == 1:
+      self.result.plot_corner()
+
 def main():
   """
   The pipeline script
@@ -485,7 +525,10 @@ def main():
 
   opts = parse_commandline()
 
-  result_obj = EnterpriseWarpResult(opts)
+  if opts.bilby:
+    result_obj = BilbyWarpResult(opts)
+  else:
+    result_obj = EnterpriseWarpResult(opts)
   result_obj.main_pipeline()
 
 if __name__=='__main__':
