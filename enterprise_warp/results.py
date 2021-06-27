@@ -216,9 +216,9 @@ class EnterpriseWarpResult(object):
     if os.path.isdir(self.opts.result):
       self.outdir_all = self.opts.result
     elif os.path.isfile(self.opts.result):
-      params = enterprise_warp.Params(self.opts.result, init_pulsars=False)
-      self.outdir_all = params.out + params.label_models + '_' + \
-                        params.paramfile_label + '/'
+      self.params = enterprise_warp.Params(self.opts.result, init_pulsars=False)
+      self.outdir_all = self.params.out + self.params.label_models + '_' + \
+                        self.params.paramfile_label + '/'
     else:
       raise ValueError('--result seems to be neither a file, not a directory')
 
