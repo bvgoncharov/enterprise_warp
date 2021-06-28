@@ -151,7 +151,7 @@ def estimate_from_distribution(values, method='mode', errorbars_cdf = [16,84]):
     levels[str(50)] = np.percentile(values, 50, axis=0)
     return levels
 
-def make_noise_dict(psrname, chain, pars, method='mode'):
+def make_noise_dict(psrname, chain, pars, method='mode', postfix = 'noise', recompute = True):
   """
   Create noise dictionary for a given MCMC or nested sampling chain.
   This is a dict that assigns a characteristic value (mode/median)
@@ -159,6 +159,13 @@ def make_noise_dict(psrname, chain, pars, method='mode'):
   Can be used for outputting a noise file or for use in further
   analysis (e.g. optimal statistic)
   """
+
+  result_filename = outdir + '/' + psrname + '_' + postfix + '.json'
+  
+  if not recompute:
+    if os.path.exists(result_filename, 'r'):
+      xx = json.load(open(result_fileneame))
+      return(xx)
 
   xx = {}
   for ct, par in enumerate(pars):
@@ -173,7 +180,7 @@ def make_noise_files(psrname, chain, pars, outdir='noisefiles/',
   to a parameter from the distribution of parameter values in a chain.
   """
 
-  xx = make_noise_dict(psrname, chain, pars, methode = method)
+  xx = make_noise_dict(psrname, chain, pars, method = method)
 
   os.system('mkdir -p {}'.format(outdir))
   with open(outdir + '/' + psrname + '_' + postfix + '.json', 'w') as fout:
@@ -191,16 +198,113 @@ def check_if_psr_dir(folder_name):
 
 class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
   from enterprise_extensions.frequentist.optimal_statistic import OptimalStatistic as OptStat
+  from enterprise.signals import signal_base
   def __init__(self, opts):
     super().__init__(opts)
+    self.opts = opts
+    self.interpret_opts_result()
+    self.get_psr_dirs()
+
+  def get_psr_dirs(self):
+    """ Check if we need to loop over pulsar directories, or not """
+    out_subdirs = np.array(os.listdir(self.outdir_all))
+    psr_dir_mask = [check_if_psr_dir(dd) for dd in out_subdirs]
+    self.psr_dirs = out_subdirs[psr_dir_mask]
+    if self.psr_dirs.size == 0:
+      self.psr_dirs = np.array([''])
     
+  def interpret_opts_result(self):
+    if os.path.isdir(self.opts.result):
+      raise ValueError("--result should be a parameter file for optimal statistic")
+    elif os.path.isfile(self.opts.result):
+      self.params = enterprise_warp.Params(self.opts.result, init_pulsars=True) #might want to include custom models support here
+      self.outdir_all = params.out + params.label_models + '_' + \
+                        params.paramfile_label + '/'
+
+
+  def weightedavg(self, rho, sig):
+
+    return np.average(rho, sig**-2.0), np.sqrt(np.sum(sig**-2.0))
+
+  def bin_crosscorr(self, zeta, xi, rho, sig):
+    
+    rho_avg, sig_avg = np.zeros(len(zeta)), np.zeros(len(zeta))
+      
+    for i,z in enumerate(zeta[:-1]):
+      myrhos, mysigs = [], []
+      for x,r,s in zip(xi,rho,sig):
+        if x >= z and x < (z+10.):
+          myrhos.append(r)
+          mysigs.append(s)
+      rho_avg[i], sig_avg[i] = self.weightedavg(myrhos, mysigs)
+        
+    return rho_avg, sig_avg
+
+
+  def get_HD_curve(self, zeta):
+    
+    coszeta = np.cos(zeta*np.pi/180.)
+    xip = (1.-coszeta) / 2.
+    HD = 3.*( 1./3. + xip * ( np.log(xip) -1./6.) )
+    
+    return HD/2.0
+
+  def plot_os_orf(self, OS, xi_mean, rho_avg, x_err, sig_avg):
+
+    fig, ax = plt.subplots(1, 1, figsize = (2.008, 3.25))
+    (_, caps, _) = ax.errorbar(xi_mean, rho_avg,
+                               xerr = xi_err,
+                               yerr = sig_avg,
+                               marker = 'o',
+                               ls = '',
+                               color = '#4FC3F7',
+                               fmt = 'o',
+                               capsize = 4,
+                               elinewidth = 1.2)
+    
+    zeta = np.linspace(0.001, np.pi, 200)
+    HD = self.get_HD_curve(zeta + 1.0)
+
+    ax.plot(zeta, OS*HD, ls = '--', c = '0.5')
+
+    ax.set_xlim(0, np.pi)
+    ax.set_ylim(-4E-30, 4E-30)
+    ax.set_xlabel(r'$\zeta$ (rad)')
+    ax.set_ylabel(r'$\hat{{A}}^2 \Gamma_{{ab}}(\zeta)$')
+    fig.tight_layout()
+    fig.savefig(self.outdir_all + '/' + self.psr_dir + '_os_orf_' + \
+                    '_' + self.par_out_label + '.png')
+    fig.close()
+    
+    
+  
   def main_pipeline(self):
 
+    for psr_dir in self.psr_dirs:
 
-    pta = signal_base.PTA(models)
+      self.psr_dir = psr_dir
+      success = self._scan_psr_output()
+      if not success:
+        continue
 
+      self._get_covm()
+
+      if not (self.opts.noisefiles or self.opts.logbf or self.opts.corner or \
+              self.opts.chains):
+        continue
+
+      success = self.load_chains()
+      if not success:
+        continue
+
+    self._do_stuff()
+    
+    
+    ###ptas = enterprise_warp.init_pta(self.params)
+    
+    
     if 'noisefiles' in params.__dict__.keys():
-      noisedict = get_noise_dict(psrlist=[p.name for p in params_all.psrs],\
+      noisedict = enterprise_warp.get_noise_dict(psrlist=[p.name for p in params_all.psrs],\
                                  noisefiles=params.noisefiles)
       print('For constant parameters using noise files in PAL2 format')
       pta.set_default_params(noisedict)
@@ -212,16 +316,49 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
     ostat = opt_stat.OptimalStatistic(psrs, pta = pta, orf = self.opts.optimal_statistic_orf)
 
+    maxpost_params = make_noise_dict(self.psr_dir, self.chain_burn, self.pars, recompute = False)
     
+    xi, rho, sig, OS, OS_sig = ostat.compute_os(params=maxpost_params)
     
-    xi, rho, sig, OS, OS_sig = ostat.compute_os(params=ml_params)#
+    # sort the cross-correlations by xi
+    idx = np.argsort(xi)
+  
+    xi_sorted = xi[idx]
+    rho_sorted = rho[idx]
+    sig_sorted = sig[idx]
+    
+    # bin the cross-correlations so that there are the same number of pairs per bin
+    n_psr = len(self.psrs) 
+    npairs = int(n_psr*(n_psr - 1.0)/2.0)
+    
+    xi_mean = []
+    xi_err = []
+    
+    rho_avg = []
+    sig_avg = []
+    
+    i = 0
+    while i < len(xi_sorted):
+    
+      xi_mean.append(np.mean(xi_sorted[i:npairs+i]))
+      xi_err.append(np.std(xi_sorted[i:npairs+i]))
+      
+      r, s = weightedavg(rho_sorted[i:npairs+i], sig_sorted[i:npairs+i])
+      rho_avg.append(r)
+      sig_avg.append(s)
+      
+      i += npairs
+      
+    xi_mean = np.array(xi_mean)
+    xi_err = np.array(xi_err)
+
     
 
 class EnterpriseWarpResult(object):
 
   def __init__(self, opts):
     self.opts = opts
-    self.iterpret_opts_result()
+    self.interpret_opts_result()
     self.get_psr_dirs()                       
     
     
@@ -265,7 +402,7 @@ class EnterpriseWarpResult(object):
 
     return True
 
-  def iterpret_opts_result(self):
+  def interpret_opts_result(self):
     """ Determine output directory from the --results argument """
     if os.path.isdir(self.opts.result):
       self.outdir_all = self.opts.result
@@ -275,7 +412,7 @@ class EnterpriseWarpResult(object):
                         params.paramfile_label + '/'
     else:
       raise ValueError('--result seems to be neither a file, not a directory')
-
+    
 
   def get_psr_dirs(self):
     """ Check if we need to loop over pulsar directories, or not """
