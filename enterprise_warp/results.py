@@ -203,22 +203,29 @@ def check_if_psr_dir(folder_name):
     return bool(re.match(r'^\d{1,}_[J,B]\d{2,4}[+,-]\d{4,4}[A,B]{0,1}$',
     folder_name))
 
-class OptimalStatisticResult(object):
 
 
-    def __init__(self, orf_list, optstat_list):
+class OptimalStatisticResultContainer(object):
 
-        pass
+    def __init__(self, orf, OptimalStatistic):
+        self.orf = orf
+        self.OptimalStatistic = OptimalStatistic
 
+    class OptimalStatisticResult(object):
+        def __init__(self, xi, rho, sig, OS, OS_err):
 
-
+            self.xi = xi
+            self.rho = rho
+            self.sig = sig
+            self.OS = OS
+            self.OS_err = OS_err
 
 class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
     from enterprise_extensions.frequentist.optimal_statistic import OptimalStatistic as OptStat
     from enterprise.signals import signal_base
     def __init__(self, opts):
         super(EnterpriseWarpOptimalStatistic).__init__(opts)
-        self.optstat_orfs = self.opts.optimal_statistic_orfs
+        self.optstat_orfs = list(self.opts.optimal_statistic_orfs.split(','))
         self.optstat_nsamp = self.opts.optimal_statistic_nsamples
 
 
@@ -338,12 +345,11 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
         #do we want to return these or add them as class attributes?
         return xi_mean, xi_err, rho_avg, sig_avg
 
-    def _compute_ostat(self, method='samp', chain_idx = 0):
-        ostat_dict = {}
-        self.OptimalStatisticResult = {}
-        for orf in self.optstat_orf:
-            ostat_dict[orf] = {}
-            ostat_dict[orf]['OptimalStatistic'] = opt_stat.OptimalStatistic(psrs, pta = pta, orf = orf)
+    def _compute_optimalstatistic(self, method='samp', chain_idx = 0):
+        optstat_dict = {}
+        for orf in self.optstat_orfs:
+            ostat_dict[orf] = OptimalStatisticResultContainer(orf, OptStat.OptimalStatistic(psrs, pta = pta, orf = orf))
+
 
         if method == 'samp':
             #make noise dict from chain sample
@@ -353,30 +359,36 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
             os_params = make_noise_dict(self.psr_dir,self.chain_burn,self.pars,\
             method = method, recompute = False)
 
-
         for orf in self.optstat_orf:
-            ostat = ostat_dict[orf]['OptimalStatistic']
-            xi, rho, sig, OS, OS_sig = ostat.compute_os(params=os_params)
-            if method == 'samp':
-                return xi, rho, sig, OS, OS_sig
-            else:
-                self.optstat_xi = xi
-                self.opstat_rho = rho
-                self.optstat_sig = sig
-                self.optstat = OS
-                self.optstat_err = OS_sig
+            os_container = ostat_dict[orf]
+
+            _xi, _rho, _sig, _OS, _OS_sig = os_container.OptimalStatistic.compute_os(params=os_params)
+            os_container.OptimalStatisticResult(_xi, _rho, _sig, _OS, _OS_sig)
+
+        if method == 'samp':
+            return ostat_dict
+        else:
+            self.OptimalStatistics = ostat_dict
             return
 
     def _marginalise_ostat(self):
-        noisemarg_os = np.zeros(self.optstat_nsamp)
-        noisemarg_os_err = np.zeros(self.optstat_nsamp)
+        noisemarg_os = {}
+        noisemarg_os_err = {}
+        for orf in self.optstat_orfs:
+
+            noisemarg_os[orf] = np.zeros(self.optstat_nsamp)
+            noisemarg_os_err[orf] = np.zeros(self.optstat_nsamp)
 
         samp_indices = np.random.randint(0,
                                          self.chain_burn.shape[0],
                                          size = self.optstat_nsamp)
         for ii in range(self.optstat_nsamp):
+            _ostat_dict = self._compute_optimalstatistic(method = 'samp', chain_idx = samp_indices[ii])
+            for key, os_container in _ostat_dict.items():
+                noisemarg_os[ii] = os_container.
+
             xi, rho, sig, noisemarg_os[ii], noisemarg_os_err[ii] = \
-            self._compute_ostat(method = 'samp', chain_idx = samp_indices[ii])
+            self._compute_optimalstatistic(method = 'samp', chain_idx = samp_indices[ii])
         self.noisemarg_opstat = noisemarg_os
         self.noisemarg_opstat_err = noisemarg_os_err
 
