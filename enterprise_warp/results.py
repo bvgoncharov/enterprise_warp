@@ -20,6 +20,9 @@ from bilby import result as br
 from chainconsumer import ChainConsumer
 from dateutil.parser import parse as pdate
 
+from enterprise_extensions.frequentist.optimal_statistic import OptimalStatistic as OptStat
+from enterprise.signals import signal_base
+
 from . import enterprise_warp
 
 def parse_commandline():
@@ -97,6 +100,19 @@ def parse_commandline():
 
   return opts
 
+def get_HD_curve(zeta):
+
+    coszeta = np.cos(zeta*np.pi/180.)
+    xip = (1.-coszeta) / 2.
+    HD = 3.*( 1./3. + xip * ( np.log(xip) -1./6.) )
+
+    return HD/2.0
+
+def get_dipole_curve(zeta):
+    pass
+
+def get_monopole_curve(zeta):
+    pass
 
 def dist_mode_position(values, nbins=50):
   """
@@ -205,28 +221,95 @@ def check_if_psr_dir(folder_name):
 
 
 
-class OptimalStatisticResultContainer(object):
+class OptimalStatisticResult(OptStat):
 
-    def __init__(self, orf, OptimalStatistic):
-        self.orf = orf
+    def __init__(self, OptimalStatistic, params, xi, rho, sig, OS, OS_err):
         self.OptimalStatistic = OptimalStatistic
+        self.params = params
+        self.xi = xi
+        self.rho = rho
+        self.sig = sig
+        self.OS = OS
+        self.OS_err = OS_err
 
-    class OptimalStatisticResult(object):
-        def __init__(self, xi, rho, sig, OS, OS_err):
+    def add_marginalised(self, marginalised_os, marginalised_os_err):
+        self.marginalised_os = marginalised_os
+        self.marginalised_os_err = marginalised_os_err
 
-            self.xi = xi
-            self.rho = rho
-            self.sig = sig
-            self.OS = OS
-            self.OS_err = OS_err
+    def weightedavg(self, _rho, _sig):
+
+        return np.average(_rho, _sig**-2.0), np.sqrt(np.sum(_sig**-2.0))
+
+    def bin_crosscorr(self, zeta):
+
+        idx = np.argsort(self.xi)
+        xi_sorted = self.xi[idx]
+        rho_sorted = self.rho[idx]
+        sig_sorted = self.sig[idx]
+        rho_avg, sig_avg = np.zeros(len(zeta)), np.zeros(len(zeta))
+
+
+        for i,z in enumerate(zeta[:-1]):
+            _rhos, _sigs = [], []
+            for x,r,s in zip(xi,rho,sig):
+                if x >= z and x < (z+10.):
+                    _rhos.append(r)
+                    _sigs.append(s)
+                    rho_avg[i], sig_avg[i] = self.weightedavg(_rhos, _sigs)
+
+        return rho_avg, sig_avg
+
+    def avg_ostat_bins(self):
+        # sort the cross-correlations by xi
+        idx = np.argsort(self.xi)
+
+        xi_sorted = self.xi[idx]
+        rho_sorted = self.rho[idx]
+        sig_sorted = self.sig[idx]
+
+        # bin the cross-correlations so that there are the same number of \
+        #pairs per bin
+        n_psr = len(self.psrs)
+        npairs = int(n_psr*(n_psr - 1.0)/2.0)
+
+        xi_mean = []
+        xi_err = []
+
+        rho_avg = []
+        sig_avg = []
+
+        i = 0
+        while i < len(xi_sorted):
+
+            xi_mean.append(np.mean(xi_sorted[i:npairs+i]))
+            xi_err.append(np.std(xi_sorted[i:npairs+i]))
+
+            r, s = self.weightedavg(rho_sorted[i:npairs+i], \
+            sig_sorted[i:npairs+i])
+            rho_avg.append(r)
+            sig_avg.append(s)
+
+            i += npairs
+
+        xi_mean = np.array(xi_mean)
+        xi_err = np.array(xi_err)
+        rho_avg = np.array(rho_avg)
+        sig_avg = np.array(sig_avg)
+
+        #do we want to return these or add them as class attributes?
+        self.xi_mean = xi_mean
+        self.xi_err = xi_err
+        self.rho_mean = rho_avg
+        self.sig_avg = sig_avg
+        #return xi_mean, xi_err, rho_avg, sig_avg
 
 class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
-    from enterprise_extensions.frequentist.optimal_statistic import OptimalStatistic as OptStat
-    from enterprise.signals import signal_base
     def __init__(self, opts):
         super(EnterpriseWarpOptimalStatistic).__init__(opts)
+        self.interpret_opts_result()
         self.optstat_orfs = list(self.opts.optimal_statistic_orfs.split(','))
         self.optstat_nsamp = self.opts.optimal_statistic_nsamples
+        self._get_pta()
 
 
       def load_chains(self):
@@ -282,123 +365,62 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
     def _get_pta(self):
         self.pta = enterprise_warp.init_pta(self.params)
 
-    def weightedavg(self, rho, sig):
-
-        return np.average(rho, sig**-2.0), np.sqrt(np.sum(sig**-2.0))
-
-    def bin_crosscorr(self, zeta, xi, rho, sig):
-
-        idx = np.argsort(xi)
-        xi_sorted = xi(idx)
-        rho_sorted = rho(idx)
-        sig_sorted = sig(idx)
-        rho_avg, sig_avg = np.zeros(len(zeta)), np.zeros(len(zeta))
-
-
-        for i,z in enumerate(zeta[:-1]):
-            _rhos, _sigs = [], []
-            for x,r,s in zip(xi,rho,sig):
-                if x >= z and x < (z+10.):
-                    _rhos.append(r)
-                    _sigs.append(s)
-                    rho_avg[i], sig_avg[i] = self.weightedavg(_rhos, _sigs)
-
-        return rho_avg, sig_avg
-
-    def _avg_ostat_bins(self, xi, rho, sig):
-        # sort the cross-correlations by xi
-        idx = np.argsort(xi)
-
-        xi_sorted = xi[idx]
-        rho_sorted = rho[idx]
-        sig_sorted = sig[idx]
-
-        # bin the cross-correlations so that there are the same number of \
-        #pairs per bin
-        n_psr = len(self.psrs)
-        npairs = int(n_psr*(n_psr - 1.0)/2.0)
-
-        xi_mean = []
-        xi_err = []
-
-        rho_avg = []
-        sig_avg = []
-
-        i = 0
-        while i < len(xi_sorted):
-
-            xi_mean.append(np.mean(xi_sorted[i:npairs+i]))
-            xi_err.append(np.std(xi_sorted[i:npairs+i]))
-
-            r, s = self.weightedavg(rho_sorted[i:npairs+i], \
-            sig_sorted[i:npairs+i])
-            rho_avg.append(r)
-            sig_avg.append(s)
-
-            i += npairs
-
-        xi_mean = np.array(xi_mean)
-        xi_err = np.array(xi_err)
-        rho_avg = np.array(rho_avg)
-        sig_avg = np.array(sig_avg)
-
-        #do we want to return these or add them as class attributes?
-        return xi_mean, xi_err, rho_avg, sig_avg
-
-    def _compute_optimalstatistic(self, method='samp', chain_idx = 0):
+    def _compute_optimalstatistic(self, method='mode', chain_idx = 0):
         optstat_dict = {}
-        for orf in self.optstat_orfs:
-            ostat_dict[orf] = OptimalStatisticResultContainer(orf, OptStat.OptimalStatistic(psrs, pta = pta, orf = orf))
-
 
         if method == 'samp':
             #make noise dict from chain sample
             os_params = dict(zip(self.pars, self.chain_burn[chain_idx]))
-        else:
+        elif method == 'mode' or method == 'median':
             #make noise dict from max post or max likelihood / whatever method
             os_params = make_noise_dict(self.psr_dir,self.chain_burn,self.pars,\
             method = method, recompute = False)
 
-        for orf in self.optstat_orf:
-            os_container = ostat_dict[orf]
+        for orf in self.optstat_orfs:
+            _os = OptStat.OptimalStatistic(psrs, pta = pta, orf = orf)
+            _xi, _rho, _sig, _OS, _OS_sig = _os.compute_os(params=os_params)
 
-            _xi, _rho, _sig, _OS, _OS_sig = os_container.OptimalStatistic.compute_os(params=os_params)
-            os_container.OptimalStatisticResult(_xi, _rho, _sig, _OS, _OS_sig)
+            result = OptimalStatisticResult(_os, _xi, _rho, _sig, _OS, _OS_sig)
+            optstat_dict['orf'] = result
 
         if method == 'samp':
-            return ostat_dict
+            return optstat_dict
         else:
-            self.OptimalStatistics = ostat_dict
-            return
+            self.OptimalStatisticResults = optstat_dict #this is a representative optimal statistic
+            return True
+
 
     def _marginalise_ostat(self):
-        noisemarg_os = {}
-        noisemarg_os_err = {}
+
         for orf in self.optstat_orfs:
 
-            noisemarg_os[orf] = np.zeros(self.optstat_nsamp)
-            noisemarg_os_err[orf] = np.zeros(self.optstat_nsamp)
+            _osr = self.OptimalStatisticResults[orf]
+            _os = _osr.OptimalStatistic
 
-        samp_indices = np.random.randint(0,
-                                         self.chain_burn.shape[0],
-                                         size = self.optstat_nsamp)
-        for ii in range(self.optstat_nsamp):
-            _ostat_dict = self._compute_optimalstatistic(method = 'samp', chain_idx = samp_indices[ii])
-            for key, os_container in _ostat_dict.items():
-                noisemarg_os[ii] = os_container.
+            _noisemarg_os = np.zeros(self.optstat_nsamp)
+            _noisemarg_os_err = np.zeros(self.optstat_nsamp)
 
-            xi, rho, sig, noisemarg_os[ii], noisemarg_os_err[ii] = \
-            self._compute_optimalstatistic(method = 'samp', chain_idx = samp_indices[ii])
-        self.noisemarg_opstat = noisemarg_os
-        self.noisemarg_opstat_err = noisemarg_os_err
+            samp_indices = np.random.randint(0,
+                                             self.chain_burn.shape[0],
+                                             size = self.optstat_nsamp)
+            for ii in range(self.optstat_nsamp):
+                os_params = dict(zip(self.pars, self.chain_burn[chain_idx]))
+                _xi, _rho, _sig, _OS, _OS_sig = _os.compute_os(params=os_params)
+                _ostat_dict = self._compute_optimalstatistic(method = 'samp', chain_idx = samp_indices[ii])
+                _noisemarg_os[ii] = _OS
+                _noisemarg_os_err[ii] = _OS_sig
 
-    def get_HD_curve(self, zeta):
+            _osr.marginalise_ostat(_noisemarg_os, _noisemarg_os_err)
+        #
+        #     noisemarg_os[orf] = _noisemarg_os
+        #     noisemarg_os_err[orf] = _noisemarg_os_err
+        #
+        # self.noisemarg_opstat = noisemarg_os
+        # self.noisemarg_opstat_err = noisemarg_os_err
 
-        coszeta = np.cos(zeta*np.pi/180.)
-        xip = (1.-coszeta) / 2.
-        HD = 3.*( 1./3. + xip * ( np.log(xip) -1./6.) )
-
-        return HD/2.0
+    def _avg_ostat_bins(self):
+        for orf, _osr in self.OptimalStatisticResults.items():
+            _osr.avg_ostat_bins()
 
     def plot_os_orf(self, OS, xi_mean, rho_avg, xi_err, sig_avg):
 
@@ -430,26 +452,38 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
     def plot_noisemarg_os(self):
         #plot OS S/N
-        fig, ax = plt.subplots(1, 1, figsize = (2.008, 3.25))
-        ax.hist(self.noisemarg_os/self.noisemarg_os_err, histtype = 'step', \
-        color = 'C0', label = )
-        ax.axvline(np.mean(self.noisemarg_os/self.noisemarg_os_er), \
-        linestyle = '--', color = 'C0')
-        fig.savefig(self.outdir_all + '/' + self.psr_dir + '_os_SNR_' + \
-        self.optstat_orf + '_' + self.par_out_label + '.png', dpi = 300, \
-        bbox_inches = 'tight')
-        fig.close()
+        color_dict = {'hd': '#E53935', 'dipole': '#39E635', 'monopole': '#3539E6'}
+        # for orf in self.optstat_orfs:
+        fig1, ax1 = plt.subplots(1, 1, figsize = (2.008, 3.25))
+        fig2, ax2 = plt.subplots(1, 1, figsize = (2.008, 3.25))
+        for orf, _osr in self.OptimalStatisticResults.items():
+            _noisemarg_os = _osr.marginalised_os
+            _noisemarg_os_err = _osr.marginalised_os_err
+            _color = color_dict[orf]
+            ax1.hist(_noisemarg_os/_noisemarg_os_err, histtype = 'step', color = , label = orf)
 
-        fig,ax = plt.subplots(1, 1, figsize = (2.008, 3.25))
-        ax.hist(self.noisemarg_os, histtype = 'step', color = 'C0')
-        ax.axvline(self.noisemarg_os, linestyle = '--', color = 'C0')
+            ax1.axvline(np.mean(_noisemarg_os/_noisemarg_os_er), \
+                               linestyle = '--', color = _color)
 
-        ax.hist(self.gw_log10_A**2.0, histtype = 'step', color = '0.5')
-        ax.axvline(np.mean(self.gw_log10_A**2.0), linestyle = '--', color = '0.5')
-        fig.savefig(self.outdir_all + '/' + self.psr_dir + '_os_A2_' + \
-        self.optstat_orf + '_' + self.par_out_label + '.png', dpi = 300, \
-        bbox_inches = 'tight')
-        fig.close()
+            ax2.hist(_noisemarg_os, histtype = 'step', color = _color, label = orf)
+            ax2.axvline(np.mean(_noisemarg_os), linestyle = '--', color = _color)
+
+        ax1.legend(fontsize = 11)
+        ax1.set_xlabel('SNR')
+        ax1.set_ylabel('Counts')
+        fig1.savefig(self.outdir_all + '/' + self.psr_dir + '_os_SNR_' +  '_' +\
+                     self.par_out_label + '.png', dpi = 300, bbox_inches = 'tight')
+        fig1.close()
+
+        ax2.hist(self.gw_log10_A**2.0, histtype = 'step', color = '0.5', label = 'uncorrelated')
+        ax2.axvline(np.mean(self.gw_log10_A**2.0), linestyle = '--', color = '0.5')
+        ax2.legend(fontsize = 11)
+        ax2.set_xlabel('$\hat{{A}}^{{2}}$')
+        ax2.set_ylabel('Counts')
+        fig2.savefig(self.outdir_all + '/' + self.psr_dir + '_os_A2_' + \
+                     '_' + self.par_out_label + '.png', dpi = 300, \
+                     bbox_inches = 'tight')
+        fig2.close()
 
 
     def main_pipeline(self):
@@ -460,19 +494,21 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
             success = self._scan_psr_output()
             if not success:
                 continue
-
-            self._get_covm()
-
-            if not (self.opts.noisefiles or self.opts.logbf or self.opts.corner\
-                or self.opts.chains):
-                continue
+            #
+            # self._get_covm()
+            #
+            # if not (self.opts.noisefiles or self.opts.logbf or self.opts.corner\
+            #     or self.opts.chains):
+            #     continue
 
             success = self.load_chains()
             if not success:
                 continue
 
             self._get_pta()
-            self.
+            self._compute_optimalstatistic(method = 'mode')
+            self._marginalise_ostat()
+            self._avg_ostat_bins()
 
             self._do_stuff()
             #call the main operational functions here
