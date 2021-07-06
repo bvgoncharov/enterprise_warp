@@ -796,9 +796,9 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       _sig_avg = _osr.sig_avg
       _OS = _osr.OS
       fig, ax = plt.subplots(1, 1, figsize = (3.25, 2.008))
-      (_, caps, _) = ax.errorbar(_xi_avg,\
+      (_, caps, _) = ax.errorbar(_xi_avg*180/np.pi,\
                                  _rho_avg,\
-                                 xerr = _xi_err,\
+                                 xerr = _xi_err*180/np.pi,\
                                  yerr = _sig_avg,\
                                  marker = 'o',\
                                  ls = '',\
