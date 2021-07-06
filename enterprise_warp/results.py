@@ -850,17 +850,20 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       _noisemarg_os = _osr.marginalised_os
       _noisemarg_os_err = _osr.marginalised_os_err
       _color = color_dict[orf]
+      _os = _osr.OS
+      _os_err = _osr.OS_err
       ax1.hist(_noisemarg_os/_noisemarg_os_err, \
                histtype = 'step', \
                color = _color, \
                label = orf \
                )
 
-      ax1.axvline(np.mean(_noisemarg_os/_noisemarg_os_er), \
+      ax1.axvline(np.mean(_noisemarg_os/_noisemarg_os_err), \
                          linestyle = '--', color = _color)
-
+      ax1.axvline(_os/_os_err, linestyle = '-.', color = _color)
       ax2.hist(_noisemarg_os, histtype = 'step', color = _color, label = orf)
       ax2.axvline(np.mean(_noisemarg_os), linestyle = '--', color = _color)
+      ax2.axvline(_os, linestyle = '-.', color = _color)
 
     ax1.legend(fontsize = 11)
     ax1.set_xlabel('SNR')
