@@ -753,10 +753,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
           chain_idx = samp_indices[ii]
           os_params = dict(zip(self.pars, self.chain_burn[chain_idx]))
           _xi, _rho, _sig, _OS, _OS_sig = _os.compute_os(params=os_params)
-          _ostat_dict = self._compute_optimalstatistic(method = 'samp', \
-                                                       chain_idx = \
-                                                       samp_indices[ii] \
-                                                      )
+
           _noisemarg_os[ii] = _OS
           _noisemarg_os_err[ii] = _OS_sig
 
