@@ -794,7 +794,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       _xi_err = _osr.xi_err
       _sig_avg = _osr.sig_avg
       _OS = _osr.OS
-      fig, ax = plt.subplots(1, 1, figsize = (2.008, 3.25))
+      fig, ax = plt.subplots(1, 1, figsize = (3.25, 2.008))
       (_, caps, _) = ax.errorbar(_xi_avg,\
                                  _rho_avg,\
                                  xerr = _xi_err,\
@@ -835,7 +835,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                   dpi = 300, \
                   bbox_inches = 'tight' \
                   )
-      fig.close()
+      plt.close()
 
   def plot_noisemarg_os(self):
     #plot OS S/N
@@ -844,8 +844,8 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                   'monopole': '#3539E6'\
                  }
 
-    fig1, ax1 = plt.subplots(1, 1, figsize = (2.008, 3.25))
-    fig2, ax2 = plt.subplots(1, 1, figsize = (2.008, 3.25))
+    fig1, ax1 = plt.subplots(1, 1, figsize = (3.25, 2.008))
+    fig2, ax2 = plt.subplots(1, 1, figsize = (3.25, 2.008))
     for orf, _osr in self.OptimalStatisticResults.items():
       _noisemarg_os = _osr.marginalised_os
       _noisemarg_os_err = _osr.marginalised_os_err
