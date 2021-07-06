@@ -191,8 +191,8 @@ def make_noise_dict(psrname, chain, pars, method='mode', suffix = 'noise', \
   result_filename = outdir + '/' + psrname + '_' + suffix + '.json'
 
   if not recompute:
-    if os.path.exists(result_filename, 'r'):
-      xx = json.load(open(result_fileneame))
+    if os.path.exists(result_filename):
+      xx = json.load(open(result_fileneame, 'r'))
       return(xx)
 
   xx = {}
