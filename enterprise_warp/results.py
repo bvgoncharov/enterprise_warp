@@ -225,7 +225,7 @@ def check_if_psr_dir(folder_name):
 
 
 
-class OptimalStatisticResult(OptStat):
+class OptimalStatisticResult(object):
 
   def __init__(self, OptimalStatistic, params, xi, rho, sig, OS, OS_err):
     self.OptimalStatistic = OptimalStatistic #OptimalStatistic object
@@ -717,7 +717,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                                   method = method, recompute = False)
 
     for orf in self.optstat_orfs:
-      _os = OptStat.OptimalStatistic(psrs, pta = pta, orf = orf)
+      _os = OptStat(psrs, pta = pta, orf = orf)
       _xi, _rho, _sig, _OS, _OS_sig = _os.compute_os(params=os_params)
 
       result = OptimalStatisticResult(_os, os_params, _xi, _rho, _sig, _OS, \
