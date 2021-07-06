@@ -354,10 +354,11 @@ class Params(object):
             pname = p.split('/')[-1].split('_')[0].split('.')[0]
             if (pname in self.psrlist) or self.psrlist==[]:
                 import ipdb; ipdb.set_trace()
-                if self.opts.drop and self.opts.num==num:
-                  print('Dropping pulsar ', pname)
-                  self.output_dir += str(num) + '_' + pname + '/'
-                  continue
+                if self.opts is not None:
+                  if self.opts.drop and self.opts.num==num:
+                    print('Dropping pulsar ', pname)
+                    self.output_dir += str(num) + '_' + pname + '/'
+                    continue
                 if '.pkl' in self.datadir:
                   psr = pkl_data[p]
                 else:
