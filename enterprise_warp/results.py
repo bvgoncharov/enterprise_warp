@@ -86,7 +86,7 @@ def parse_commandline():
   parser.add_option("-orf", "--optimal_statistic_orf", help = "Set overlap reduction \
                     function form for optimal statistic analysis. Allowed \
                     options: all, hd (Hellings-Downs), quadrupole, dipole, monopole",
-                    default = "hd", type = str)
+                    default = "hd,dipole,monopole", type = str)
 
   parser.add_option("-s" "--optimal_statistic_nsamples", help = "Set integer number \
                     of samples for noise-marginalised optimal statistic analysis.",
