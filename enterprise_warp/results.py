@@ -187,7 +187,7 @@ def make_noise_dict(psrname, chain, pars, method='mode', suffix = 'noise', \
   Can be used for outputting a noise file or for use in further
   analysis (e.g. optimal statistic)
   """
-
+  import ipdb; ipdb.set_trace()
   result_filename = outdir + '/' + psrname + '_' + suffix + '.json'
 
   if not recompute:
