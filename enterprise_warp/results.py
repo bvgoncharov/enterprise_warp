@@ -812,7 +812,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       zeta = np.linspace(0.001, np.pi, 200)
 
       for __orf, curve in orf_funcs.items():
-        orf_curve = curve(zeta + 1.0)
+        orf_curve = curve(zeta)
         f, a = plt.subplots(1,1)
         a.plot(orf_curve)
         f.savefig('tmp_{}.png'.format(__orf))
@@ -871,7 +871,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       ax2.axvline(np.mean(_noisemarg_os), linestyle = '--', color = _color)
       ax2.axvline(_os, linestyle = '-.', color = _color)
 
-    ax1.legend(fontsize = 11)
+    ax1.legend(fontsize = 9)
     ax1.set_xlabel('SNR')
     ax1.set_ylabel('Counts')
     fig1.savefig(self.outdir_all + '/' + self.psr_dir + '_os_SNR_' +  '_' +\
@@ -880,7 +880,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
     # ax2.hist(self.gw_log10_A**2.0, histtype = 'step', color = '0.5', label = 'uncorrelated')
     # ax2.axvline(np.mean(self.gw_log10_A**2.0), linestyle = '--', color = '0.5')
-    ax2.legend(fontsize = 11)
+    ax2.legend(fontsize = 9)
     ax2.set_xlabel('$\hat{{A}}^{{2}}$')
     ax2.set_ylabel('Counts')
     fig2.savefig(self.outdir_all + '/' + self.psr_dir + '_os_A2_' + \
