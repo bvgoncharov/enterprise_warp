@@ -718,7 +718,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                                   method = method, recompute = False)
 
     for orf in self.optstat_orfs:
-      _os = OptStat(self.params.psrs, pta = pta, orf = orf)
+      _os = OptStat(self.params.psrs, self.pta = pta, orf = orf)
       _xi, _rho, _sig, _OS, _OS_sig = _os.compute_os(params=os_params)
 
       result = OptimalStatisticResult(_os, os_params, _xi, _rho, _sig, _OS, \
