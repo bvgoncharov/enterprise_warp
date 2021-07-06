@@ -88,7 +88,7 @@ def parse_commandline():
                     options: all, hd (Hellings-Downs), quadrupole, dipole, monopole",
                     default = "hd,dipole,monopole", type = str)
 
-  parser.add_option("-s" "--optimal_statistic_nsamples", help = "Set integer number \
+  parser.add_option("-s", "--optimal_statistic_nsamples", help = "Set integer number \
                     of samples for noise-marginalised optimal statistic analysis.",
                     default = 1000, type = int)
 
