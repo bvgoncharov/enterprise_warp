@@ -20,7 +20,8 @@ from bilby import result as br
 from chainconsumer import ChainConsumer
 from dateutil.parser import parse as pdate
 
-from enterprise_extensions.frequentist.optimal_statistic import OptimalStatistic as OptStat
+from enterprise_extensions.frequentist.optimal_statistic import \
+OptimalStatistic as OptStat
 from enterprise.signals import signal_base
 
 from . import enterprise_warp
@@ -696,8 +697,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       raise ValueError("--result should be a parameter file for \
                         optimal statistic")
     elif os.path.isfile(self.opts.result):
-      self.params = enterprise_warp.Params(self.opts.result, \
-                                           init_pulsars=True)
+      self.params = enterprise_warp.Params(self.opts.result, init_pulsars=True)
       #might want to include custom models support here
       self.outdir_all = self.params.out + self.params.label_models + '_' + \
                         self.params.paramfile_label + '/'
