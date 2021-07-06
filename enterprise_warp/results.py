@@ -309,7 +309,7 @@ class OptimalStatisticResult(object):
     #do we want to return these or add them as class attributes?
     self.xi_avg = xi_avg
     self.xi_err = xi_err
-    self.rho_mean = rho_avg
+    self.rho_avg = rho_avg
     self.sig_avg = sig_avg
     #return xi_mean, xi_err, rho_avg, sig_avg
 
