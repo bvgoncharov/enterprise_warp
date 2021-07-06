@@ -406,14 +406,15 @@ class Params(object):
         exit_message = "This pulsar has already been processed"
         self.psrs = [self.psrs]
 
-      if self.opts.mpi_regime != 2:
-        if not os.path.exists(self.output_dir):
-          os.makedirs(self.output_dir)
-        elif bool(self.opts.wipe_old_output):
-          warn_message = 'Warning: removing everything in ' + self.output_dir
-          warnings.warn(warn_message)
-          shutil.rmtree(self.output_dir)
-          os.makedirs(self.output_dir)
+      if self.opts is not None:   
+        if self.opts.mpi_regime != 2:
+          if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+          elif bool(self.opts.wipe_old_output):
+            warn_message = 'Warning: removing everything in ' + self.output_dir
+            warnings.warn(warn_message)
+            shutil.rmtree(self.output_dir)
+            os.makedirs(self.output_dir)
 
 def init_pta(params_all):
   """
