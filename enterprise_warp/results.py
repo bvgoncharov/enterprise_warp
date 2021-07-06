@@ -726,7 +726,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
       result = OptimalStatisticResult(_os, os_params, _xi, _rho, _sig, _OS, \
                                       _OS_sig)
-      optstat_dict['orf'] = result
+      optstat_dict[orf] = result
 
     if method == 'samp':
         return optstat_dict #this is probably useless
@@ -738,7 +738,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
   def _marginalise_ostat(self):
 
     for orf in self.optstat_orfs:
-
+      print(self.OptimalStatisticResults)
       _osr = self.OptimalStatisticResults[orf]
       _os = _osr.OptimalStatistic
 
