@@ -242,7 +242,13 @@ class OptimalStatisticResult(object):
 
   def weightedavg(self, _rho, _sig):
 
-    return np.average(_rho, _sig**-2.0), np.sqrt(np.sum(_sig**-2.0))
+    weights, avg = 0., 0.
+    for r,s in zip(rho,sig):
+      weights += 1./(s*s)
+      avg += r/(s*s)
+
+    return avg/weights, np.sqrt(1./weights)
+    #return np.average(_rho, _sig**-2.0), np.sqrt(np.sum(_sig**-2.0))
 
   def bin_crosscorr(self, zeta):
 
@@ -259,11 +265,11 @@ class OptimalStatisticResult(object):
         if x >= z and x < (z+10.):
           _rhos.append(r)
           _sigs.append(s)
-          rho_avg[i], sig_avg[i] = self.weightedavg(_rhos, _sigs)
+        rho_avg[i], sig_avg[i] = self.weightedavg(_rhos, _sigs)
 
     return rho_avg, sig_avg
 
-  def avg_ostat_bins(self, n_psr):
+  def avg_ostat_bins(self):
     # sort the cross-correlations by xi
     idx = np.argsort(self.xi)
 
@@ -273,7 +279,7 @@ class OptimalStatisticResult(object):
 
     # bin the cross-correlations so that there are the same number of \
     #pairs per bin
-    #n_psr = len(self.psrs)
+    n_psr = len(self.psrs)
     npairs = int(n_psr*(n_psr - 1.0)/2.0)
 
     xi_avg = []
@@ -698,7 +704,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                         optimal statistic")
     elif os.path.isfile(self.opts.result):
       self.params = enterprise_warp.Params(self.opts.result, init_pulsars=True)
-      self.psrs = self.params.psrs
+      # self.psrs = self.params.psrs
       #might want to include custom models support here
       self.outdir_all = self.params.out + self.params.label_models + '_' + \
                         self.params.paramfile_label + '/'
@@ -753,7 +759,10 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
           chain_idx = samp_indices[ii]
           os_params = dict(zip(self.pars, self.chain_burn[chain_idx]))
           _xi, _rho, _sig, _OS, _OS_sig = _os.compute_os(params=os_params)
-
+          #_ostat_dict = self._compute_optimalstatistic(method = 'samp', \
+                                                      #  chain_idx = \
+                                                      #  samp_indices[ii] \
+                                                      # )
           _noisemarg_os[ii] = _OS
           _noisemarg_os_err[ii] = _OS_sig
 
@@ -761,7 +770,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
   def _avg_ostat_bins(self):
     for orf, _osr in self.OptimalStatisticResults.items():
-      _osr.avg_ostat_bins(len(self.psrs))
+      _osr.avg_ostat_bins()
 
   def plot_os_orf(self):
 
