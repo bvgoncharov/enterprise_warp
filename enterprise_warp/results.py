@@ -700,8 +700,8 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       self.params = enterprise_warp.Params(self.opts.result, \
                                            init_pulsars=False)
       #might want to include custom models support here
-      self.outdir_all = params.out + params.label_models + '_' \
-                                   + params.paramfile_label + '/'
+      self.outdir_all = self.params.out + self.params.label_models + '_' + \
+                        self.params.paramfile_label + '/'
 
   def _get_pta(self):
     self.pta = enterprise_warp.init_pta(self.params)
