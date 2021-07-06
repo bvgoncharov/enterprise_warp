@@ -934,6 +934,7 @@ def main():
     result_obj = EnterpriseWarpResult(opts)
 
   result_obj.main_pipeline()
+  import ipdb; ipdb.set_trace()
 
 if __name__=='__main__':
   main()
