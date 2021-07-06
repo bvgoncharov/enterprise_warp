@@ -83,7 +83,7 @@ def parse_commandline():
                     statistic and make key plots (1/0)", default = 0,
                     type = int)
 
-  parser.add_option("-g", "--optimal_statistic_orf", help = "Set overlap reduction \
+  parser.add_option("-g", "--optimal_statistic_orfs", help = "Set overlap reduction \
                     function form for optimal statistic analysis. Allowed \
                     options: all, hd (Hellings-Downs), quadrupole, dipole, monopole",
                     default = "hd,dipole,monopole", type = str)
