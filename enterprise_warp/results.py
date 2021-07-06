@@ -299,7 +299,7 @@ class OptimalStatisticResult(object):
       rho_avg.append(r)
       sig_avg.append(s)
 
-      i += npairs/8
+      i += int(npairs/8)
 
     xi_avg = np.array(xi_avg)
     xi_err = np.array(xi_err)
