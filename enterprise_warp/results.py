@@ -720,7 +720,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
     # import ipdb; ipdb.set_trace()
     for orf in self.optstat_orfs:
-
+      print('Computing optimal statistic for {} ORF'.format(orf))
       _os = OptStat(self.params.psrs, pta = self.pta, orf = orf)
       _xi, _rho, _sig, _OS, _OS_sig = _os.compute_os(params=os_params)
 
@@ -728,9 +728,9 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                                       _OS_sig)
       optstat_dict['orf'] = result
 
-      if method == 'samp':
+    if method == 'samp':
         return optstat_dict #this is probably useless
-      else:
+    else:
         self.OptimalStatisticResults = optstat_dict #this is a representative optimal statistic
         return True
 
