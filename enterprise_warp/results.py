@@ -841,7 +841,11 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       _noisemarg_os = _osr.marginalised_os
       _noisemarg_os_err = _osr.marginalised_os_err
       _color = color_dict[orf]
-      ax1.hist(_noisemarg_os/_noisemarg_os_err, histtype = 'step', color = , label = orf)
+      ax1.hist(_noisemarg_os/_noisemarg_os_err, \
+               histtype = 'step', \
+               color = _color, \
+               label = orf \
+               )
 
       ax1.axvline(np.mean(_noisemarg_os/_noisemarg_os_er), \
                          linestyle = '--', color = _color)
