@@ -698,6 +698,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                         optimal statistic")
     elif os.path.isfile(self.opts.result):
       self.params = enterprise_warp.Params(self.opts.result, init_pulsars=True)
+      # self.psrs = self.params.psrs
       #might want to include custom models support here
       self.outdir_all = self.params.out + self.params.label_models + '_' + \
                         self.params.paramfile_label + '/'
@@ -717,7 +718,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                                   method = method, recompute = False)
 
     for orf in self.optstat_orfs:
-      _os = OptStat(psrs, pta = pta, orf = orf)
+      _os = OptStat(self.params.psrs, pta = pta, orf = orf)
       _xi, _rho, _sig, _OS, _OS_sig = _os.compute_os(params=os_params)
 
       result = OptimalStatisticResult(_os, os_params, _xi, _rho, _sig, _OS, \
