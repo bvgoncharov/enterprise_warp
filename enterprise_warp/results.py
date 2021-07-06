@@ -291,10 +291,10 @@ class OptimalStatisticResult(object):
     i = 0
     while i < len(xi_sorted):
 
-      xi_avg.append(np.mean(xi_sorted[i:npairs+i]))
-      xi_err.append(np.std(xi_sorted[i:npairs+i]))
+      xi_avg.append(np.mean(xi_sorted[i:npairs/8+i]))
+      xi_err.append(np.std(xi_sorted[i:npairs/8+i]))
 
-      r, s = self.weightedavg(rho_sorted[i:npairs+i], \
+      r, s = self.weightedavg(rho_sorted[i:npairs/8+i], \
         sig_sorted[i:npairs+i])
       rho_avg.append(r)
       sig_avg.append(s)
