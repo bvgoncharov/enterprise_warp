@@ -395,9 +395,9 @@ class StandardModels(object):
         else:
           orf = utils.hd_orf()
         if len(optsp) > 1 or 'namehd' in option:
-          gwname = 'gwb_hd'
+          gwname = 'gw_hd'
         else:
-          gwname = 'gwb'
+          gwname = 'gw'
         gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
                                               name=gwname,
                                               Tspan=self.params.Tspan)
@@ -405,19 +405,19 @@ class StandardModels(object):
         print('Adding monopole ORF')
         orf = utils.monopole_orf()
         gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                              name='gwb',
+                                              name='gw',
                                               Tspan=self.params.Tspan)
       elif "dipo" in option:
         print('Adding dipole ORF')
         orf = utils.dipole_orf()
         gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                              name='gwb',
+                                              name='gw',
                                               Tspan=self.params.Tspan)
 
       else:
         gwb = gp_signals.FourierBasisGP(gwb_pl, components=nfreqs,
-                                        name='gwb', Tspan=self.params.Tspan)
-      if 'gwb_total' in locals():
+                                        name='gw', Tspan=self.params.Tspan)
+      if 'gw_total' in locals():
         gwb_total += gwb
       else:
         gwb_total = gwb
