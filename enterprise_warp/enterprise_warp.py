@@ -353,7 +353,6 @@ class Params(object):
           for num, (p, t) in enumerate(zip(parfiles, timfiles)):
             pname = p.split('/')[-1].split('_')[0].split('.')[0]
             if (pname in self.psrlist) or self.psrlist==[]:
-                import ipdb; ipdb.set_trace()
                 if self.opts is not None:
                   if self.opts.drop and self.opts.num==num:
                     print('Dropping pulsar ', pname)
