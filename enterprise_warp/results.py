@@ -243,7 +243,7 @@ class OptimalStatisticResult(object):
   def weightedavg(self, _rho, _sig):
 
     weights, avg = 0., 0.
-    for r,s in zip(rho,sig):
+    for r,s in zip(_rho, _sig):
       weights += 1./(s*s)
       avg += r/(s*s)
 
