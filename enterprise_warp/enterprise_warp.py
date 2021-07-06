@@ -406,7 +406,7 @@ class Params(object):
         exit_message = "This pulsar has already been processed"
         self.psrs = [self.psrs]
 
-      if self.opts is not None:   
+      if self.opts is not None:
         if self.opts.mpi_regime != 2:
           if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
@@ -491,8 +491,11 @@ def init_pta(params_all):
 
     print('Model',ii,'params (',len(pta.param_names),') in order: ', \
           pta.param_names)
-    if params.opts.mpi_regime != 2:
-      np.savetxt(params.output_dir + '/pars.txt', pta.param_names, fmt='%s')
+
+    if params.opts is not None:
+      if params.opts.mpi_regime != 2:
+        np.savetxt(params.output_dir + '/pars.txt', pta.param_names, fmt='%s')
+        
     ptas[ii]=pta
 
   return ptas
