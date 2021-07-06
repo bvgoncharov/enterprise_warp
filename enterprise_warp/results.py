@@ -179,7 +179,7 @@ def estimate_from_distribution(values, method='mode', errorbars_cdf = [16,84]):
     return levels
 
 def make_noise_dict(psrname, chain, pars, method='mode', suffix = 'noise', \
-  recompute = True):
+  outdir = 'noisefiles/', recompute = True):
   """
   Create noise dictionary for a given MCMC or nested sampling chain.
   This is a dict that assigns a characteristic value (mode/median)
@@ -187,7 +187,7 @@ def make_noise_dict(psrname, chain, pars, method='mode', suffix = 'noise', \
   Can be used for outputting a noise file or for use in further
   analysis (e.g. optimal statistic)
   """
-  import ipdb; ipdb.set_trace()
+  # import ipdb; ipdb.set_trace()
   result_filename = outdir + '/' + psrname + '_' + suffix + '.json'
 
   if not recompute:
