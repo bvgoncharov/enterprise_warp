@@ -820,7 +820,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
         ax.plot(zeta, _OS*orf_curve, \
                 linestyle = '--', \
-                color = color_dict['orf'], \
+                color = color_dict[orf], \
                 linewidth = linewidth\
                 )
 
