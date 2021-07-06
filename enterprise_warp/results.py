@@ -643,7 +643,6 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       if not success:
         continue
 
-      self._get_pta()
       self._compute_optimalstatistic(method = 'mode')
       self._marginalise_ostat()
       self._avg_ostat_bins()
@@ -698,7 +697,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                         optimal statistic")
     elif os.path.isfile(self.opts.result):
       self.params = enterprise_warp.Params(self.opts.result, \
-                                           init_pulsars=False)
+                                           init_pulsars=True)
       #might want to include custom models support here
       self.outdir_all = self.params.out + self.params.label_models + '_' + \
                         self.params.paramfile_label + '/'
