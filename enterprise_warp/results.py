@@ -644,7 +644,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       if not success:
         continue
 
-      self._compute_optimalstatistic(method = 'mode')
+      self._add_optimalstatistics(method = 'mode')
       self._marginalise_ostat()
       self._avg_ostat_bins()
       self.plot_noisemarg_os()
