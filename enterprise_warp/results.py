@@ -789,6 +789,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
     highlight_linewidth = 1.8
 
     for _orf, _osr in self.OptimalStatisticResults.items():
+      print(_orf)
       _xi_avg = _osr.xi_avg
       _rho_avg = _osr.rho_avg
       _xi_err = _osr.xi_err
@@ -812,6 +813,11 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
       for __orf, curve in orf_funcs.items():
         orf_curve = curve(zeta + 1.0)
+        f, a = plt.subplots(1,1)
+        a.plot(orf_curve)
+        f.savefig('tmp.png')
+        plt.close(f)
+        
         if __orf == _orf:
           linewidth = highlight_linewidth
         else:
