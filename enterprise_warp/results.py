@@ -704,7 +704,8 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                         self.params.paramfile_label + '/'
 
   def _get_pta(self):
-    self.pta = enterprise_warp.init_pta(self.params)
+    #hard-coding in choice of model 0 here
+    self.pta = enterprise_warp.init_pta(self.params)[0]
 
   def _add_optimalstatistics(self, method='mode', chain_idx = 0):
     optstat_dict = {}
