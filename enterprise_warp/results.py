@@ -815,9 +815,9 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
         orf_curve = curve(zeta + 1.0)
         f, a = plt.subplots(1,1)
         a.plot(orf_curve)
-        f.savefig('tmp.png')
+        f.savefig('tmp_{}.png'.format(__orf))
         plt.close(f)
-        
+
         if __orf == _orf:
           linewidth = highlight_linewidth
         else:
