@@ -873,7 +873,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
     plt.close(fig1)
 
     # ax2.hist(self.gw_log10_A**2.0, histtype = 'step', color = '0.5', label = 'uncorrelated')
-    ax2.axvline(np.mean(self.gw_log10_A**2.0), linestyle = '--', color = '0.5')
+    # ax2.axvline(np.mean(self.gw_log10_A**2.0), linestyle = '--', color = '0.5')
     ax2.legend(fontsize = 11)
     ax2.set_xlabel('$\hat{{A}}^{{2}}$')
     ax2.set_ylabel('Counts')
