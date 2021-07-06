@@ -624,7 +624,7 @@ class EnterpriseWarpResult(object):
 
 class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
   def __init__(self, opts):
-    super(EnterpriseWarpOptimalStatistic).__init__(opts)
+    super(EnterpriseWarpOptimalStatistic, self).__init__(opts)
     self.interpret_opts_result()
     self.optstat_orfs = list(self.opts.optimal_statistic_orfs.split(','))
     self.optstat_nsamp = self.opts.optimal_statistic_nsamples
