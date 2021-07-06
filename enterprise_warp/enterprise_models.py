@@ -30,7 +30,7 @@ class StandardModels(object):
   Parameters
   ----------
   psr: enterprise.pulsar.Pulsar
-    Enterprise Pulsar object, where custom atrributes are written for 
+    Enterprise Pulsar object, where custom atrributes are written for
     band noise and system noise because enterprise.selections function
     have access to Pulsar object attributes to select certain parts of data.
 
@@ -107,7 +107,7 @@ class StandardModels(object):
 
   def efac(self,option="by_backend"):
     """
-    EFAC signal:  multiplies ToA variance by EFAC**2, where ToA variance 
+    EFAC signal:  multiplies ToA variance by EFAC**2, where ToA variance
     are diagonal components of the Likelihood covariance matrix.
     """
     if option not in selections.__dict__.keys():
@@ -169,7 +169,7 @@ class StandardModels(object):
   def spin_noise(self,option="powerlaw"):
     """
     Achromatic red noise process is called spin noise, although generally
-    this model is used to model any unknown red noise. If this model is 
+    this model is used to model any unknown red noise. If this model is
     preferred over chromatic models then the observed noise is really spin
     noise, associated with pulsar rotational irregularities.
     """
@@ -212,7 +212,7 @@ class StandardModels(object):
 
   def chromred(self,option="vary"):
     """
-    This is an generalization of DM noise, with the dependence of Fourier 
+    This is an generalization of DM noise, with the dependence of Fourier
     amplitudes on radio frequency nu as ~ 1/nu^chi, where chi is a free
     parameter.
 
@@ -255,7 +255,7 @@ class StandardModels(object):
 
   def system_noise(self,option=[]):
     """
-    Including red noise terms by "-group" flag, only with flagvals in noise 
+    Including red noise terms by "-group" flag, only with flagvals in noise
     model file.
 
     See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.
@@ -266,7 +266,7 @@ class StandardModels(object):
                                 self.params.syn_gamma[1])
       pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
                           components=self.params.red_general_nfouriercomp)
- 
+
       selection_function_name = 'sys_noise_selection_'+str(self.sys_noise_count)
       setattr(self, selection_function_name,
               selection_factory(selection_function_name))
@@ -353,7 +353,7 @@ class StandardModels(object):
       else:
         nfreqs = self.determine_nfreqs(sel_func_name=None, common_signal=True)
       print('Number of Fourier frequencies for the GWB/CPL signal: ', nfreqs)
-  
+
       if "_gamma" in option:
         amp_name = '{}_log10_A'.format(name)
         if (len(optsp) > 1 and 'hd' in option) or ('namehd' in option):
@@ -368,7 +368,7 @@ class StandardModels(object):
         elif self.params.gwb_lgA_prior == "linexp":
           gwb_log10_A = parameter.LinearExp(self.params.gwb_lgA[0],
                                             self.params.gwb_lgA[1])(amp_name)
-  
+
         gam_name = '{}_gamma'.format(name)
         if "vary_gamma" in option:
           gwb_gamma = parameter.Uniform(self.params.gwb_gamma[0],
@@ -382,11 +382,11 @@ class StandardModels(object):
         gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
       elif "freesp" in option:
         amp_name = '{}_log10_rho'.format(name)
-        log10_rho = parameter.Uniform(self.params.gwb_lgrho[0], 
-                                      self.params.gwb_lgrho[1], 
+        log10_rho = parameter.Uniform(self.params.gwb_lgrho[0],
+                                      self.params.gwb_lgrho[1],
                                       size=nfreqs)(amp_name)
         gwb_pl = gp_priors.free_spectrum(log10_rho=log10_rho)
-  
+
       if "hd" in option:
         print('Adding HD ORF')
         if "noauto" in option:
@@ -399,19 +399,19 @@ class StandardModels(object):
         else:
           gwname = 'gwb'
         gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                              name=gwname, 
+                                              name=gwname,
                                               Tspan=self.params.Tspan)
       elif "mono" in option:
         print('Adding monopole ORF')
         orf = utils.monopole_orf()
         gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                              name='gwb', 
+                                              name='gwb',
                                               Tspan=self.params.Tspan)
       elif "dipo" in option:
         print('Adding dipole ORF')
         orf = utils.dipole_orf()
         gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                              name='gwb', 
+                                              name='gwb',
                                               Tspan=self.params.Tspan)
 
       else:
@@ -421,12 +421,12 @@ class StandardModels(object):
         gwb_total += gwb
       else:
         gwb_total = gwb
- 
+
     return gwb_total
 
   def bayes_ephem(self,option="default"):
     """
-    Deterministic signal from errors in Solar System ephemerides. 
+    Deterministic signal from errors in Solar System ephemerides.
     """
     eph = deterministic_signals.PhysicalEphemerisSignal(use_epoch_toas=True)
     return eph
@@ -436,7 +436,7 @@ class StandardModels(object):
   def determine_nfreqs(self, sel_func_name=None, cadence=60,
                        common_signal=False):
     """
-    Determine whether to model red noise process with a fixed number of 
+    Determine whether to model red noise process with a fixed number of
     Fourier frequencies or whether to choose a number frequencies
     between the inverse of observation time and cadence (default 60) days.
 
@@ -448,7 +448,7 @@ class StandardModels(object):
       data (which is equal or smaller than the total observation span).
       If None, then enterprise.signals.selections.no_selection is assumed.
     cadence: float
-      Period of highest-frequency component modelled (days) 
+      Period of highest-frequency component modelled (days)
     common_signal: bool
       True if determining a baseline observation span for a whole pulsar
       timing array with several pulsars.
@@ -461,15 +461,16 @@ class StandardModels(object):
                                   common_signal=common_signal)
       n_freqs = int(np.round((1./cadence/const.day - 1/tobs)/(1/tobs)))
 
-    if self.params.opts.mpi_regime != 2:
-      self.save_nfreqs_information(sel_func_name, n_freqs)
+    if self.params.opts is not None:
+      if self.params.opts.mpi_regime != 2:
+        self.save_nfreqs_information(sel_func_name, n_freqs)
 
     return n_freqs
 
   def determine_tspan(self, sel_func_name=None, common_signal=False):
     """
     Determine the time span of TOAs under a given selection
-    
+
     Parameters
     ----------
     sel_func_name: str
@@ -575,19 +576,19 @@ def hd_orf_noauto(pos1, pos2):
 def selection_factory(new_selection_name):
   """
   This function constructs new selection functions for band and system noise,
-  so that the specific band/system selection with flag and flag values (i.e., 
+  so that the specific band/system selection with flag and flag values (i.e.,
   "group" and "CPSR2_50CM") are passed as arrays "sys_flags" and "sys_flagvals"
   in enterprise.pulsar.Pulsar object. The selection function name contains an
   index for these arrays, which tell the function which flag and value to use.
-  
+
   This method is not ideal, but it allows to create the right number of
   selection functions for any given number of band/system noise terms,
   without the need to pre-define them or modify the Enterprise code.
-  
+
   Parameters
   ----------
   new_selection_name: str
-    Python string with selection function name that we need to create. 
+    Python string with selection function name that we need to create.
     Selection function name format is "name_N", where N is an integer,
     an array index for "sys_flags" and "sys_flagvals".
   """
@@ -629,7 +630,7 @@ def selection_factory(new_selection_name):
   template_selection_code = types.CodeType(*list_codetype_args)
 
   return types.FunctionType(template_selection_code, template_sel.__globals__,
-                            new_selection_name) 
+                            new_selection_name)
 
 def toa_mask_from_selection_function(psr,selfunc):
   """
@@ -651,4 +652,3 @@ def toa_mask_from_selection_function(psr,selfunc):
     return [val for val in selection_mask_dict.values()][0]
   else:
     raise NotImplementedError
-
