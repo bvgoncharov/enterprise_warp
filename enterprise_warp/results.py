@@ -717,7 +717,9 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       os_params = make_noise_dict(self.psr_dir,self.chain_burn,self.pars,\
                                   method = method, recompute = False)
 
+    import ipdb; ipdb.set_trace()
     for orf in self.optstat_orfs:
+
       _os = OptStat(self.params.psrs, pta = self.pta, orf = orf)
       _xi, _rho, _sig, _OS, _OS_sig = _os.compute_os(params=os_params)
 
