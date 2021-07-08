@@ -805,7 +805,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                                  yerr = _sig_avg,\
                                  marker = 'o',\
                                  ls = '', \
-                                 color = 'C1', ##4FC3F7' \ 
+                                 color = 'C1', ##4FC3F7' \
                                  fmt = 'o',\
                                  capsize = 4,\
                                  elinewidth = 1.2\
@@ -835,7 +835,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
       ax.set_xlim(0, np.pi)
       ylo, yhi = ax.get_ylim()
-      m = np.max(np.abs(ylo), np.abs(yhi))
+      m = np.amax([np.abs(ylo), np.abs(yhi)])
       ax.set_ylim(-m, m)
       ax.set_xlabel(r'$\zeta$ (rad)')
       ax.set_ylabel(r'$\hat{{A}}^2 \Gamma_{{ab}}(\zeta)$')
