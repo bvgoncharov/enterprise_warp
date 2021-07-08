@@ -870,7 +870,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
              label = orf, \
              density = True, \
              ax = ax1, \
-             bins = 'blocks' \
+             bins = 'knuth' \
             )
 
       ax1.axvline(np.mean(_noisemarg_os/_noisemarg_os_err), \
@@ -882,7 +882,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
              label = orf, \
              density = True, \
              ax = ax2, \
-             bins = 'blocks' \
+             bins = 'knuth' \
             )
       ax2.axvline(np.mean(_noisemarg_os), linestyle = '--', color = _color)
       ax2.axvline(_os, linestyle = '-.', color = _color)
