@@ -105,14 +105,14 @@ def parse_commandline():
 
 def get_HD_curve(zeta):
 
-  coszeta = np.cos(zeta*np.pi/180.)
+  coszeta = np.cos(zeta)
   xip = (1.-coszeta) / 2.
   HD = 3.*( 1./3. + xip * ( np.log(xip) -1./6.) )
 
   return HD/2.0
 
 def get_dipole_curve(zeta):
-  coszeta = np.cos(zeta*np.pi/180.)
+  coszeta = np.cos(zeta)
   return coszeta
 
 
