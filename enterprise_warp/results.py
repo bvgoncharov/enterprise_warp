@@ -799,9 +799,9 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       _sig_avg = _osr.sig_avg
       _OS = _osr.OS
       fig, ax = plt.subplots(1, 1, figsize = (3.25, 2.008))
-      (_, caps, _) = ax.errorbar(_xi_avg*180/np.pi,\
+      (_, caps, _) = ax.errorbar(_xi_avg,\
                                  _rho_avg,\
-                                 xerr = _xi_err*180/np.pi,\
+                                 xerr = _xi_err,\
                                  yerr = _sig_avg,\
                                  marker = 'o',\
                                  ls = '',\
@@ -880,10 +880,10 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                  self.par_out_label + '.png', dpi = 300, bbox_inches = 'tight')
     plt.close(fig1)
 
-    # ax2.hist(self.gw_log10_A**2.0, histtype = 'step', color = '0.5', \
-               #label = 'uncorrelated')
-    # ax2.axvline(np.mean(self.gw_log10_A**2.0), linestyle = '--', \
-                  #color = '0.5')
+    ax2.hist(10.0**(self.gw_log10_A)**2.0, histtype = 'step', color = '0.5', \
+               label = 'uncorrelated')
+    ax2.axvline(10.0**(np.mean(self.gw_log10_A))**2.0, linestyle = '--', \
+                  color = '0.5')
     ax2.legend(fontsize = 9)
     ax2.set_xlabel('$\hat{{A}}^{{2}}$')
     ax2.set_ylabel('Counts')
