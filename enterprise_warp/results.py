@@ -783,9 +783,9 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                 }
 
 
-    color_dict = {'hd': '#E53935', \
-                  'dipole': '#39E635', \
-                  'monopole': '#3539E6'
+    color_dict = {'hd': 'C3', \
+                  'dipole': 'C2', \
+                  'monopole': 'C0'\
                  }
 
     default_linewidth = 0.8
@@ -805,7 +805,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                                  yerr = _sig_avg,\
                                  marker = 'o',\
                                  ls = '',\
-                                 color = '#4FC3F7',\
+                                 color = 'C1',\ ##4FC3F7',\
                                  fmt = 'o',\
                                  capsize = 4,\
                                  elinewidth = 1.2\
@@ -834,7 +834,9 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                 )
 
       ax.set_xlim(0, np.pi)
-      ax.set_ylim(-4E-30, 4E-30)
+      ylo, yhi = ax.get_ylim()
+      m = np.max(np.abs(ylo), np.abs(yhi))
+      ax.set_ylim(-m, m)
       ax.set_xlabel(r'$\zeta$ (rad)')
       ax.set_ylabel(r'$\hat{{A}}^2 \Gamma_{{ab}}(\zeta)$')
       fig.tight_layout()
@@ -847,9 +849,9 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
   def plot_noisemarg_os(self):
     #plot OS S/N
-    color_dict = {'hd': '#E53935', \
-                  'dipole': '#39E635', \
-                  'monopole': '#3539E6'\
+    color_dict = {'hd': 'C3', \
+                  'dipole': 'C2', \
+                  'monopole': 'C0'\
                  }
 
     fig1, ax1 = plt.subplots(1, 1, figsize = (3.25, 2.008))
