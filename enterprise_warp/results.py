@@ -804,8 +804,8 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                                  xerr = _xi_err,\
                                  yerr = _sig_avg,\
                                  marker = 'o',\
-                                 ls = '',\
-                                 color = 'C1',\ ##4FC3F7',\
+                                 ls = '', \
+                                 color = 'C1', \ ##4FC3F7',\
                                  fmt = 'o',\
                                  capsize = 4,\
                                  elinewidth = 1.2\
