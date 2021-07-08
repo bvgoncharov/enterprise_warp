@@ -882,9 +882,9 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                  self.par_out_label + '.png', dpi = 300, bbox_inches = 'tight')
     plt.close(fig1)
 
-    ax2.hist(10.0**(self.gw_log10_A)**2.0, histtype = 'step', color = '0.5', \
+    ax2.hist((10.0**(self.gw_log10_A))**2.0, histtype = 'step', color = '0.5', \
                label = 'uncorrelated')
-    ax2.axvline(10.0**(np.mean(self.gw_log10_A))**2.0, linestyle = '--', \
+    ax2.axvline((10.0**(np.mean(self.gw_log10_A)))**2.0, linestyle = '--', \
                   color = '0.5')
     ax2.legend(fontsize = 9)
     ax2.set_xlabel('$\hat{{A}}^{{2}}$')
