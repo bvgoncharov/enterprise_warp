@@ -903,7 +903,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
     ax2.axvline((10.0**(np.mean(self.gw_log10_A)))**2.0, linestyle = '--', \
                   color = '0.5')
     ax2.legend(fontsize = 9)
-    ax2.set_xlabel('$\hat{{A}}^{{2}} & {{A}}^{{2}}_{{\mathrm{{CP}}}}$')
+    ax2.set_xlabel('$\hat{{A}}^{{2}} \& {{A}}^{{2}}_{{\mathrm{{CP}}}}$')
     ax2.set_ylabel('Probability density')
     fig2.savefig(self.outdir_all + '/' + self.psr_dir + '_os_A2_' + \
                  '_' + self.par_out_label + '.png', dpi = 300, \
