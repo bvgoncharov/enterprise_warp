@@ -848,6 +848,8 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       plt.close()
 
   def plot_noisemarg_os(self):
+    from astropy.stats import bayesian_blocks as bblocks
+    from astropy.visualization import hist as a_hist
     #plot OS S/N
     color_dict = {'hd': 'C3', \
                   'dipole': 'C2', \
@@ -862,33 +864,47 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       _color = color_dict[orf]
       _os = _osr.OS
       _os_err = _osr.OS_err
-      ax1.hist(_noisemarg_os/_noisemarg_os_err, \
-               histtype = 'step', \
-               color = _color, \
-               label = orf \
-               )
+      a_hist(_noisemarg_os/_noisemarg_os_err, \
+             histtype = 'step', \
+             color = _color, \
+             label = orf, \
+             density = True, \
+             ax = ax1, \
+             bins = 'blocks' \
+            )
 
       ax1.axvline(np.mean(_noisemarg_os/_noisemarg_os_err), \
                          linestyle = '--', color = _color)
       ax1.axvline(_os/_os_err, linestyle = '-.', color = _color)
-      ax2.hist(_noisemarg_os, histtype = 'step', color = _color, label = orf)
+      a_hist(_noisemarg_os, \
+             histtype = 'step', \
+             color = _color, \
+             label = orf, \
+             density = True, \
+             ax = ax2, \
+             bins = 'blocks' \
+            )
       ax2.axvline(np.mean(_noisemarg_os), linestyle = '--', color = _color)
       ax2.axvline(_os, linestyle = '-.', color = _color)
 
     ax1.legend(fontsize = 9)
     ax1.set_xlabel('SNR')
-    ax1.set_ylabel('Counts')
+    ax1.set_ylabel('Probability density')
     fig1.savefig(self.outdir_all + '/' + self.psr_dir + '_os_SNR_' +  '_' +\
                  self.par_out_label + '.png', dpi = 300, bbox_inches = 'tight')
     plt.close(fig1)
 
-    ax2.hist((10.0**(self.gw_log10_A))**2.0, histtype = 'step', color = '0.5', \
-               label = 'uncorrelated')
+    ax2.hist((10.0**(self.gw_log10_A))**2.0, \
+              histtype = 'step', \
+              color = '0.5', \
+              label = 'uncorrelated', \
+              density = True \
+            )
     ax2.axvline((10.0**(np.mean(self.gw_log10_A)))**2.0, linestyle = '--', \
                   color = '0.5')
     ax2.legend(fontsize = 9)
-    ax2.set_xlabel('$\hat{{A}}^{{2}}$')
-    ax2.set_ylabel('Counts')
+    ax2.set_xlabel('$\hat{{A}}^{{2}} & {{A}}^{{2}}_{{\mathrm{{CP}}}}$')
+    ax2.set_ylabel('Probability density')
     fig2.savefig(self.outdir_all + '/' + self.psr_dir + '_os_A2_' + \
                  '_' + self.par_out_label + '.png', dpi = 300, \
                  bbox_inches = 'tight')
@@ -946,7 +962,7 @@ def main():
     result_obj = EnterpriseWarpResult(opts)
 
   result_obj.main_pipeline()
-  import ipdb; ipdb.set_trace()
+  #import ipdb; ipdb.set_trace()
 
 if __name__=='__main__':
   main()
