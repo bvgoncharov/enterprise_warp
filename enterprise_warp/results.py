@@ -84,13 +84,15 @@ def parse_commandline():
                     statistic and make key plots (1/0)", default = 0,
                     type = int)
 
-  parser.add_option("-g", "--optimal_statistic_orfs", help = "Set overlap reduction \
-                    function form for optimal statistic analysis. Allowed \
-                    options: all, hd (Hellings-Downs), quadrupole, dipole, monopole",
+  parser.add_option("-g", "--optimal_statistic_orfs", help = "Set overlap \
+                    reduction function form for optimal statistic analysis. \
+                    Allowed options: \
+                    all, hd (Hellings-Downs), quadrupole, dipole, monopole",
                     default = "hd,dipole,monopole", type = str)
 
-  parser.add_option("-N", "--optimal_statistic_nsamples", help = "Set integer number \
-                    of samples for noise-marginalised optimal statistic analysis.",
+  parser.add_option("-N", "--optimal_statistic_nsamples", help = "Set integer \
+                    number of samples for noise-marginalised optimal statistic \
+                    analysis.",
                     default = 1000, type = int)
 
   parser.add_option("-y", "--bilby", help="Load bilby result", \
@@ -737,7 +739,8 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
     if method == 'samp':
         return optstat_dict #this is probably useless
     else:
-        self.OptimalStatisticResults = optstat_dict #this is a representative optimal statistic
+        self.OptimalStatisticResults = optstat_dict
+        #this is a representative optimal statistic
         return True
 
 
@@ -823,7 +826,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
         else:
           linewidth = default_linewidth
 
-
+        print(_OS.shape)
         ax.plot(zeta, _OS*orf_curve, \
                 linestyle = '--', \
                 color = color_dict[__orf], \
@@ -836,9 +839,8 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       ax.set_ylabel(r'$\hat{{A}}^2 \Gamma_{{ab}}(\zeta)$')
       fig.tight_layout()
       fig.savefig(
-                  self.outdir_all + '/' + self.psr_dir + '_os_orf_' +  _orf + '_' + \
-                  self.par_out_label + '.png', \
-                  dpi = 300, \
+                  self.outdir_all + '/' + self.psr_dir + '_os_orf_' +  _orf + \
+                  '_' + self.par_out_label + '.png', dpi = 300, \
                   bbox_inches = 'tight' \
                   )
       plt.close()
@@ -878,8 +880,10 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                  self.par_out_label + '.png', dpi = 300, bbox_inches = 'tight')
     plt.close(fig1)
 
-    # ax2.hist(self.gw_log10_A**2.0, histtype = 'step', color = '0.5', label = 'uncorrelated')
-    # ax2.axvline(np.mean(self.gw_log10_A**2.0), linestyle = '--', color = '0.5')
+    # ax2.hist(self.gw_log10_A**2.0, histtype = 'step', color = '0.5', \
+               #label = 'uncorrelated')
+    # ax2.axvline(np.mean(self.gw_log10_A**2.0), linestyle = '--', \
+                  #color = '0.5')
     ax2.legend(fontsize = 9)
     ax2.set_xlabel('$\hat{{A}}^{{2}}$')
     ax2.set_ylabel('Counts')
