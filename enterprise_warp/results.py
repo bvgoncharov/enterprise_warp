@@ -874,8 +874,15 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
             )
 
       ax1.axvline(np.mean(_noisemarg_os/_noisemarg_os_err), \
-                         linestyle = '--', color = _color)
-      ax1.axvline(_os/_os_err, linestyle = '-.', color = _color)
+                  linestyle = '--', \
+                  color = _color, \
+                  linewidth = 0.8 \
+                 )
+      ax1.axvline(_os/_os_err, \
+                  linestyle = '-.', \
+                  color = _color, \
+                  linewidth = 0.8 \
+                 )
       a_hist(_noisemarg_os, \
              histtype = 'step', \
              color = _color, \
@@ -884,8 +891,16 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
              ax = ax2, \
              bins = 'knuth' \
             )
-      ax2.axvline(np.mean(_noisemarg_os), linestyle = '--', color = _color)
-      ax2.axvline(_os, linestyle = '-.', color = _color)
+      ax2.axvline(np.mean(_noisemarg_os), \
+                  linestyle = '--', \
+                  color = _color, \
+                  linewidth = 0.8, \
+                 )
+      ax2.axvline(_os, \
+                  linestyle = '-.', \
+                  color = _color, \
+                  linewidth = 0.8
+                 )
 
     ax1.legend(fontsize = 9)
     ax1.set_xlabel('SNR')
