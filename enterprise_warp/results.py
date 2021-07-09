@@ -802,62 +802,59 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
     default_linewidth = 0.8
     highlight_linewidth = 1.8
 
-    for _orf, _osr in self.OptimalStatisticResults.items():
-      print(_orf)
-      _xi_avg = _osr.xi_avg
-      _rho_avg = _osr.rho_avg
-      _xi_err = _osr.xi_err
-      _sig_avg = _osr.sig_avg
-      _OS = _osr.OS
-      fig, ax = plt.subplots(1, 1, figsize = (3.25, 2.008))
-      (_, caps, _) = ax.errorbar(_xi_avg,\
-                                 _rho_avg,\
-                                 xerr = _xi_err,\
-                                 yerr = _sig_avg,\
-                                 marker = 'o',\
-                                 ls = '', \
-                                 color = 'k', ##4FC3F7' \
-                                 fmt = 'o',\
-                                 capsize = 4,\
-                                 elinewidth = 1.2\
-                                )
+    _orf = 'hd'
+    _osr = self.OptimalStatisticResults[_orf]
+
+    _xi_avg = _osr.xi_avg
+    _rho_avg = _osr.rho_avg
+    _xi_err = _osr.xi_err
+    _sig_avg = _osr.sig_avg
+    _OS = _osr.OS
+    fig, ax = plt.subplots(1, 1, figsize = (3.25, 2.008))
+    (_, caps, _) = ax.errorbar(_xi_avg,\
+                               _rho_avg,\
+                               xerr = _xi_err,\
+                               yerr = _sig_avg,\
+                               marker = 'o',\
+                               ls = '', \
+                               color = 'k', ##4FC3F7' \
+                               fmt = 'o',\
+                               capsize = 4,\
+                               elinewidth = 1.2\
+                              )
 
 
-      zeta = np.linspace(0.001, np.pi, 200)
+    zeta = np.linspace(0.001, np.pi, 200)
 
-      for __orf, curve in orf_funcs.items():
-        orf_curve = curve(zeta)
-        f, a = plt.subplots(1,1)
-        a.plot(orf_curve)
-        f.savefig('tmp_{}.png'.format(__orf))
-        plt.close(f)
+    for __orf, curve in orf_funcs.items():
+      orf_curve = curve(zeta)
+      __OS = self.OpimalStatisticResults[__orf].OS
 
-        if __orf == _orf:
-          linewidth = highlight_linewidth
-        else:
-          linewidth = default_linewidth
+      if __orf == '_orf':
+        linewidth = highlight_linewidth
+      else:
+        linewidth = default_linewidth
 
-        print(_OS.shape)
-        ax.plot(zeta, _OS*orf_curve, \
-                linestyle = '--', \
-                color = color_dict[__orf], \
-                linewidth = linewidth\
+      ax.plot(zeta, __OS*orf_curve, \
+              linestyle = '--', \
+              color = color_dict[__orf], \
+              linewidth = linewidth\
+             )
+
+    ax.set_xlim(0, np.pi)
+    ylo, yhi = ax.get_ylim()
+    m = np.amax([np.abs(ylo), np.abs(yhi)])
+    ax.set_ylim(-m, m)
+    ax.set_xlabel(r'$\zeta$ (rad)')
+    ax.set_ylabel(r'$\hat{{A}}^2 \Gamma_{{ab}}(\zeta)$')
+    ax.minorticks_on()
+    fig.tight_layout()
+    fig.savefig(
+                self.outdir_all + '/' + self.psr_dir + '_os_orf_' + \
+                self.par_out_label + '.png', dpi = 300, \
+                bbox_inches = 'tight' \
                 )
-
-      ax.set_xlim(0, np.pi)
-      ylo, yhi = ax.get_ylim()
-      m = np.amax([np.abs(ylo), np.abs(yhi)])
-      ax.set_ylim(-m, m)
-      ax.set_xlabel(r'$\zeta$ (rad)')
-      ax.set_ylabel(r'$\hat{{A}}^2 \Gamma_{{ab}}(\zeta)$')
-      ax.minorticks_on()
-      fig.tight_layout()
-      fig.savefig(
-                  self.outdir_all + '/' + self.psr_dir + '_os_orf_' +  _orf + \
-                  '_' + self.par_out_label + '.png', dpi = 300, \
-                  bbox_inches = 'tight' \
-                  )
-      plt.close()
+    plt.close(fig)
 
   def plot_noisemarg_os(self):
     from astropy.stats import bayesian_blocks as bblocks
