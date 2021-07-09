@@ -941,8 +941,8 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
   def dump_results(self):
     fname = self.outdir_all + '/' + self.psr_dir + '_os_results.pkl'
     _file = open(fname, 'w')
-    pickle.dump(self.OptimalStatisticResults, _file)
-    return True
+    # pickle.dump(self.OptimalStatisticResults, _file)
+    return False
 
   def load_results(self):
     fname = self.outdir_all + '/' + self.psr_dir + '_os_results.pkl'
