@@ -826,7 +826,8 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
     zeta = np.linspace(0.001, np.pi, 200)
 
-    for __orf, curve in orf_funcs.items():
+    for __orf in self.optstat_orfs:
+      curve = orf_funcs[__orf]
       orf_curve = curve(zeta)
       __OS = self.OptimalStatisticResults[__orf].OS
 
