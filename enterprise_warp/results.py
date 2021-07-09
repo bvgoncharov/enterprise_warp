@@ -98,7 +98,7 @@ def parse_commandline():
   parser.add_option("-L", "--load_optimal_statistic_results", help = "load \
                     results from optimal statistic analysis. Do not recalculate\
                     any results. (1/0)",
-                    default = 1, type = int)
+                    default = 0, type = int)
 
 
   parser.add_option("-y", "--bilby", help="Load bilby result", \
