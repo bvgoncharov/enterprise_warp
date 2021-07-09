@@ -893,13 +893,18 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                   color = _color, \
                   linewidth = 0.8 \
                  )
+      if orf == 'monopole':
+        bins = 'blocks'
+      else:
+        bins = 'knuth'
+
       a_hist(_noisemarg_os, \
              histtype = 'step', \
              color = _color, \
              label = orf, \
              density = True, \
              ax = ax2, \
-             bins = 'knuth' \
+             bins = bins \
             )
       ax2.axvline(np.mean(_noisemarg_os), \
                   linestyle = '--', \
