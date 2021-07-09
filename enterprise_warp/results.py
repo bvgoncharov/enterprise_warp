@@ -95,6 +95,12 @@ def parse_commandline():
                     analysis.",
                     default = 1000, type = int)
 
+  parser.add_option("-L", "--load_optimal_statistic_results", help = "load \
+                    results from optimal statistic analysis. Do not recalculate\
+                    any results. (1/0)",
+                    default = 1, type = int)
+
+
   parser.add_option("-y", "--bilby", help="Load bilby result", \
                     default=0, type=int)
 
@@ -652,9 +658,14 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       if not success:
         continue
 
-      self._add_optimalstatistics(method = 'mode')
-      self._marginalise_ostat()
-      self._avg_ostat_bins()
+      if self.opts.load_optimal_statistic_results == 1:
+        self.load_results()
+      else:
+        self._add_optimalstatistics(method = 'mode')
+        self._marginalise_ostat()
+        self._avg_ostat_bins()
+        self.dump_results()
+
       self.plot_noisemarg_os()
       self.plot_os_orf()
 
@@ -929,6 +940,21 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                  '_' + self.par_out_label + '.png', dpi = 300, \
                  bbox_inches = 'tight')
     plt.close(fig2)
+
+  def dump_results(self):
+    fname = self.outdir_all + '/' + self.psr_dir + '_os_results.pkl'
+    _file = open(fname, 'w')
+    pickle.dump(self.OptimalStatisticResults, _file)
+    return True
+
+  def load_results(self):
+    fname = self.outdir_all + '/' + self.psr_dir + '_os_results.pkl'
+    _file = open(fname, 'r')
+    _OptimalStatisticResults = pickle.load(_file)
+    self.OptimalStatisticResults = _OptimalStatisticResults
+    return True
+
+
 
 class BilbyWarpResult(EnterpriseWarpResult):
 
