@@ -839,6 +839,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       ax.set_ylim(-m, m)
       ax.set_xlabel(r'$\zeta$ (rad)')
       ax.set_ylabel(r'$\hat{{A}}^2 \Gamma_{{ab}}(\zeta)$')
+      ax.minorticks_on()
       fig.tight_layout()
       fig.savefig(
                   self.outdir_all + '/' + self.psr_dir + '_os_orf_' +  _orf + \
@@ -905,6 +906,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
     ax1.legend(fontsize = 9)
     ax1.set_xlabel('SNR')
     ax1.set_ylabel('Probability density')
+    ax1.minorticks_on()
     fig1.savefig(self.outdir_all + '/' + self.psr_dir + '_os_SNR_' +  '_' +\
                  self.par_out_label + '.png', dpi = 300, bbox_inches = 'tight')
     plt.close(fig1)
@@ -920,6 +922,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
     ax2.legend(fontsize = 9)
     ax2.set_xlabel('$\hat{{A}}^{{2}} \& {{A}}^{{2}}_{{\mathrm{{CP}}}}$')
     ax2.set_ylabel('Probability density')
+    ax2.minorticks_on()
     fig2.savefig(self.outdir_all + '/' + self.psr_dir + '_os_A2_' + \
                  '_' + self.par_out_label + '.png', dpi = 300, \
                  bbox_inches = 'tight')
