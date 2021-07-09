@@ -828,7 +828,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
     for __orf, curve in orf_funcs.items():
       orf_curve = curve(zeta)
-      __OS = self.OpimalStatisticResults[__orf].OS
+      __OS = self.OptimalStatisticResults[__orf].OS
 
       if __orf == '_orf':
         linewidth = highlight_linewidth
