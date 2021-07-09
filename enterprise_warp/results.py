@@ -802,7 +802,7 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
     default_linewidth = 0.8
     highlight_linewidth = 1.8
 
-    _orf = 'hd'
+    _orf = self.optstat_orfs[0]
     _osr = self.OptimalStatisticResults[_orf]
 
     _xi_avg = _osr.xi_avg
