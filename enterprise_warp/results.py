@@ -888,11 +888,13 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
                   color = _color, \
                   linewidth = 0.8 \
                  )
+      
       ax1.axvline(_os/_os_err, \
                   linestyle = '-.', \
                   color = _color, \
                   linewidth = 0.8 \
                  )
+      
       if orf == 'monopole':
         bins = 'blocks'
       else:
@@ -906,11 +908,13 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
              ax = ax2, \
              bins = bins \
             )
+       
       ax2.axvline(np.mean(_noisemarg_os), \
                   linestyle = '--', \
                   color = _color, \
                   linewidth = 0.8, \
                  )
+      
       ax2.axvline(_os, \
                   linestyle = '-.', \
                   color = _color, \
@@ -933,11 +937,13 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
            ax = ax2, \
            bins = 'knuth' \
           )
+    
     ax2.axvline((10.0**(np.mean(self.gw_log10_A)))**2.0, linestyle = '--', \
-                  color = '0.5')
+                color = '0.5', linewidth = 0.8)
     ax2.legend(fontsize = 9)
     ax2.set_xlabel('$\hat{{A}}^{{2}} \& {{A}}^{{2}}_{{\mathrm{{CP}}}}$')
     ax2.set_ylabel('Probability density')
+    ax2.set_xlim(-2.0E-29, 8E-29)
     ax2.minorticks_on()
     fig2.savefig(self.outdir_all + '/' + self.psr_dir + '_os_A2_' + \
                  '_' + self.par_out_label + '.png', dpi = 300, \
@@ -946,15 +952,37 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
 
   def dump_results(self):
     fname = self.outdir_all + '/' + self.psr_dir + '_os_results.pkl'
-    _file = open(fname, 'w')
-    # pickle.dump(self.OptimalStatisticResults, _file)
-    return False
+    with open(fname, 'wb') as _file:
+      dump_struct = dict()
+      for _orf in self.optstat_orfs:
+        
+        _result = self.OptimalStatisticResults[_orf]
+        orf_dump = {'params': _result.params, \
+                    'xi':    _result.xi, \
+                    'rho':   _result.rho, \
+                    'sig':   _result.sig, \
+                    'OS':    _result.OS, \
+                    'OS_err': _result.OS_err, \
+                    'marginalised_os': _result.marginalised_os, \
+                    'marginalised_os_err': _result.marginalised_os_err, \
+                    'xi_avg': _result.xi_avg, \
+                    'xi_err': _result.xi_err, \
+                    'rho_avg': _result.rho_avg, \
+                    'sig_avg': _result.sig_avg
+        }
+      
+        dump_struct[_orf] = orf_dump
+      
+      pickle.dump(dump_struct, _file)
+      
+    return True
 
   def load_results(self):
     fname = self.outdir_all + '/' + self.psr_dir + '_os_results.pkl'
     _file = open(fname, 'r')
-    _OptimalStatisticResults = pickle.load(_file)
+    _OptimalStatisticResults = pickle.load(_file) #dumped pickle is not an optimalstatisticresult. this is broken - need to fix
     self.OptimalStatisticResults = _OptimalStatisticResults
+    #need to add functionalitu
     return True
 
 
