@@ -637,9 +637,9 @@ class EnterpriseWarpResult(object):
                    '.png')
        plt.close()
 
-class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
+class OptimalStatisticWarp(EnterpriseWarpResult):
   def __init__(self, opts):
-    super(EnterpriseWarpOptimalStatistic, self).__init__(opts)
+    super(OptimalStatisticWarp, self).__init__(opts)
     self.interpret_opts_result()
     self.optstat_orfs = list(self.opts.optimal_statistic_orfs.split(','))
     self.optstat_nsamp = self.opts.optimal_statistic_nsamples
@@ -831,10 +831,11 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
       orf_curve = curve(zeta)
       __OS = self.OptimalStatisticResults[__orf].OS
 
-      if __orf == '_orf':
-        linewidth = highlight_linewidth
-      else:
-        linewidth = default_linewidth
+      # if __orf == '_orf':
+      #   linewidth = highlight_linewidth
+      # else:
+      #   linewidth = default_linewidth
+      linewidth = highlight_linewidth
 
       ax.plot(zeta, __OS*orf_curve, \
               linestyle = '--', \
@@ -858,7 +859,6 @@ class EnterpriseWarpOptimalStatistic(EnterpriseWarpResult):
     plt.close(fig)
 
   def plot_noisemarg_os(self):
-    from astropy.stats import bayesian_blocks as bblocks
     from astropy.visualization import hist as a_hist
     #plot OS S/N
     color_dict = {'hd': 'C3', \
@@ -1006,7 +1006,7 @@ def main():
     result_obj = BilbyWarpResult(opts)
   elif opts.optimal_statistic:
     print('running OS analysis')
-    result_obj = EnterpriseWarpOptimalStatistic(opts)
+    result_obj = OptimalStatisticWarp(opts)
   else:
     result_obj = EnterpriseWarpResult(opts)
 
