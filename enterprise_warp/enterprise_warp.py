@@ -68,7 +68,7 @@ class ModelParams(object):
   A simple template for a new class. Used as a nested enterprise_warp.Params
   class for multiple model parameters within ont enterprise_warp.Params class.
   It is used with product-space sampling method and ptmcmcsampler, which
-  evaluate posterior odds ratios (Bayes factors) for a given number of 
+  evaluate posterior odds ratios (Bayes factors) for a given number of
   compared models.
 
   Parameters
@@ -296,7 +296,7 @@ class Params(object):
       """
       Initiate Enterprise pulsar objects.
       """
-      
+
       cachedir = self.out+'.psrs_cache/'
       psrs_cache = None
       # Caching is disabled due to problems: Part 1
@@ -328,7 +328,7 @@ class Params(object):
       #else:
       #    psrs_cache = None
       #    print('Condition for loading pulsars from cache is not satisfied')
-      
+
       if '.pkl' in self.datadir:
         with open(self.datadir, 'rb') as pif:
           pkl_data = pickle.load(pif)
@@ -343,7 +343,7 @@ class Params(object):
       if len(parfiles)!=len(timfiles):
         print('Error: there should be the same number of .par and .tim files.')
         exit()
-      
+
       if self.array_analysis=='True':
         self.output_dir = self.out + self.label_models + '_' + \
                           self.paramfile_label + '/'
@@ -353,10 +353,11 @@ class Params(object):
           for num, (p, t) in enumerate(zip(parfiles, timfiles)):
             pname = p.split('/')[-1].split('_')[0].split('.')[0]
             if (pname in self.psrlist) or self.psrlist==[]:
-                if self.opts.drop and self.opts.num==num:
-                  print('Dropping pulsar ', pname)
-                  self.output_dir += str(num) + '_' + pname + '/'
-                  continue
+                if self.opts is not None:
+                  if self.opts.drop and self.opts.num==num:
+                    print('Dropping pulsar ', pname)
+                    self.output_dir += str(num) + '_' + pname + '/'
+                    continue
                 if '.pkl' in self.datadir:
                   psr = pkl_data[p]
                 else:
@@ -382,7 +383,7 @@ class Params(object):
         self.Tspan = np.max(tmax) - np.min(tmin)
         #psr = []
         exit_message = "PTA analysis has already been carried out using a given parameter file"
-      
+
       elif self.array_analysis=='False':
         if '.pkl' in self.datadir:
           self.psrs = psr = pkl_data[parfiles[self.opts.num]]
@@ -405,14 +406,15 @@ class Params(object):
         exit_message = "This pulsar has already been processed"
         self.psrs = [self.psrs]
 
-      if self.opts.mpi_regime != 2:
-        if not os.path.exists(self.output_dir):
-          os.makedirs(self.output_dir)
-        elif bool(self.opts.wipe_old_output):
-          warn_message = 'Warning: removing everything in ' + self.output_dir
-          warnings.warn(warn_message)
-          shutil.rmtree(self.output_dir)
-          os.makedirs(self.output_dir)
+      if self.opts is not None:
+        if self.opts.mpi_regime != 2:
+          if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+          elif bool(self.opts.wipe_old_output):
+            warn_message = 'Warning: removing everything in ' + self.output_dir
+            warnings.warn(warn_message)
+            shutil.rmtree(self.output_dir)
+            os.makedirs(self.output_dir)
 
 def init_pta(params_all):
   """
@@ -428,7 +430,7 @@ def init_pta(params_all):
     models = list()
     from_par_file = list()
     ecorrexists = np.zeros(len(params_all.psrs))
-    
+
     # Including parameters common for all pulsars
     if params.tm=='default':
       tm = gp_signals.TimingModel()
@@ -448,12 +450,12 @@ def init_pta(params_all):
         m_all += getattr(allpsr_model, psp)(option=option)
       else:
         m_all = tm + getattr(allpsr_model, psp)(option=option)
-  
+
     # Including single pulsar noise models
     for pnum, psr in enumerate(params_all.psrs):
-   
+
       singlepsr_model = params_all.noise_model_obj(psr=psr, params=params)
- 
+
       # Determine if ecorr is mentioned in par file
       try:
         for key,val in psr.t2pulsar.noisemodel.items():
@@ -489,8 +491,11 @@ def init_pta(params_all):
 
     print('Model',ii,'params (',len(pta.param_names),') in order: ', \
           pta.param_names)
-    if params.opts.mpi_regime != 2:
-      np.savetxt(params.output_dir + '/pars.txt', pta.param_names, fmt='%s')
+
+    if params.opts is not None:
+      if params.opts.mpi_regime != 2:
+        np.savetxt(params.output_dir + '/pars.txt', pta.param_names, fmt='%s')
+        
     ptas[ii]=pta
 
   return ptas
@@ -509,7 +514,7 @@ def readconstpar(prior,noisemodel,mark,psrname,constpar):
     islg=''
     if not mark=='efac': islg='log10_'
     if np.isscalar(prior) and prior<0:
-        for key,val in noisemodel.items(): 
+        for key,val in noisemodel.items():
             if key.startswith(mark):
               constpar_dictkey = psrname+'_'+val.flagval+'_'+islg+mark
               if mark=='efac': constpar[constpar_dictkey] = val.val

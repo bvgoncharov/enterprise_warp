@@ -20,6 +20,10 @@ from bilby import result as br
 from chainconsumer import ChainConsumer
 from dateutil.parser import parse as pdate
 
+from enterprise_extensions.frequentist.optimal_statistic import \
+OptimalStatistic as OptStat
+from enterprise.signals import signal_base
+
 from . import enterprise_warp
 
 def parse_commandline():
@@ -75,13 +79,51 @@ def parse_commandline():
                     If --par are supplied, load only files with --par \
                     columns.", default=0, type=int)
 
+
+  parser.add_option("-o", "--optimal_statistic", help="Calculate optimal \
+                    statistic and make key plots (1/0)", default = 0,
+                    type = int)
+
+  parser.add_option("-g", "--optimal_statistic_orfs", help = "Set overlap \
+                    reduction function form for optimal statistic analysis. \
+                    Allowed options: \
+                    all, hd (Hellings-Downs), quadrupole, dipole, monopole",
+                    default = "hd,dipole,monopole", type = str)
+
+  parser.add_option("-N", "--optimal_statistic_nsamples", help = "Set integer \
+                    number of samples for noise-marginalised optimal statistic \
+                    analysis.",
+                    default = 1000, type = int)
+
+  parser.add_option("-L", "--load_optimal_statistic_results", help = "load \
+                    results from optimal statistic analysis. Do not recalculate\
+                    any results. (1/0)",
+                    default = 0, type = int)
+
+
   parser.add_option("-y", "--bilby", help="Load bilby result", \
                     default=0, type=int)
+
 
   opts, args = parser.parse_args()
 
   return opts
 
+def get_HD_curve(zeta):
+
+  coszeta = np.cos(zeta)
+  xip = (1.-coszeta) / 2.
+  HD = 3.*( 1./3. + xip * ( np.log(xip) -1./6.) )
+
+  return HD/2.0
+
+def get_dipole_curve(zeta):
+  coszeta = np.cos(zeta)
+  return coszeta
+
+
+def get_monopole_curve(zeta):
+  return zeta * 0.0
 
 def dist_mode_position(values, nbins=50):
   """
@@ -144,36 +186,149 @@ def estimate_from_distribution(values, method='mode', errorbars_cdf = [16,84]):
     levels[str(50)] = np.percentile(values, 50, axis=0)
     return levels
 
+def make_noise_dict(psrname, chain, pars, method='mode', suffix = 'noise', \
+  outdir = 'noisefiles/', recompute = True):
+  """
+  Create noise dictionary for a given MCMC or nested sampling chain.
+  This is a dict that assigns a characteristic value (mode/median)
+  to a parameter from the distribution of parameter values in a chain.
+  Can be used for outputting a noise file or for use in further
+  analysis (e.g. optimal statistic)
+  """
+  # import ipdb; ipdb.set_trace()
+  result_filename = outdir + '/' + psrname + '_' + suffix + '.json'
+
+  if not recompute:
+    if os.path.exists(result_filename):
+      xx = json.load(open(result_fileneame, 'r'))
+      return(xx)
+
+  xx = {}
+  for ct, par in enumerate(pars):
+    xx[par] = estimate_from_distribution(chain[:,ct], method=method)
+  return xx
+
 def make_noise_files(psrname, chain, pars, outdir='noisefiles/',
-                     method='mode', postfix='noise'):
+                     method='mode', suffix='noise'):
   """
   Create noise files from a given MCMC or nested sampling chain.
   Noise file is a dict that assigns a characteristic value (mode/median)
   to a parameter from the distribution of parameter values in a chain.
   """
-  xx = {}
-  for ct, par in enumerate(pars):
-    xx[par] = estimate_from_distribution(chain[:,ct], method=method)
+
+  xx = make_noise_dict(psrname, chain, pars, method = method)
 
   os.system('mkdir -p {}'.format(outdir))
-  with open(outdir + '/' + psrname + '_' + postfix + '.json', 'w') as fout:
-      json.dump(xx, fout, sort_keys=True, indent=4, separators=(',', ': '))
+  with open(outdir + '/' + psrname + '_' + suffix + '.json', 'w') as fout:
+    json.dump(xx, fout, sort_keys=True, indent=4, separators=(',', ': '))
 
 
 def check_if_psr_dir(folder_name):
   """
-  Check if the folder name (without path) is in the enterprise_warp format: 
+  Check if the folder name (without path) is in the enterprise_warp format:
   integer, underscore, pulsar name.
   """
-  return bool(re.match(r'^\d{1,}_[J,B]\d{2,4}[+,-]\d{4,4}[A,B]{0,1}$', 
-                       folder_name))
+  return bool(re.match(r'^\d{1,}_[J,B]\d{2,4}[+,-]\d{4,4}[A,B]{0,1}$',
+  folder_name))
+
+
+
+class OptimalStatisticResult(object):
+
+  def __init__(self, OptimalStatistic, params, xi, rho, sig, OS, OS_err):
+    self.OptimalStatistic = OptimalStatistic #OptimalStatistic object
+    self.params = params #optimal statistic parameters
+    self.xi = xi
+    self.rho = rho
+    self.sig = sig
+    self.OS = OS #the actual A^2 optimal statistic
+    self.OS_err = OS_err #optimal statistic error
+
+  def add_marginalised(self, marginalised_os, marginalised_os_err):
+    self.marginalised_os = marginalised_os
+    self.marginalised_os_err = marginalised_os_err
+
+  def weightedavg(self, _rho, _sig):
+
+    weights, avg = 0., 0.
+    for r,s in zip(_rho, _sig):
+      weights += 1./(s*s)
+      avg += r/(s*s)
+
+    return avg/weights, np.sqrt(1./weights)
+    #return np.average(_rho, _sig**-2.0), np.sqrt(np.sum(_sig**-2.0))
+
+  def bin_crosscorr(self, zeta):
+
+    idx = np.argsort(self.xi)
+    xi_sorted = self.xi[idx]
+    rho_sorted = self.rho[idx]
+    sig_sorted = self.sig[idx]
+    rho_avg, sig_avg = np.zeros(len(zeta)), np.zeros(len(zeta))
+
+
+    for i,z in enumerate(zeta[:-1]):
+      _rhos, _sigs = [], []
+      for x,r,s in zip(xi,rho,sig):
+        if x >= z and x < (z+10.):
+          _rhos.append(r)
+          _sigs.append(s)
+        rho_avg[i], sig_avg[i] = self.weightedavg(_rhos, _sigs)
+
+    return rho_avg, sig_avg
+
+  def avg_ostat_bins(self, n_psr):
+    # sort the cross-correlations by xi
+    idx = np.argsort(self.xi)
+
+    xi_sorted = self.xi[idx]
+    rho_sorted = self.rho[idx]
+    sig_sorted = self.sig[idx]
+
+    # bin the cross-correlations so that there are the same number of \
+    #pairs per bin
+    # n_psr = len(self.psrs)
+    npairs = int(n_psr*(n_psr - 1.0)/2.0)
+
+    xi_avg = []
+    xi_err = []
+
+    rho_avg = []
+    sig_avg = []
+
+    i = 0
+    while i < len(xi_sorted):
+
+      xi_avg.append(np.mean(xi_sorted[i:int(npairs/8)+i]))
+      xi_err.append(np.std(xi_sorted[i:int(npairs/8)+i]))
+
+      r, s = self.weightedavg(rho_sorted[i:int(npairs/8)+i], \
+        sig_sorted[i:npairs+i])
+      rho_avg.append(r)
+      sig_avg.append(s)
+
+      i += int(npairs/8)
+
+    xi_avg = np.array(xi_avg)
+    xi_err = np.array(xi_err)
+    rho_avg = np.array(rho_avg)
+    sig_avg = np.array(sig_avg)
+
+    #do we want to return these or add them as class attributes?
+    self.xi_avg = xi_avg
+    self.xi_err = xi_err
+    self.rho_avg = rho_avg
+    self.sig_avg = sig_avg
+    #return xi_mean, xi_err, rho_avg, sig_avg
+
 
 class EnterpriseWarpResult(object):
 
   def __init__(self, opts):
     self.opts = opts
-    self.iterpret_opts_result()
+    self.interpret_opts_result()
     self.get_psr_dirs()
+
 
   def main_pipeline(self):
     self._reset_covm()
@@ -215,7 +370,7 @@ class EnterpriseWarpResult(object):
 
     return True
 
-  def iterpret_opts_result(self):
+  def interpret_opts_result(self):
     """ Determine output directory from the --results argument """
     if os.path.isdir(self.opts.result):
       self.outdir_all = self.opts.result
@@ -258,7 +413,7 @@ class EnterpriseWarpResult(object):
       if not self.chain_file:
         self.chain_file = None
         print('Could not find chain file in ',self.outdir)
-        
+
     else:
       if os.path.isfile(self.outdir + '/chain_1.0.txt'):
         self.chain_file = self.outdir + '/chain_1.0.txt'
@@ -343,8 +498,8 @@ class EnterpriseWarpResult(object):
   def _get_credible_levels(self):
     if self.opts.credlevels:
       make_noise_files(self.psr_dir, self.chain_burn, self.pars,
-                       outdir = self.outdir_all + '/noisefiles/', 
-                       postfix = 'credlvl', method='credlvl')
+                       outdir = self.outdir_all + '/noisefiles/',
+                       suffix = 'credlvl', method='credlvl')
 
   def _reset_covm(self):
     self.covm = np.empty((0,0))
@@ -354,7 +509,7 @@ class EnterpriseWarpResult(object):
   def _save_covm(self):
     if self.opts.covm:
       out_dict = {
-                 'covm': self.covm, 
+                 'covm': self.covm,
                  'covm_pars': self.covm_pars,
                  'covm_repeating_pars': self.covm_repeating_pars,
                  }
@@ -366,7 +521,7 @@ class EnterpriseWarpResult(object):
 
   def _get_covm(self):
     """
-    Save available PTMCMCSampler covariance matrices in Pandas format, 
+    Save available PTMCMCSampler covariance matrices in Pandas format,
     exclude repeating parameters.
     """
     if self.opts.covm:
@@ -482,6 +637,356 @@ class EnterpriseWarpResult(object):
                    '.png')
        plt.close()
 
+class OptimalStatisticWarp(EnterpriseWarpResult):
+  def __init__(self, opts):
+    super(OptimalStatisticWarp, self).__init__(opts)
+    self.interpret_opts_result()
+    self.optstat_orfs = list(self.opts.optimal_statistic_orfs.split(','))
+    self.optstat_nsamp = self.opts.optimal_statistic_nsamples
+    self._get_pta()
+
+  def main_pipeline(self):
+
+    for psr_dir in self.psr_dirs:
+
+      self.psr_dir = psr_dir
+      success = self._scan_psr_output()
+      if not success:
+        continue
+
+      success = self.load_chains()
+      if not success:
+        continue
+
+      if self.opts.load_optimal_statistic_results == 1:
+        self.load_results()
+      else:
+        self._add_optimalstatistics(method = 'mode')
+        self._marginalise_ostat()
+        self._avg_ostat_bins()
+        self.dump_results()
+
+      self.plot_noisemarg_os()
+      self.plot_os_orf()
+
+      return True
+
+  def load_chains(self):
+    """ Loading PTMCMC chains """
+    if self.opts.load_separated:
+      self.chain = np.empty((0,len(self.pars)))
+      for ii, cf in enumerate(self.chain_file):
+        if ii==0:
+          self.chain = np.loadtxt(cf)
+        else:
+          self.chain = np.concatenate([self.chain, np.loadtxt(cf)])
+    else:
+      try:
+        self.chain = np.loadtxt(self.chain_file)
+      except:
+        print('Could not load file ', self.chain_file)
+        return False
+      if len(self.chain)==0:
+        print('Empty chain file in ', self.outdir)
+        return False
+    burn = int(0.25*self.chain.shape[0])
+    self.chain_burn = self.chain[burn:,:-4]
+
+    if 'nmodel' in self.pars:
+      self.ind_model = list(self.pars).index('nmodel')
+      self.unique, self.counts = np.unique(np.round( \
+                                 self.chain_burn[:, self.ind_model]), \
+                                 return_counts=True)
+      self.dict_real_counts = dict(zip(self.unique.astype(int),
+                                       self.counts.astype(float)))
+    else:
+      self.ind_model = 0
+      self.unique, self.counts, self.dict_real_counts = [None], None, None
+
+    if 'gw_log10_A' not in self.pars:
+      raise AttributeError('Uncorrelated common noise amplitude must be\
+                            in parameter list!')
+    self.ind_gw_log10_A = list(self.pars).index('gw_log10_A')
+    self.gw_log10_A = self.chain_burn[:, self.ind_gw_log10_A]
+
+    return True
+
+  def interpret_opts_result(self):
+    if os.path.isdir(self.opts.result):
+      raise ValueError("--result should be a parameter file for \
+                        optimal statistic")
+    elif os.path.isfile(self.opts.result):
+      self.params = enterprise_warp.Params(self.opts.result, init_pulsars=True)
+      self.psrs = self.params.psrs
+      #might want to include custom models support here
+      self.outdir_all = self.params.out + self.params.label_models + '_' + \
+                        self.params.paramfile_label + '/'
+
+  def _get_pta(self):
+    #hard-coding in choice of model 0 here
+    self.pta = enterprise_warp.init_pta(self.params)[0]
+
+  def _add_optimalstatistics(self, method='mode', chain_idx = 0):
+    optstat_dict = {}
+
+    if method == 'samp':
+      #make noise dict from chain sample
+      os_params = dict(zip(self.pars, self.chain_burn[chain_idx]))
+    elif method == 'mode' or method == 'median':
+      #make noise dict from max post or max likelihood / whatever method
+      os_params = make_noise_dict(self.psr_dir,self.chain_burn,self.pars,\
+                                  method = method, recompute = False)
+
+    # import ipdb; ipdb.set_trace()
+    for orf in self.optstat_orfs:
+      print('Computing optimal statistic for {} ORF'.format(orf))
+      _os = OptStat(self.params.psrs, pta = self.pta, orf = orf)
+      _xi, _rho, _sig, _OS, _OS_sig = _os.compute_os(params=os_params)
+
+      result = OptimalStatisticResult(_os, os_params, _xi, _rho, _sig, _OS, \
+                                      _OS_sig)
+      optstat_dict[orf] = result
+
+    if method == 'samp':
+        return optstat_dict #this is probably useless
+    else:
+        self.OptimalStatisticResults = optstat_dict
+        #this is a representative optimal statistic
+        return True
+
+
+  def _marginalise_ostat(self):
+
+    for orf in self.optstat_orfs:
+      print(self.OptimalStatisticResults)
+      _osr = self.OptimalStatisticResults[orf]
+      _os = _osr.OptimalStatistic
+
+      _noisemarg_os = np.zeros(self.optstat_nsamp)
+      _noisemarg_os_err = np.zeros(self.optstat_nsamp)
+
+      samp_indices = np.random.randint(0, \
+                                       self.chain_burn.shape[0], \
+                                       size = self.optstat_nsamp \
+                                      )
+      for ii in range(self.optstat_nsamp):
+          chain_idx = samp_indices[ii]
+          os_params = dict(zip(self.pars, self.chain_burn[chain_idx]))
+          _xi, _rho, _sig, _OS, _OS_sig = _os.compute_os(params=os_params)
+          #_ostat_dict = self._compute_optimalstatistic(method = 'samp', \
+                                                      #  chain_idx = \
+                                                      #  samp_indices[ii] \
+                                                      # )
+          _noisemarg_os[ii] = _OS
+          _noisemarg_os_err[ii] = _OS_sig
+
+      _osr.add_marginalised(_noisemarg_os, _noisemarg_os_err)
+
+  def _avg_ostat_bins(self):
+    for orf, _osr in self.OptimalStatisticResults.items():
+      _osr.avg_ostat_bins(len(self.params.psrs))
+
+  def plot_os_orf(self):
+
+    orf_funcs = {'hd': get_HD_curve, \
+                 'dipole': get_dipole_curve, \
+                 'monopole': get_monopole_curve
+                }
+
+
+    color_dict = {'hd': 'C3', \
+                  'dipole': 'C2', \
+                  'monopole': 'C0'\
+                 }
+
+    default_linewidth = 0.8
+    highlight_linewidth = 1.8
+
+    _orf = self.optstat_orfs[0]
+    _osr = self.OptimalStatisticResults[_orf]
+
+    _xi_avg = _osr.xi_avg
+    _rho_avg = _osr.rho_avg
+    _xi_err = _osr.xi_err
+    _sig_avg = _osr.sig_avg
+    _OS = _osr.OS
+    fig, ax = plt.subplots(1, 1, figsize = (3.25, 2.008))
+    (_, caps, _) = ax.errorbar(_xi_avg,\
+                               _rho_avg,\
+                               xerr = _xi_err,\
+                               yerr = _sig_avg,\
+                               marker = 'o',\
+                               ls = '', \
+                               color = 'k', ##4FC3F7' \
+                               fmt = 'o',\
+                               capsize = 4,\
+                               elinewidth = 1.2\
+                              )
+
+
+    zeta = np.linspace(0.001, np.pi, 200)
+
+    for __orf in self.optstat_orfs:
+      curve = orf_funcs[__orf]
+      orf_curve = curve(zeta)
+      __OS = self.OptimalStatisticResults[__orf].OS
+
+      # if __orf == '_orf':
+      #   linewidth = highlight_linewidth
+      # else:
+      #   linewidth = default_linewidth
+      linewidth = highlight_linewidth
+
+      ax.plot(zeta, __OS*orf_curve, \
+              linestyle = '--', \
+              color = color_dict[__orf], \
+              linewidth = linewidth\
+             )
+
+    ax.set_xlim(0, np.pi)
+    ylo, yhi = ax.get_ylim()
+    m = np.amax([np.abs(ylo), np.abs(yhi)])
+    ax.set_ylim(-m, m)
+    ax.set_xlabel(r'$\zeta$ (rad)')
+    ax.set_ylabel(r'$\hat{{A}}^2 \Gamma_{{ab}}(\zeta)$')
+    ax.minorticks_on()
+    fig.tight_layout()
+    fig.savefig(
+                self.outdir_all + '/' + self.psr_dir + '_os_orf_' + \
+                self.par_out_label + '.png', dpi = 300, \
+                bbox_inches = 'tight' \
+                )
+    plt.close(fig)
+
+  def plot_noisemarg_os(self):
+    from astropy.visualization import hist as a_hist
+    #plot OS S/N
+    color_dict = {'hd': 'C3', \
+                  'dipole': 'C2', \
+                  'monopole': 'C0'\
+                 }
+
+    fig1, ax1 = plt.subplots(1, 1, figsize = (3.25, 2.008))
+    fig2, ax2 = plt.subplots(1, 1, figsize = (3.25, 2.008))
+    for orf, _osr in self.OptimalStatisticResults.items():
+      _noisemarg_os = _osr.marginalised_os
+      _noisemarg_os_err = _osr.marginalised_os_err
+      _color = color_dict[orf]
+      _os = _osr.OS
+      _os_err = _osr.OS_err
+      a_hist(_noisemarg_os/_noisemarg_os_err, \
+             histtype = 'step', \
+             color = _color, \
+             label = orf, \
+             density = True, \
+             ax = ax1, \
+             bins = 'knuth' \
+            )
+
+      ax1.axvline(np.mean(_noisemarg_os/_noisemarg_os_err), \
+                  linestyle = '--', \
+                  color = _color, \
+                  linewidth = 0.8 \
+                 )
+      
+      ax1.axvline(_os/_os_err, \
+                  linestyle = '-.', \
+                  color = _color, \
+                  linewidth = 0.8 \
+                 )
+      
+      if orf == 'monopole':
+        bins = 'blocks'
+      else:
+        bins = 'knuth'
+
+      a_hist(_noisemarg_os, \
+             histtype = 'step', \
+             color = _color, \
+             label = orf, \
+             density = True, \
+             ax = ax2, \
+             bins = bins \
+            )
+       
+      ax2.axvline(np.mean(_noisemarg_os), \
+                  linestyle = '--', \
+                  color = _color, \
+                  linewidth = 0.8, \
+                 )
+      
+      ax2.axvline(_os, \
+                  linestyle = '-.', \
+                  color = _color, \
+                  linewidth = 0.8
+                 )
+
+    ax1.legend(fontsize = 9)
+    ax1.set_xlabel('SNR')
+    ax1.set_ylabel('Probability density')
+    ax1.minorticks_on()
+    fig1.savefig(self.outdir_all + '/' + self.psr_dir + '_os_SNR_' +  '_' +\
+                 self.par_out_label + '.png', dpi = 300, bbox_inches = 'tight')
+    plt.close(fig1)
+
+    a_hist((10.0**(self.gw_log10_A))**2.0, \
+           histtype = 'step', \
+           color = '0.5', \
+           label = 'uncorrelated', \
+           density = True, \
+           ax = ax2, \
+           bins = 'knuth' \
+          )
+    
+    ax2.axvline((10.0**(np.mean(self.gw_log10_A)))**2.0, linestyle = '--', \
+                color = '0.5', linewidth = 0.8)
+    ax2.legend(fontsize = 9)
+    ax2.set_xlabel('$\hat{{A}}^{{2}} \& {{A}}^{{2}}_{{\mathrm{{CP}}}}$')
+    ax2.set_ylabel('Probability density')
+    ax2.set_xlim(-2.0E-29, 8E-29)
+    ax2.minorticks_on()
+    fig2.savefig(self.outdir_all + '/' + self.psr_dir + '_os_A2_' + \
+                 '_' + self.par_out_label + '.png', dpi = 300, \
+                 bbox_inches = 'tight')
+    plt.close(fig2)
+
+  def dump_results(self):
+    fname = self.outdir_all + '/' + self.psr_dir + '_os_results.pkl'
+    with open(fname, 'wb') as _file:
+      dump_struct = dict()
+      for _orf in self.optstat_orfs:
+        
+        _result = self.OptimalStatisticResults[_orf]
+        orf_dump = {'params': _result.params, \
+                    'xi':    _result.xi, \
+                    'rho':   _result.rho, \
+                    'sig':   _result.sig, \
+                    'OS':    _result.OS, \
+                    'OS_err': _result.OS_err, \
+                    'marginalised_os': _result.marginalised_os, \
+                    'marginalised_os_err': _result.marginalised_os_err, \
+                    'xi_avg': _result.xi_avg, \
+                    'xi_err': _result.xi_err, \
+                    'rho_avg': _result.rho_avg, \
+                    'sig_avg': _result.sig_avg
+        }
+      
+        dump_struct[_orf] = orf_dump
+      
+      pickle.dump(dump_struct, _file)
+      
+    return True
+
+  def load_results(self):
+    fname = self.outdir_all + '/' + self.psr_dir + '_os_results.pkl'
+    _file = open(fname, 'r')
+    _OptimalStatisticResults = pickle.load(_file) #dumped pickle is not an optimalstatisticresult. this is broken - need to fix
+    self.OptimalStatisticResults = _OptimalStatisticResults
+    #need to add functionalitu
+    return True
+
+
+
 class BilbyWarpResult(EnterpriseWarpResult):
 
   def __init__(self, opts):
@@ -530,9 +1035,14 @@ def main():
 
   if opts.bilby:
     result_obj = BilbyWarpResult(opts)
+  elif opts.optimal_statistic:
+    print('running OS analysis')
+    result_obj = OptimalStatisticWarp(opts)
   else:
     result_obj = EnterpriseWarpResult(opts)
+
   result_obj.main_pipeline()
+  #import ipdb; ipdb.set_trace()
 
 if __name__=='__main__':
   main()
