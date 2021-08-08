@@ -488,7 +488,7 @@ class BilbyWarpResult(EnterpriseWarpResult):
     super(BilbyWarpResult, self).__init__(opts)
 
   def get_chain_file_name(self):
-      label = os.path.basename(os.path.normpath(self.outdir))
+      label = os.path.basename(os.path.normpath(self.params.out))
       if os.path.isfile(self.outdir + '/' + label + '_result.json'):
         self.chain_file = self.outdir + '/' + label + '_result.json'
       else:
@@ -506,8 +506,9 @@ class BilbyWarpResult(EnterpriseWarpResult):
     except:
       print('Could not load file ', self.chain_file)
       return False
-    self.chain = self.result.posterior
+    self.chain = np.array(self.result.posterior)
     self.chain_burn = self.chain
+    self.pars = self.result.parameter_labels
     return True
 
   def get_pars(self):
@@ -517,6 +518,8 @@ class BilbyWarpResult(EnterpriseWarpResult):
     """ Corner plot for a posterior distribution from the result """
     if self.opts.corner == 1:
       self.result.plot_corner()
+    else:
+      raise ValueError('Only --corner 1 is supported for Bilby.')
 
 def main():
   """
