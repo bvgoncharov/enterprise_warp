@@ -1052,10 +1052,10 @@ def main():
     cmod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(cmod)
     custom_models_obj = cmod.__dict__[opts.custom_models]
-  elif opts.custom_models is None or opts.custom_models_py is None:
-    raise ValueError('Please set both --custom_models and --custom_models_obj')
-  else:
+  elif opts.custom_models is None and opts.custom_models_py is None:
     custom_models_obj = None
+  else:
+    raise ValueError('Please set both --custom_models and --custom_models_obj')
 
   if opts.bilby:
     result_obj = BilbyWarpResult(opts)
