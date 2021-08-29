@@ -49,11 +49,19 @@ def get_bilby_prior_dict(pta):
           priors[param.name] = bilby.core.prior.Normal( \
               param.prior._defaults['mu'], param.prior._defaults['sigma'], \
               param.name)
+        else:
+          raise ValueError('Unknown prior type for translation into Bilby. \
+                            Known types: Normal, Uniform.')
+
       else:
         if param.name=='jup_orb_elements' and param.type=='uniform':
           for ii in range(param.size):
             priors[param.name+'_'+str(ii)] = bilby.core.prior.Uniform( \
                 -0.05, 0.05, param.name+'_'+str(ii))
+        else:
+          raise ValueError('Unknown prior with non-unit size for \
+                            translation into Bilby. Known prior: \
+                            jup_orb_elements of type Uniform.')
 
     # Consistency check
     for key, val in priors.items():
