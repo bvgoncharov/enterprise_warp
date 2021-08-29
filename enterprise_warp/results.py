@@ -104,6 +104,17 @@ def parse_commandline():
   parser.add_option("-y", "--bilby", help="Load bilby result", \
                     default=0, type=int)
 
+  parser.add_option("-P", "--custom_models_py", help = "Full path to a .py \
+                    file with custom enterprise_warp model object, derived \
+                    from enterprise_warp.StandardModels. It is only needed to \
+                    correctly load a parameter file with unknown parameters. \
+                    An alteriative: just use full path for --result, not \
+                    the parameter file.",
+                    default = None, type = str)
+
+  parser.add_option("-M", "--custom_models", help = "Name of the custom \
+                    enterprise_warp model object in --custom_models_py.",
+                    default = None, type = str)
 
   opts, args = parser.parse_args()
 
@@ -195,7 +206,6 @@ def make_noise_dict(psrname, chain, pars, method='mode', suffix = 'noise', \
   Can be used for outputting a noise file or for use in further
   analysis (e.g. optimal statistic)
   """
-  # import ipdb; ipdb.set_trace()
   result_filename = outdir + '/' + psrname + '_' + suffix + '.json'
 
   if not recompute:
@@ -324,8 +334,9 @@ class OptimalStatisticResult(object):
 
 class EnterpriseWarpResult(object):
 
-  def __init__(self, opts):
+  def __init__(self, opts, custom_models_obj=None):
     self.opts = opts
+    self.custom_models_obj = custom_models_obj
     self.interpret_opts_result()
     self.get_psr_dirs()
 
@@ -375,7 +386,9 @@ class EnterpriseWarpResult(object):
     if os.path.isdir(self.opts.result):
       self.outdir_all = self.opts.result
     elif os.path.isfile(self.opts.result):
-      self.params = enterprise_warp.Params(self.opts.result, init_pulsars=False)
+      self.params = enterprise_warp.Params(self.opts.result, \
+                    init_pulsars=False, \
+                    custom_models_obj=self.custom_models_obj)
       self.outdir_all = self.params.out + self.params.label_models + '_' + \
                         self.params.paramfile_label + '/'
     else:
@@ -737,7 +750,6 @@ class OptimalStatisticWarp(EnterpriseWarpResult):
       os_params = make_noise_dict(self.psr_dir,self.chain_burn,self.pars,\
                                   method = method, recompute = False)
 
-    # import ipdb; ipdb.set_trace()
     for orf in self.optstat_orfs:
       print('Computing optimal statistic for {} ORF'.format(orf))
       _os = OptStat(self.params.psrs, pta = self.pta, orf = orf)
@@ -1033,16 +1045,27 @@ def main():
 
   opts = parse_commandline()
 
+  if opts.custom_models is not None and opts.custom_models_py is not None:
+    import importlib
+    spec = importlib.util.spec_from_file_location("custom_models_obj", \
+                                                  opts.custom_models_py)
+    cmod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cmod)
+    custom_models_obj = cmod.__dict__[opts.custom_models]
+  elif opts.custom_models is None or opts.custom_models_py is None:
+    raise ValueError('Please set both --custom_models and --custom_models_obj')
+  else:
+    custom_models_obj = None
+
   if opts.bilby:
     result_obj = BilbyWarpResult(opts)
   elif opts.optimal_statistic:
     print('running OS analysis')
     result_obj = OptimalStatisticWarp(opts)
   else:
-    result_obj = EnterpriseWarpResult(opts)
+    result_obj = EnterpriseWarpResult(opts, custom_models_obj=custom_models_obj)
 
   result_obj.main_pipeline()
-  #import ipdb; ipdb.set_trace()
 
 if __name__=='__main__':
   main()
