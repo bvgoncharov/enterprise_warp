@@ -626,6 +626,10 @@ def selection_factory(new_selection_name):
     list_codetype_args = list_codetype_args[:1] + \
                          [template_sel.__code__.co_kwonlyargcount] + \
                          list_codetype_args[1:]
+    if int(sys.version[2]) >= 8:
+      list_codetype_args = list_codetype_args[:1] + \
+                           [template_sel.__code__.co_posonlyargcount] + \
+                           list_codetype_args[1:]
 
   template_selection_code = types.CodeType(*list_codetype_args)
 
