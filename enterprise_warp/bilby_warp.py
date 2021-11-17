@@ -20,7 +20,7 @@ class PTABilbyLikelihood(bilby.Likelihood):
         return self.pta.get_lnlikelihood(self.parameters)
 
     def get_one_sample(self):
-        return {par.name: par.sample() for par in pta[0].params}
+        return {par.name: par.sample() for par in self.pta.params}
 
 def get_bilby_prior_dict(pta):
     """
