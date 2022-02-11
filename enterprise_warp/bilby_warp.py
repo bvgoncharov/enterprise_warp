@@ -64,6 +64,11 @@ def get_bilby_prior_dict(pta):
                 priors[param.name] = bilby.core.prior.Normal( \
                     param.prior._defaults['mu'], param.prior._defaults['sigma'], \
                     param.name)
+            elif param.type=='truncnorm':
+                priors[param.name] = bilby.core.prior.TruncatedGaussian( \
+                    param.prior._defaults['mu'], param.prior._defaults['sigma'], \
+                    param.prior._defaults['min'], param.prior._defaults['max'], \
+                    param.name)
             else:
                 raise ValueError(
                     "Unknown prior type for translation into Bilby. "
