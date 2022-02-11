@@ -37,6 +37,7 @@ model = ef + tm
 pta = signal_base.PTA([model(psrs[0])])
 
 priors = bilby_warp.get_bilby_prior_dict(pta)
+
 parameters = dict.fromkeys(priors.keys())
 likelihood = bilby_warp.PTABilbyLikelihood(pta,parameters)
 label = 'test_bilby'
