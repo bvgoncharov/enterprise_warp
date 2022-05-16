@@ -64,10 +64,10 @@ def get_bilby_prior_dict(pta):
                 priors[param.name] = bilby.core.prior.Normal( \
                     param.prior._defaults['mu'], param.prior._defaults['sigma'], \
                     param.name)
-            elif param.type=='truncnorm':
+            elif param.type=='truncatednormal':
                 priors[param.name] = bilby.core.prior.TruncatedGaussian( \
                     param.prior._defaults['mu'], param.prior._defaults['sigma'], \
-                    param.prior._defaults['min'], param.prior._defaults['max'], \
+                    param.prior._defaults['minv'], param.prior._defaults['maxv'], \
                     param.name)
             else:
                 raise ValueError(
