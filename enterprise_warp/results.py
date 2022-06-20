@@ -238,7 +238,7 @@ def check_if_psr_dir(folder_name):
   Check if the folder name (without path) is in the enterprise_warp format:
   integer, underscore, pulsar name.
   """
-  return bool(re.match(r'^\d{1,}_[J,B]\d{2,4}[+,-]\d{4,4}[A,B]{0,1}$',
+  return bool(re.match(r'^\d{1,}_[J,B]\d{2,4}[+,-]\d{2,4}[A,B]{0,1}$',
   folder_name))
 
 
