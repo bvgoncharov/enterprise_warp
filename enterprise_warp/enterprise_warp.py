@@ -58,6 +58,13 @@ def parse_commandline():
                           the code will attempt to resume the previous run. \
                           Be careful: all subdirectories are removed too!", \
                     default=0, type=int)
+  parser.add_option("-x", "--extra_model_terms", \
+                    help="Extra noise terms to add to the .json noise model \
+                          file, a string that will be converted to dict. \
+                          E.g. {'J0437-4715': {'system_noise': \
+                          'CPSR2_20CM'}}. Extra terms are applied either on \
+                          the only model, or the second model.", \
+                    default=None, type=str)
 
   opts, args = parser.parse_args()
 
@@ -272,6 +279,10 @@ class Params(object):
       self.__dict__['common_signals'] = self.noisemodel['common_signals']
       self.__dict__['model_name'] = self.noisemodel['model_name']
       self.__dict__['universal'] = self.noisemodel['universal']
+      if self.opts.extra_model_terms is not None:
+        self.__dict__['noisemodel'] = merge_two_noise_model_dicts(\
+                     self.__dict__['noisemodel'],\
+                     eval(self.opts.extra_model_terms))
       del self.noisemodel['common_signals']
       del self.noisemodel['universal']
       del self.noisemodel['model_name']
@@ -286,6 +297,13 @@ class Params(object):
                                   self.models[mkey].noisemodel['model_name']
         self.models[mkey].__dict__['universal'] = \
                                   self.models[mkey].noisemodel['universal']
+        # Including an extra term only when there is only one model,
+        # or only to the second model if there are two models compared.
+        if self.opts.extra_model_terms is not None and \
+           (len(self.models)==1 or (len(self.models)==2 and mkey==1)):
+          self.models[mkey].__dict__['noisemodel'] = merge_two_noise_model_dicts(\
+                                    self.models[mkey].__dict__['noisemodel'],\
+                                    eval(self.opts.extra_model_terms))
         del self.models[mkey].noisemodel['common_signals']
         del self.models[mkey].noisemodel['model_name']
         del self.models[mkey].noisemodel['universal']
@@ -569,3 +587,20 @@ def dict_to_label_attr_map(input_dict):
     Converting python dict with one value into Params.label_attr_map format
     """
     return {key+':': [key, type(val)] for key, val in input_dict.items()}
+
+def merge_two_noise_model_dicts(dict1, dict2):
+    """
+    Merging dict2 into dict1 given the noise model dict format:
+    {'PSR_name': {'noise_term': parameter}}, parameter is either
+    a string or a list of strings.
+    """
+    for psr in dict2.keys():
+      if psr not in dict1.keys():
+        dict1[psr] = dict2[psr]
+      else:
+        for noise_term in dict2[psr].keys():
+          if noise_term in dict1[psr].keys() and type(dict1[psr][noise_term]) is list:
+            dict1[psr][noise_term] = list(set(dict1[psr][noise_term] + dict2[psr][noise_term]))
+          else:
+            dict1[psr][noise_term] = dict2[psr][noise_term]
+    return dict1
