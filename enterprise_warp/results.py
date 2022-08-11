@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import os
 import re
 import json
+import glob
 import shutil
 import pickle
 import optparse
@@ -1005,12 +1006,15 @@ class BilbyWarpResult(EnterpriseWarpResult):
     super(BilbyWarpResult, self).__init__(opts)
 
   def get_chain_file_name(self):
-      label = os.path.basename(os.path.normpath(self.params.out))
-      if os.path.isfile(self.outdir + '/' + label + '_result.json'):
-        self.chain_file = self.outdir + '/' + label + '_result.json'
+      if 'params' in self.__dict__:
+        label = os.path.basename(os.path.normpath(self.params.out))
+        if os.path.isfile(self.outdir + '/' + label + '_result.json'):
+          self.chain_file = self.outdir + '/' + label + '_result.json'
+        else:
+          self.chain_file = None
+          print('Could not find chain file in ',self.outdir)
       else:
-        self.chain_file = None
-        print('Could not find chain file in ',self.outdir)
+        self.chain_file = glob.glob(self.outdir+"*_result.json")[0]
 
       if self.opts.info and self.chain_file is not None:
         print('Available chain file ', self.chain_file, '(',

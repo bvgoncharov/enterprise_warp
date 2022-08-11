@@ -64,7 +64,7 @@ def parse_commandline():
                           E.g. {'J0437-4715': {'system_noise': \
                           'CPSR2_20CM'}}. Extra terms are applied either on \
                           the only model, or the second model.", \
-                    default=None, type=str)
+                    default='None', type=str)
 
   opts, args = parser.parse_args()
 
@@ -107,6 +107,8 @@ class Params(object):
       "array_analysis:": ["array_analysis", str],
       "noisefiles:": ["noisefiles", str],
       "noise_model_file:": ["noise_model_file", str],
+      "job_config_xlsx:": ["job_config_xlsx", str],
+      "load_toa_filenames:": ["load_toa_filenames", str],
       "sampler:": ["sampler", str],
       "nsamp:": ["nsamp", int],
       "setupsamp:": ["setupsamp", bool],
@@ -128,6 +130,14 @@ class Params(object):
     model_id = None
     self.model_ids = list()
     self.__dict__['models'] = dict()
+    if self.opts is not None and self.opts.extra_model_terms != 'None':
+      pn = str(list(eval(self.opts.extra_model_terms).values())[0])
+      self.extra_term_label = pn.replace(\
+                              '\'','').replace('[','').replace(']',\
+                              '').replace(':','').replace('{',\
+                              '').replace('}','').replace(' ','_')
+    else:
+      self.extra_term_label = ''
 
     with open(input_file_name, 'r') as input_file:
       for line in input_file:
@@ -279,7 +289,7 @@ class Params(object):
       self.__dict__['common_signals'] = self.noisemodel['common_signals']
       self.__dict__['model_name'] = self.noisemodel['model_name']
       self.__dict__['universal'] = self.noisemodel['universal']
-      if self.opts.extra_model_terms is not None:
+      if self.opts.extra_model_terms != 'None':
         self.__dict__['noisemodel'] = merge_two_noise_model_dicts(\
                      self.__dict__['noisemodel'],\
                      eval(self.opts.extra_model_terms))
@@ -299,7 +309,7 @@ class Params(object):
                                   self.models[mkey].noisemodel['universal']
         # Including an extra term only when there is only one model,
         # or only to the second model if there are two models compared.
-        if self.opts.extra_model_terms is not None and \
+        if self.opts is not None and self.opts.extra_model_terms != 'None' and \
            (len(self.models)==1 or (len(self.models)==2 and mkey==1)):
           self.models[mkey].__dict__['noisemodel'] = merge_two_noise_model_dicts(\
                                     self.models[mkey].__dict__['noisemodel'],\
@@ -364,7 +374,8 @@ class Params(object):
 
       if self.array_analysis=='True':
         self.output_dir = self.out + self.label_models + '_' + \
-                          self.paramfile_label + '/'
+                          self.paramfile_label + '/' + \
+                          self.extra_term_label + '/'
         if psrs_cache == None:
           print('Loading pulsars')
           self.psrlist_new = list()
@@ -381,6 +392,9 @@ class Params(object):
                 else:
                   psr = Pulsar(p, t, ephem=self.ssephem, clk=self.clock, \
                                drop_t2pulsar=False)
+                  if 'load_toa_filenames' in self.__dict__.keys() and \
+                      self.load_toa_filenames=='True':
+                    psr.__dict__['filenames'] = read_tim(t, column=1)
                 psr.__dict__['parfile_name'] = p
                 psr.__dict__['timfile_name'] = t
                 self.psrs.append(psr)
@@ -409,11 +423,16 @@ class Params(object):
           self.psrs = Pulsar(parfiles[self.opts.num], timfiles[self.opts.num], \
                              drop_t2pulsar=False, \
                              ephem=self.ssephem) #, clk=self.clock)
+          if 'load_toa_filenames' in self.__dict__.keys() and \
+              self.load_toa_filenames=='True':
+            self.psrs.__dict__['filenames'] = read_tim(timfiles[self.opts.num], column=1)
         self.psrs.__dict__['parfile_name'] = parfiles[self.opts.num]
         self.psrs.__dict__['timfile_name'] = timfiles[self.opts.num]
         self.Tspan = self.psrs.toas.max() - self.psrs.toas.min() # observation time in seconds
         self.output_dir = self.out + self.label_models + '_' + \
-                          self.paramfile_label + '/' + str(self.opts.num) + \
+                          self.paramfile_label + '/' + \
+                          self.extra_term_label + '/' + \
+                          str(self.opts.num) + \
                           '_' + self.psrs.name + '/'
 
         parfiles = parfiles[self.opts.num]
@@ -604,3 +623,17 @@ def merge_two_noise_model_dicts(dict1, dict2):
           else:
             dict1[psr][noise_term] = dict2[psr][noise_term]
     return dict1
+
+def read_tim(tim_file_name, column=1):
+  """
+  Returning column elements for all lines of .tim files (except commented)
+  Column 1 is a file name. For example: t180327_095957.rf.pcm.dzTf8p.
+  It is used to see what ToAs are from the same subband.
+  """
+  elements = list()
+  with open(tim_file_name,'r') as tim:
+    for line in tim:
+      line_elements = line.split(' ')
+      if len(line_elements)>2 and line_elements[0]=='':
+        elements.append(line_elements[column])
+  return np.array(elements)
