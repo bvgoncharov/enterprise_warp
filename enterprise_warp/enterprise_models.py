@@ -260,34 +260,39 @@ class StandardModels(object):
 
     See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.
     """
-    for ii, sys_noise_term in enumerate(option):
-      log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
-      gamma = parameter.Uniform(self.params.syn_gamma[0],\
-                                self.params.syn_gamma[1])
-      pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-                          components=self.params.red_general_nfouriercomp)
-
-      selection_function_name = 'sys_noise_selection_'+str(self.sys_noise_count)
-      setattr(self, selection_function_name,
-              selection_factory(selection_function_name))
-      sys_noise_term, nfreqs = self.option_nfreqs(sys_noise_term, \
-                                    selection_flag='group', \
-                                    sel_func_name=selection_function_name)
-
-      tspan = self.determine_tspan(sel_func_name=selection_function_name)
-
-      syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=tspan,
-                                      name='system_noise_' + \
-                                      str(self.sys_noise_count),
-                                      selection=selections.Selection( \
-                                      self.__dict__[selection_function_name] ),
-                                      components=nfreqs)
-      if ii == 0:
-        syn = syn_term
-      elif ii > 0:
-        syn += syn_term
-
-      self.sys_noise_count += 1
+    if type(option) is list:
+      option = {'group': option}
+    elif type(option) is not dict:
+      raise ValueError('System noise option must be a list or a dict. E.g.: "system_noise": ["CPSR2_20CM","WBCORR_10CM"]')
+    for flag in option.keys():
+      for ii, sys_noise_term in enumerate(option[flag]):
+        log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
+        gamma = parameter.Uniform(self.params.syn_gamma[0],\
+                                  self.params.syn_gamma[1])
+        pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
+                            components=self.params.red_general_nfouriercomp)
+  
+        selection_function_name = 'sys_noise_selection_'+str(self.sys_noise_count)
+        setattr(self, selection_function_name,
+                selection_factory(selection_function_name))
+        sys_noise_term, nfreqs = self.option_nfreqs(sys_noise_term, \
+                                      selection_flag=flag, \
+                                      sel_func_name=selection_function_name)
+  
+        tspan = self.determine_tspan(sel_func_name=selection_function_name)
+  
+        syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=tspan,
+                                        name='system_noise_' + \
+                                        str(self.sys_noise_count),
+                                        selection=selections.Selection( \
+                                        self.__dict__[selection_function_name] ),
+                                        components=nfreqs)
+        if ii == 0:
+          syn = syn_term
+        elif ii > 0:
+          syn += syn_term
+  
+        self.sys_noise_count += 1
 
     return syn
 

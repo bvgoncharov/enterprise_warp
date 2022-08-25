@@ -1038,7 +1038,7 @@ class BilbyWarpResult(EnterpriseWarpResult):
   def _make_corner_plot(self):
     """ Corner plot for a posterior distribution from the result """
     if self.opts.corner == 1:
-      self.result.plot_corner()
+      self.result.plot_corner(filename=self.outdir_all+'/'+self.psr_dir+'_corner.png')
     else:
       raise ValueError('Only --corner 1 is supported for Bilby.')
 
