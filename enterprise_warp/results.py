@@ -56,6 +56,9 @@ def parse_commandline():
                     contain \"par\" (more than one could be added)",
                     action="append", default=None, type=str)
 
+  parser.add_option("-t", "--truths", help="Truths for corner plots",
+                    default=None, type=str)
+
   parser.add_option("-a", "--chains", help="Plot chains (1/0)", \
                     default=0, type=int)
 
@@ -599,6 +602,10 @@ class EnterpriseWarpResult(object):
 
   def _make_corner_plot(self):
     """ Corner plot for a posterior distribution from the result """
+    if self.opts.truths is not None:
+      truths = json.load(open(self.opts.truths, 'r'))
+    else:
+      truths = []
     if self.opts.corner == 1:
       for jj in self.unique:
         if jj is not None:
@@ -607,7 +614,9 @@ class EnterpriseWarpResult(object):
           model_mask = np.repeat(True, self.chain_burn.shape[0])
         chain_plot = self.chain_burn[model_mask,:]
         chain_plot = chain_plot[:,self.par_mask]
-        figure = corner(chain_plot, 30, labels=self.pars[self.par_mask])
+        truths = [truths[pp] for pp in self.pars[self.par_mask]]
+        figure = corner(chain_plot, 30, labels=self.pars[self.par_mask], \
+                        truths=truths)
         plt.savefig(self.outdir_all + '/' + self.psr_dir + '_corner_' + \
                     str(jj) + '_' + self.par_out_label + '.png')
         plt.close()
@@ -628,7 +637,7 @@ class EnterpriseWarpResult(object):
                      legend_color_text=False, legend_artists=True)
       corner_name = self.outdir_all + '/' + self.psr_dir + '_' + \
                     self.par_out_label + '_corner.png'
-      fig = cobj.plotter.plot(filename=corner_name)
+      fig = cobj.plotter.plot(filename=corner_name, truth=truths)
       plt.close()
 
   def _make_chain_plot(self):

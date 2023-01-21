@@ -82,7 +82,7 @@ def get_bilby_prior_dict(pta):
                     priors[param.name+'_'+str(ii)] = bilby.core.prior.Uniform(
                         -0.05, 0.05, param.name+'_'+str(ii)
                     )
-            elif "timing model_tmparams" in param.name and param.type == "uniform":
+            elif param.type == "uniform":
                 for ii in range(param.size):
                     priors[param.name + "_" + str(ii)] = bilby.core.prior.Uniform(
                         param.prior._defaults['pmin'],
