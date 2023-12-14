@@ -127,7 +127,7 @@ class StandardModels(object):
                         name')
     se=selections.Selection(selections.__dict__[option])
     equadpr = interpret_white_noise_prior(self.params.equad)
-    eqs = white_signals.EquadNoise(log10_equad=equadpr,selection=se)
+    eqs = white_signals.TNEquadNoise(log10_tnequad=equadpr,selection=se)
     return eqs
 
   def ecorr(self,option="by_backend"):
