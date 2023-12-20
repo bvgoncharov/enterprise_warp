@@ -234,6 +234,9 @@ class Params(object):
     """
     print('------------------')
     print('Setting default parameters with file ', self.input_file_name)
+    if 'timing_package' not in self.__dict__:
+      # A keyword argument of enterprise.pulsar.Pulsar()
+      self.__dict__['timing_package'] = 'tempo2'
     if 'ssephem' not in self.__dict__:
       self.__dict__['ssephem'] = 'DE436'
       print('Setting default Solar System Ephemeris: DE436')
@@ -391,7 +394,8 @@ class Params(object):
                   psr = pkl_data[p]
                 else:
                   psr = Pulsar(p, t, ephem=self.ssephem, clk=self.clock, \
-                               drop_t2pulsar=False)
+                               drop_t2pulsar=False, \
+                               timing_package=self.timing_package)
                   if 'load_toa_filenames' in self.__dict__.keys() and \
                       self.load_toa_filenames=='True':
                     psr.__dict__['filenames'] = read_tim(t, column=1)
@@ -422,6 +426,7 @@ class Params(object):
         else:
           self.psrs = Pulsar(parfiles[self.opts.num], timfiles[self.opts.num], \
                              drop_t2pulsar=False, \
+                             timing_package=self.timing_package, \
                              ephem=self.ssephem) #, clk=self.clock)
           if 'load_toa_filenames' in self.__dict__.keys() and \
               self.load_toa_filenames=='True':
@@ -466,7 +471,6 @@ def init_pta(params_all):
 
     models = list()
     from_par_file = list()
-    ecorrexists = np.zeros(len(params_all.psrs))
 
     # Including parameters common for all pulsars
     if params.tm=='default':
@@ -477,7 +481,7 @@ def init_pta(params_all):
       prior = ridge_prior(log10_variance=log10_variance)
       tm = gp_signals.BasisGP(prior, basis, name='ridge')
 
-    # Adding common noise terms for all pulsars
+    # Adding common signal/noise terms for all pulsars
     # Only those common signals are added that are listed in the noise model
     # file, getting Enterprise models from the noise model object.
     if 'm_all' in locals():
@@ -492,15 +496,6 @@ def init_pta(params_all):
     for pnum, psr in enumerate(params_all.psrs):
 
       singlepsr_model = params_all.noise_model_obj(psr=psr, params=params)
-
-      # Determine if ecorr is mentioned in par file
-      try:
-        for key,val in psr.t2pulsar.noisemodel.items():
-          if key.startswith('ecorr') or key.startswith('ECORR'):
-            ecorrexists[pnum]=True
-      except Exception as pint_problem:
-        print(pint_problem)
-        ecorrexists[pnum]=False
 
       # Add noise models
       if psr.name in params.noisemodel.keys():
