@@ -105,13 +105,13 @@ class Params(object):
       "out:": ["out", str],
       "overwrite:": ["overwrite", str],
       "array_analysis:": ["array_analysis", str],
+      "timing_package:": ["timing_package", str],
       "noisefiles:": ["noisefiles", str],
       "noise_model_file:": ["noise_model_file", str],
       "job_config_xlsx:": ["job_config_xlsx", str],
       "load_toa_filenames:": ["load_toa_filenames", str],
       "sampler:": ["sampler", str],
       "nsamp:": ["nsamp", int],
-      "setupsamp:": ["setupsamp", bool],
       "mcmc_covm_csv:": ["mcmc_covm_csv", str],
       "psrlist:": ["psrlist", str],
       "ssephem:": ["ssephem", str],
@@ -243,8 +243,6 @@ class Params(object):
     if 'clock' not in self.__dict__:
       self.__dict__['clock'] = None
       print('Setting a default Enterprise clock convention (check the code)')
-    if 'setupsamp' not in self.__dict__:
-      self.__dict__['setupsamp'] = False
     if 'psrlist' in self.__dict__:
       self.psrlist = np.loadtxt(self.psrlist, dtype=np.unicode_)
       print('Only using pulsars from psrlist')
