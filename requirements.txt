@@ -1,0 +1,15 @@
+# For enterprise_warp.py
+numpy
+bilby
+pandas
+enterprise
+enterprise_extensions
+
+# Further for libstempo_warp.py
+libstempo
+
+# Further for results.py
+scipy
+corner
+matplotlib
+chainconsumer
