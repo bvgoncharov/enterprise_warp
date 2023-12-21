@@ -22,7 +22,9 @@ class Mock(MagicMock):
     def __getattr__(cls, name):
         return MagicMock()
 
-MOCK_MODULES = ['libstempo', 'enterprise_extensions', 'bilby', 'other-dependency']
+# Modules below are causing documentation build errors
+MOCK_MODULES = ['libstempo', 'enterprise_extensions', 'bilby', 'psycopg2', \
+                'other-dependency']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- Project information -----------------------------------------------------
