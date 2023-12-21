@@ -20,6 +20,8 @@ from unittest.mock import MagicMock
 class Mock(MagicMock):
     @classmethod
     def __getattr__(cls, name):
+        if name == '__version__':
+            return '0.4.5' # for scikit-sparse
         return MagicMock()
 
 MOCK_MODULES = ['libstempo', 'scikit-sparse', 'other-dependency']
