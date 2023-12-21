@@ -40,7 +40,9 @@ MOCK_MODULES = [
     'enterprise.pulsar',
     'enterprise.constants',
     'enterprise_extensions',
-    'enterprise_extensions.models'
+    'enterprise_extensions.models',
+    'enterprise_extensions.frequentist',
+    'enterprise_extensions.frequentist.optimal_statistic'
 ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
