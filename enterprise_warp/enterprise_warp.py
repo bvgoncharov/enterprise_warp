@@ -27,10 +27,15 @@ def parse_commandline():
 
   Most important options:
 
-  - --prfile: parameter file, the only option that must be set.
-  - --num: index of a pulsar in a data directory (default: 0).
+  - ``--prfile``: parameter file, the only option that must be set.
+  - ``--num``: index of a pulsar in a data directory (default: 0).
 
   See other options and their description in the code.
+
+  Returns
+  -------
+  opts: optparse.OptionParser
+    Command line arguments to be used later in the code.
   """
   parser = optparse.OptionParser()
 
@@ -90,6 +95,18 @@ class ModelParams(object):
 class Params(object):
   """
   Load parameters with instructions for how to run Enterprise.
+
+  Parameters
+  ----------
+  input_file_name: str
+    Path to enterprise_warp parameter file.
+  opts: optparse.OptionParser
+    The output of enterprise_warp.parse_commandline()
+  custom_models_obj: enterprise_models.StandardModels or a child class
+    A class of enterprise_warp models. Example: 
+    custom_models_obj=enterprise_models.StandardModels.
+  init_pulsars: bool
+    Initiate enterprise pulsars (use True by default)
   """
   def __init__(self, input_file_name, opts=None, custom_models_obj=None,
                init_pulsars=True):

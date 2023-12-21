@@ -263,7 +263,8 @@ class StandardModels(object):
     if type(option) is list:
       option = {'group': option}
     elif type(option) is not dict:
-      raise ValueError('System noise option must be a list or a dict. E.g.: "system_noise": ["CPSR2_20CM","WBCORR_10CM"]')
+      raise ValueError('System noise option must be a list or a dict. \
+                        E.g.: "system_noise": ["CPSR2_20CM","WBCORR_10CM"]')
     for flag in option.keys():
       for ii, sys_noise_term in enumerate(option[flag]):
         log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
