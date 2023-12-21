@@ -26,6 +26,7 @@ class Mock(MagicMock):
 MOCK_MODULES = [
     'bilby',
     'libstempo', 
+    'libstempo.toasim',
     'scikit-sparse', 
     'enterprise', 
     'enterprise.signals', 
