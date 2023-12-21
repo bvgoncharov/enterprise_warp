@@ -22,7 +22,7 @@ class Mock(MagicMock):
     def __getattr__(cls, name):
         return MagicMock()
 
-MOCK_MODULES = ['libstempo', 'other_module']
+MOCK_MODULES = ['libstempo', 'scikit-sparse', 'other-dependency']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- Project information -----------------------------------------------------
