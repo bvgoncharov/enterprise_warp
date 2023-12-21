@@ -103,8 +103,7 @@ class Params(object):
   opts: optparse.OptionParser
     The output of enterprise_warp.parse_commandline()
   custom_models_obj: enterprise_models.StandardModels or a child class
-    A class of enterprise_warp models. Example: 
-    custom_models_obj=enterprise_models.StandardModels.
+    A class of enterprise_warp models to use later on (not initialized)
   init_pulsars: bool
     Initiate enterprise pulsars (use True by default)
   """
