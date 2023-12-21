@@ -1,4 +1,22 @@
 sphinx
 recommonmark
 sphinx_rtd_theme
--r ../requirements.txt
+
+# Below are requirements.txt in the root directory, without 
+# packages with mock installations in conf.py
+
+# For enterprise_warp.py
+numpy
+#bilby
+pandas
+enterprise
+#enterprise_extensions
+
+# Further for libstempo_warp.py
+#libstempo
+
+# Further for results.py
+scipy
+corner
+matplotlib
+chainconsumer

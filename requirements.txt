@@ -6,10 +6,10 @@ numpy
 bilby
 pandas
 enterprise
-#enterprise_extensions
+enterprise_extensions
 
 # Further for libstempo_warp.py
-#libstempo
+libstempo
 
 # Further for results.py
 scipy
