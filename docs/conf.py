@@ -23,8 +23,24 @@ class Mock(MagicMock):
         return MagicMock()
 
 # Modules below are causing documentation build errors
-MOCK_MODULES = ['libstempo', 'enterprise_extensions', 'bilby', 'enterprise', \
-                'other-dependency']
+MOCK_MODULES = [
+    'bilby',
+    'libstempo', 
+    'scikit-sparse', 
+    'enterprise', 
+    'enterprise.signals', 
+    'enterprise.signals.signal_base',
+    'enterprise.signals.gp_signals',
+    'enterprise.signals.gp_bases',
+    'enterprise.signals.deterministic_signals',
+    'enterprise.signals.white_signals',
+    'enterprise.signals.selections',
+    'enterprise.signals.parameter',
+    'enterprise.pulsar',
+    'enterprise.constants',
+    'enterprise_extensions',
+    'enterprise_extensions.models'
+]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- Project information -----------------------------------------------------
