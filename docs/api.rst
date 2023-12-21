@@ -2,13 +2,16 @@
 enterprise_warp API
 ===================
 
-Below is the information about different modules of enterprise_warp.
+Below is a more detailed information about different modules of enterprise_warp. 
 
 * :ref:`enterprise_warp`
 * :ref:`enterprise_models`
+* :ref:`results`
 * :ref:`bilby_warp`
 * :ref:`tempo2_warp`
 * :ref:`libstempo_warp`
+
+----
 
 .. _enterprise_warp:
 
@@ -20,6 +23,8 @@ This is the main module that allows to load parameter file, noise model files, p
 .. automodule:: enterprise_warp.enterprise_warp
        :members:
 
+----
+
 .. _enterprise_models:
 
 enterprise_models
@@ -30,7 +35,9 @@ This module contains basic models for pulsar timing analyses and serves as a bas
 .. automodule:: enterprise_warp.enterprise_models
           :members:
 
-.. _bilby_warp:
+----
+
+.. _results:
 
 results
 -------
@@ -40,7 +47,9 @@ This module is used to load and analyze the results: calculate Bayes factors, pl
 .. automodule:: enterprise_warp.results
           :members:
 
-.. _enterprise_models:
+----
+
+.. _bilby_warp:
 
 bilby_warp
 ----------
@@ -49,6 +58,8 @@ This module contains a wrapper for Bilby (the Bayesian Inference LiBrarY), a sof
 
 .. automodule:: enterprise_warp.bilby_warp
              :members:
+
+----
 
 .. _tempo2_warp:
 
@@ -59,6 +70,8 @@ This module contains a function to run tempo2 in Python, in order to produce max
 
 .. automodule:: enterprise_warp.tempo2_warp
                 :members:
+
+----
 
 .. _libstempo_warp:
 

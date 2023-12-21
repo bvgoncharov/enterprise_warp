@@ -55,11 +55,13 @@ Features
 Getting started
 ---------------
 
-You should simply have the main running script which imports `enterprise_warp`. When running it, you should point it to a parameter file. If necessary, you can also have a custom noise model file `.py` with a parent class `StandardModels`, with custom models for signal and noise. It is then imported in the main running script. 
+You should simply have the main running script which imports ``enterprise_warp``. When running it, you should point it to a parameter file. If necessary, you can also have a custom noise model file ``.py`` with a parent class ``StandardModels``, with custom models for signal and noise. It is then imported in the main running script. 
 
-When starting your new project with `enterprise_warp`, you can copy/fork examples below:
-- `PPTA DR2 noise analysis (2019-2020) <https://github.com/bvgoncharov/ppta_dr2_noise_analysis>`. Here, the main running script is `run_dr2.py` and custom noise models are in `ppta_dr2_models.py`.
-- `Search for the gravitational wave background with PPTA DR2 (2020-2021) <https://github.com/bvgoncharov/correlated_noise_pta_2020>`. Here, the main running script is `run_analysis.py` and custom noise models are in `ppta_dr2_models.py`.
+When starting your new project with ``enterprise_warp``, you can copy/fork examples below:
+
+- `PPTA DR2 noise analysis (2019-2020) <https://github.com/bvgoncharov/ppta_dr2_noise_analysis>`__. Here, the main running script is ``run_dr2.py`` and custom noise models are in ``ppta_dr2_models.py``.
+
+  - `Search for the gravitational wave background with PPTA DR2 (2020-2021) <https://github.com/bvgoncharov/correlated_noise_pta_2020>`__. Here, the main running script is ``run_analysis.py`` and custom noise models are in ``ppta_dr2_models.py``.
 
 License
 -------
