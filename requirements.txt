@@ -1,4 +1,4 @@
-scikit-sparse>=0.4.5
+git+https://github.com/scikit-sparse/scikit-sparse.git@new_release#egg=scikit-sparse
 
 # For enterprise_warp.py
 numpy
