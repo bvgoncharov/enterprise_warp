@@ -9,7 +9,7 @@ sphinx_rtd_theme
 numpy
 #bilby
 pandas
-enterprise
+#enterprise
 #enterprise_extensions
 
 # Further for libstempo_warp.py

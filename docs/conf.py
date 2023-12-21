@@ -23,7 +23,7 @@ class Mock(MagicMock):
         return MagicMock()
 
 # Modules below are causing documentation build errors
-MOCK_MODULES = ['libstempo', 'enterprise_extensions', 'bilby', 'psycopg2', \
+MOCK_MODULES = ['libstempo', 'enterprise_extensions', 'bilby', 'enterprise', \
                 'other-dependency']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
