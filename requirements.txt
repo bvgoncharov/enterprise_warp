@@ -1,7 +1,10 @@
+numpy
+scipy
+cython
+suitesparse
 git+https://github.com/scikit-sparse/scikit-sparse.git@new_release#egg=scikit-sparse
 
 # For enterprise_warp.py
-numpy
 bilby
 pandas
 enterprise
@@ -11,7 +14,6 @@ enterprise_extensions
 # libstempo
 
 # Further for results.py
-scipy
 corner
 matplotlib
 chainconsumer
