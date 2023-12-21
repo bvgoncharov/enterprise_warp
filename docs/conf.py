@@ -20,11 +20,9 @@ from unittest.mock import MagicMock
 class Mock(MagicMock):
     @classmethod
     def __getattr__(cls, name):
-        if name == '__version__':
-            return '0.4.5' # for scikit-sparse
         return MagicMock()
 
-MOCK_MODULES = ['libstempo', 'scikit-sparse', 'other-dependency']
+MOCK_MODULES = ['libstempo', 'enterprise_extensions', 'other-dependency']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- Project information -----------------------------------------------------
