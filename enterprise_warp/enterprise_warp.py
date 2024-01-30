@@ -263,7 +263,7 @@ class Params(object):
       self.psrlist = np.loadtxt(self.psrlist, dtype=np.unicode_)
       print('Only using pulsars from psrlist')
     else:
-      self.__dict__['psrlist'] = []
+      self.__dict__['psrlist'] = np.array([])
       print('Using all available pulsars from .par/.tim directory')
     if 'psrcachefile' not in self.__dict__:
       self.psrcachefile = None
@@ -398,7 +398,7 @@ class Params(object):
           self.psrlist_new = list()
           for num, (p, t) in enumerate(zip(parfiles, timfiles)):
             pname = p.split('/')[-1].split('_')[0].split('.')[0]
-            if (pname in self.psrlist) or self.psrlist==[]:
+            if (pname in self.psrlist) or self.psrlist.size==0:
                 if self.opts is not None:
                   if self.opts.drop and self.opts.num==num:
                     print('Dropping pulsar ', pname)
