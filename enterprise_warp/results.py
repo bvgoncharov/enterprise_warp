@@ -18,7 +18,7 @@ import pandas as pd
 from corner import corner
 from datetime import datetime
 from bilby import result as br
-from chainconsumer import ChainConsumer
+from chainconsumer import ChainConsumer, Chain, PlotConfig
 from dateutil.parser import parse as pdate
 
 from enterprise_extensions.frequentist.optimal_statistic import \
@@ -602,10 +602,6 @@ class EnterpriseWarpResult(object):
 
   def _make_corner_plot(self):
     """ Corner plot for a posterior distribution from the result """
-    if self.opts.truths is not None:
-      truths = json.load(open(self.opts.truths, 'r'))
-    else:
-      truths = []
     if self.opts.corner == 1:
       for jj in self.unique:
         if jj is not None:
@@ -614,7 +610,11 @@ class EnterpriseWarpResult(object):
           model_mask = np.repeat(True, self.chain_burn.shape[0])
         chain_plot = self.chain_burn[model_mask,:]
         chain_plot = chain_plot[:,self.par_mask]
-        truths = [truths[pp] for pp in self.pars[self.par_mask]]
+        if self.opts.truths is not None:
+          truths = json.load(open(self.opts.truths, 'r'))
+          truths = [truths[pp] for pp in self.pars[self.par_mask]]
+        else:
+          truths = None
         figure = corner(chain_plot, 30, labels=self.pars[self.par_mask], \
                         truths=truths)
         plt.savefig(self.outdir_all + '/' + self.psr_dir + '_corner_' + \
@@ -631,13 +631,15 @@ class EnterpriseWarpResult(object):
           model_mask = np.repeat(True, self.chain_burn.shape[0])
         chain_plot = self.chain_burn[model_mask,:]
         chain_plot = chain_plot[:,self.par_mask]
-        cobj.add_chain(chain_plot, name=str(jj),
-                       parameters=pars[self.par_mask].tolist())
-      cobj.configure(serif=True, label_font_size=12, tick_font_size=12,
-                     legend_color_text=False, legend_artists=True)
+        pd_chain = pd.DataFrame(chain_plot, \
+                   columns=pars[self.par_mask].tolist())
+        cobj.add_chain(Chain(samples=pd_chain, name=str(jj)))
+      cobj.set_plot_config(PlotConfig(serif=True, label_font_size=12, 
+                     tick_font_size=12, legend_color_text=False, 
+                     legend_artists=True))
       corner_name = self.outdir_all + '/' + self.psr_dir + '_' + \
                     self.par_out_label + '_corner.png'
-      fig = cobj.plotter.plot(filename=corner_name, truth=truths)
+      fig = cobj.plotter.plot(filename=corner_name)
       plt.close()
 
   def _make_chain_plot(self):
