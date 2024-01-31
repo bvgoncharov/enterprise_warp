@@ -646,8 +646,8 @@ class EnterpriseWarpResult(object):
     """ MCMC chain plots (evolution in time) """
     if self.opts.chains:
        thin_factor = 200
-       x_tiles = np.floor(len(self.pars)**0.5)
-       y_tiles = np.ceil(len(self.pars)/x_tiles)
+       x_tiles = int(np.floor(len(self.pars)**0.5))
+       y_tiles = int(np.ceil(len(self.pars)/x_tiles))
        plt.figure(figsize=[6.4*x_tiles,4.8*y_tiles])
        for pp, par in enumerate(self.pars):
           plt.subplot(x_tiles, y_tiles, pp + 1)
