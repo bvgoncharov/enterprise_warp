@@ -254,8 +254,8 @@ class Params(object):
       # A keyword argument of enterprise.pulsar.Pulsar()
       self.__dict__['timing_package'] = 'tempo2'
     if 'ssephem' not in self.__dict__:
-      self.__dict__['ssephem'] = 'DE436'
-      print('Setting default Solar System Ephemeris: DE436')
+      self.__dict__['ssephem'] = 'DE438'
+      print('Setting default Solar System Ephemeris: DE438')
     if 'clock' not in self.__dict__:
       self.__dict__['clock'] = None
       print('Setting a default Enterprise clock convention (check the code)')
@@ -489,6 +489,8 @@ def init_pta(params_all):
     # Including parameters common for all pulsars
     if params.tm=='default':
       tm = gp_signals.TimingModel()
+    elif params.tm=='fast':
+      tm = gp_signals.MarginalizingTimingModel()
     elif params.tm=='ridge_regression':
       log10_variance = parameter.Uniform(-20, -10)
       basis = scaled_tm_basis()

@@ -105,6 +105,20 @@ class StandardModels(object):
 
   # Signle pulsar noise models
 
+  def measurement_noise(self, option="by_backend"):
+    """
+    EFAC + EQUAD in tempo2 format:
+    sigma**2 = EFAC**2 * (toaerr**2 + EQUAD**2)
+    """
+    if option not in selections.__dict__.keys():
+      raise ValueError('EFAC option must be Enterprise selection function name')
+    se=selections.Selection(selections.__dict__[option])
+    efacpr = interpret_white_noise_prior(self.params.efac)
+    equadpr = interpret_white_noise_prior(self.params.equad)
+    efeq = white_signals.MeasurementNoise(efac=efacpr, log10_t2equad=equadpr, \
+                                          selection=se)
+    return efeq
+
   def efac(self,option="by_backend"):
     """
     EFAC signal:  multiplies ToA variance by EFAC**2, where ToA variance
@@ -121,6 +135,7 @@ class StandardModels(object):
     """
     EQUAD signal: adds EQUAD**2 to the ToA variance, where ToA variance
     are diagonal components of the Likelihood covariance matrix.
+    TempoNest format: sigma**2 = EFAC**2 * toaerr**2 + EQUAD**2
     """
     if option not in selections.__dict__.keys():
       raise ValueError('EQUAD option must be Enterprise selection function \
