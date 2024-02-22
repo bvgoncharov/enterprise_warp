@@ -32,7 +32,7 @@ class PTABilbyLikelihood(bilby.Likelihood):
         if tmparamname is not None:
             curparameters[tmparamname] = tmparams
 
-        return self.pta.get_lnlikelihood(curparameters)
+        return float(self.pta.get_lnlikelihood(curparameters))
 
     def get_one_sample(self):
         return {par.name: par.sample() for par in self.pta.params}

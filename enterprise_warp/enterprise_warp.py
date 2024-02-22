@@ -137,7 +137,7 @@ class Params(object):
       "SCAMweight:": ["SCAMweight", int],
       "tm:": ["tm", str],
       "fref:": ["fref", str]
-}
+    }
     if self.custom_models_obj is not None:
       self.noise_model_obj = self.custom_models_obj
     else:
@@ -375,6 +375,9 @@ class Params(object):
       #    print('Condition for loading pulsars from cache is not satisfied')
 
       if '.pkl' in self.datadir:
+        if '{:.0f}' in self.datadir:
+          # In case pickle file name contains a format
+          self.datadir = self.datadir.format(self.opts.num)
         with open(self.datadir, 'rb') as pif:
           pkl_data = pickle.load(pif)
         parfiles = sorted([po.name+'.par' for po in pkl_data])
@@ -392,7 +395,7 @@ class Params(object):
       if self.array_analysis=='True':
         self.output_dir = self.out + self.label_models + '_' + \
                           self.paramfile_label + '/' + \
-                          self.extra_term_label + '/'
+                          self.extra_term_label + str(self.opts.num) + '/'
         if psrs_cache == None:
           print('Loading pulsars')
           self.psrlist_new = list()

@@ -566,8 +566,10 @@ def interpret_white_noise_prior(prior):
   """
   if not np.isscalar(prior):
     return parameter.Uniform(prior[0],prior[1])
+  elif np.isscalar(prior):
+    return parameter.Constant(prior)
   else:
-    return parameter.Constant()
+    raise ValueError('Unknown prior ', prior)
 
 # Signal models
 
