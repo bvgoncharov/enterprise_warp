@@ -48,11 +48,9 @@ else:
     parameters = dict.fromkeys(priors.keys())
     likelihood = bilby_warp.PTABilbyLikelihood(pta[0],parameters)
     label = os.path.basename(os.path.normpath(params.out))
-    if opts.mpi_regime != 1:
-      bilby.run_sampler(likelihood=likelihood, priors=priors,
+
+    bilby.run_sampler(likelihood=likelihood, priors=priors,
                         outdir=params.output_dir, label=params.label,
                         sampler=params.sampler, **params.sampler_kwargs)
-    else:
-      print('Preparations for the MPI run are complete - now set \
-             opts.mpi_regime to 2 and enjoy the speed!')
+
 

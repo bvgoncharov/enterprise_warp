@@ -2,7 +2,6 @@ import numpy as np
 import enterprise.constants as const
 from enterprise.signals import signal_base
 from enterprise.signals import utils
-#import model_constants as mc
 from enterprise.signals import gp_bases
 from enterprise.signals import gp_priors
 import enterprise.signals.parameter as parameter
@@ -11,6 +10,10 @@ import enterprise.signals.deterministic_signals as deterministic_signals
 import enterprise.signals.white_signals as white_signals
 import enterprise.signals.selections as selections
 from enterprise.signals.parameter import function as parameter_function
+
+from mpi4py import MPI
+
+from packaging.version import Version
 
 import inspect
 import types
@@ -483,7 +486,7 @@ class StandardModels(object):
       n_freqs = int(np.round((1./cadence/const.day - 1/tobs)/(1/tobs)))
 
     if self.params.opts is not None:
-      if self.params.opts.mpi_regime != 2:
+      if MPI.COMM_WORLD.Get_rank() == 0:
         self.save_nfreqs_information(sel_func_name, n_freqs)
 
     return n_freqs
@@ -646,14 +649,15 @@ def selection_factory(new_selection_name):
                         template_sel.__code__.co_lnotab]
 
   #dealing with backwards-compatibility for types.CodeType
-  sys_pyversion = float(sys.version[0:3])
-  if 3.0 < sys_pyversion < 3.8:
+  sys_pyversion = Version(sys.version.split()[0])
+
+  if Version("3.0") < sys_pyversion < Version("3.8"):
     list_codetype_args_ext = [template_sel.__code__.co_kwonlyargcount]
-  elif sys_pyversion >= 3.8:
+  elif sys_pyversion >= Version("3.8"):
     list_codetype_args_ext = [template_sel.__code__.co_posonlyargcount,\
                               template_sel.__code__.co_kwonlyargcount]
   else:
-    list_codetype_args_ext = []
+    raise ValueError("Python versions < 3.0 are not supported")
 
   list_codetype_args = list_codetype_args[:1] + \
                        list_codetype_args_ext + \

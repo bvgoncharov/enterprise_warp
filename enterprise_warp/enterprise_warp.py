@@ -16,6 +16,8 @@ import enterprise.constants as const
 from enterprise_extensions import models
 from .enterprise_models import StandardModels
 
+from mpi4py import MPI
+
 try:
   from bilby import sampler as bimpler
 except:
@@ -47,16 +49,6 @@ def parse_commandline():
   parser.add_option("-c", "--clearcache", \
                     help="Clear psrs cache file, associated with the run \
                           (to-do after changes to .par and .tim files)", \
-                    default=0, type=int)
-  parser.add_option("-m", "--mpi_regime", \
-                    help="In MPI, manipulating with files and directories \
-                          causes errors. So, we provide 3 regimes: \n \
-                          (0) No MPI - run code as usual; \n \
-                          (1) MPI preparation - manipulate files and prepare \
-                          for the run (should be done outside MPI); \n \
-                          (2) MPI run - run the code, assuming all necessary \
-                          file manipulations have been performed. \n \
-                          PolychordLite sampler in Bilby supports MPI",
                     default=0, type=int)
   parser.add_option("-w", "--wipe_old_output", \
                     help="Wipe contents of the output directory. Otherwise, \
@@ -346,7 +338,7 @@ class Params(object):
       psrs_cache = None
       # Caching is disabled due to problems: Part 1
       #if not os.path.exists(cachedir):
-      #  if self.opts.mpi_regime != 2:
+      #  if MPI.COMM_WORLD.Get_rank() == 0:
       #    os.makedirs(cachedir)
       #
       #if not self.psrcachefile==None or (not self.psrlist==[]):
@@ -466,7 +458,7 @@ class Params(object):
         self.psrs = [self.psrs]
 
       if self.opts is not None:
-        if self.opts.mpi_regime != 2:
+        if MPI.COMM_WORLD.Get_rank() == 0:
           if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
           elif bool(self.opts.wipe_old_output):
@@ -544,7 +536,7 @@ def init_pta(params_all):
           pta.param_names)
 
     if params.opts is not None:
-      if params.opts.mpi_regime != 2:
+      if MPI.COMM_WORLD.Get_rank() == 0:
         np.savetxt(params.output_dir + '/pars.txt', pta.param_names, fmt='%s')
         
     ptas[ii]=pta
