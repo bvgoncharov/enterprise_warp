@@ -16,7 +16,11 @@ import enterprise.constants as const
 from enterprise_extensions import models
 from .enterprise_models import StandardModels
 
-from mpi4py import MPI
+try:
+  from mpi4py import MPI
+  process_rank = MPI.COMM_WORLD.Get_rank()
+except:
+  process_rank = 0
 
 try:
   from bilby import sampler as bimpler
@@ -338,7 +342,7 @@ class Params(object):
       psrs_cache = None
       # Caching is disabled due to problems: Part 1
       #if not os.path.exists(cachedir):
-      #  if MPI.COMM_WORLD.Get_rank() == 0:
+      #  if process_rank == 0:
       #    os.makedirs(cachedir)
       #
       #if not self.psrcachefile==None or (not self.psrlist==[]):
@@ -458,7 +462,7 @@ class Params(object):
         self.psrs = [self.psrs]
 
       if self.opts is not None:
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if process_rank == 0:
           if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
           elif bool(self.opts.wipe_old_output):
@@ -536,7 +540,7 @@ def init_pta(params_all):
           pta.param_names)
 
     if params.opts is not None:
-      if MPI.COMM_WORLD.Get_rank() == 0:
+      if process_rank == 0:
         np.savetxt(params.output_dir + '/pars.txt', pta.param_names, fmt='%s')
         
     ptas[ii]=pta

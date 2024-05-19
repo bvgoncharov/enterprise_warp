@@ -11,7 +11,11 @@ import enterprise.signals.white_signals as white_signals
 import enterprise.signals.selections as selections
 from enterprise.signals.parameter import function as parameter_function
 
-from mpi4py import MPI
+try:
+  from mpi4py import MPI
+  process_rank = MPI.COMM_WORLD.Get_rank()
+except:
+  process_rank = 0
 
 from packaging.version import Version
 
@@ -486,7 +490,7 @@ class StandardModels(object):
       n_freqs = int(np.round((1./cadence/const.day - 1/tobs)/(1/tobs)))
 
     if self.params.opts is not None:
-      if MPI.COMM_WORLD.Get_rank() == 0:
+      if process_rank == 0:
         self.save_nfreqs_information(sel_func_name, n_freqs)
 
     return n_freqs
