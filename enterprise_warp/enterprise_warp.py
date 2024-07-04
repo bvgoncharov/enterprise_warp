@@ -132,6 +132,7 @@ class Params(object):
       "DMweight:": ["DMweight", int],
       "SCAMweight:": ["SCAMweight", int],
       "tm:": ["tm", str],
+      "tm_svd:": ["tm_svd", int],
       "fref:": ["fref", str]
     }
     if self.custom_models_obj is not None:
@@ -266,6 +267,9 @@ class Params(object):
     if 'tm' not in self.__dict__:
       self.tm = 'default'
       print('Setting a default linear timing model')
+    if 'tm_svd' not in self.__dict__:
+      self.tm_svd = 0
+      print('Setting timing model SVD to 0 (False)')
     if 'inc_events' not in self.__dict__:
       self.inc_events = True
       print('Including transient events to specific pulsar models')
@@ -487,9 +491,9 @@ def init_pta(params_all):
 
     # Including parameters common for all pulsars
     if params.tm=='default':
-      tm = gp_signals.TimingModel()
+      tm = gp_signals.TimingModel(use_svd=bool(params.tm_svd))
     elif params.tm=='fast':
-      tm = gp_signals.MarginalizingTimingModel()
+      tm = gp_signals.MarginalizingTimingModel(use_svd=bool(params.tm_svd))
     elif params.tm=='ridge_regression':
       log10_variance = parameter.Uniform(-20, -10)
       basis = scaled_tm_basis()
