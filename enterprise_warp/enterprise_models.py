@@ -171,22 +171,53 @@ class StandardModels(object):
     """
     Selecting and removing nfreqs from option, otherwise from 1/Tobs to 1/60days
     """
-    condition = type(option) is str and "_nfreqs" in option
-    if condition:
+    condition1 = type(option) is str and "_nfreqs" in option
+    condition2 = type(option) is str and "_ndays" in option
+    if condition1:
+      divider = "nfreqs"
+    elif condition2:
+      divider = "ndays"
+    if condition1 or condition2:
       op_sp = option.split('_')
-      split_idx_nfreqs = op_sp.index('nfreqs') - 1
-      nfreqs = int(op_sp[split_idx_nfreqs])
-      del op_sp[split_idx_nfreqs]
-      del op_sp[op_sp.index('nfreqs')]
+      split_idx = op_sp.index(divider) - 1
+    if condition1:
+      nfreqs = int(op_sp[split_idx])
+    if condition2:
+      ndays = int(op_sp[split_idx])
+      nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name, cadence=ndays)
+    if condition1 or condition2:
+      del op_sp[split_idx]
+      del op_sp[op_sp.index(divider)]
       option = '_'.join(op_sp)
       if option.replace('.','',1).isdigit():
         option = float(option)
     if selection_flag is not None:
       self.psr.sys_flags.append(selection_flag)
       self.psr.sys_flagvals.append(option)
-    if not condition:
+    if not condition1 and not condition2:
       nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name)
     return option, nfreqs
+
+  #def option_nfreqs(self, option, sel_func_name=None, selection_flag=None):
+  #  """
+  #  Selecting and removing nfreqs from option, otherwise from 1/Tobs to 1/60days
+  #  """
+  #  condition = type(option) is str and "_nfreqs" in option
+  #  if condition:
+  #    op_sp = option.split('_')
+  #    split_idx_nfreqs = op_sp.index('nfreqs') - 1
+  #    nfreqs = int(op_sp[split_idx_nfreqs])
+  #    del op_sp[split_idx_nfreqs]
+  #    del op_sp[op_sp.index('nfreqs')]
+  #    option = '_'.join(op_sp)
+  #    if option.replace('.','',1).isdigit():
+  #      option = float(option)
+  #  if selection_flag is not None:
+  #    self.psr.sys_flags.append(selection_flag)
+  #    self.psr.sys_flagvals.append(option)
+  #  if not condition:
+  #    nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name)
+  #  return option, nfreqs
 
   def spin_noise(self,option="powerlaw"):
     """
