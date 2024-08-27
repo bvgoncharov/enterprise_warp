@@ -376,7 +376,7 @@ class EnterpriseWarpResult(object):
   def _scan_psr_output(self):
 
     self.outdir = self.outdir_all + '/' + self.psr_dir + '/'
-    if self.opts.name is not 'all' and self.opts.name not in self.psr_dir:
+    if self.opts.name != 'all' and self.opts.name not in self.psr_dir:
       return False
     print('Processing ', self.psr_dir)
 
@@ -391,9 +391,13 @@ class EnterpriseWarpResult(object):
       self.outdir_all = self.opts.result
     elif os.path.isfile(self.opts.result):
       self.params = enterprise_warp.Params(self.opts.result, \
-                    init_pulsars=False, \
-                    custom_models_obj=self.custom_models_obj)
-      self.outdir_all = self.params.out + self.params.label_models + '_' + \
+                      init_pulsars=False, \
+                      custom_models_obj=self.custom_models_obj)
+      if self.params.array_analysis=='True':
+        self.outdir_all = self.params.out + self.params.label_models + '_' + \
+                          self.params.paramfile_label + '/0/'
+      elif self.params.array_analysis=='False':
+        self.outdir_all = self.params.out + self.params.label_models + '_' + \
                         self.params.paramfile_label + '/'
     else:
       raise ValueError('--result seems to be neither a file, not a directory')
