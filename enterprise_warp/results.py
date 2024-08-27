@@ -18,7 +18,7 @@ import pandas as pd
 from corner import corner
 from datetime import datetime
 from bilby import result as br
-#from chainconsumer import ChainConsumer, Chain, PlotConfig
+from chainconsumer import ChainConsumer, Chain, PlotConfig
 from dateutil.parser import parse as pdate
 
 from enterprise_extensions.frequentist.optimal_statistic import \
@@ -409,7 +409,7 @@ class EnterpriseWarpResult(object):
     psr_dir_mask = [check_if_psr_dir(dd) for dd in out_subdirs]
     self.psr_dirs = out_subdirs[psr_dir_mask]
     if self.psr_dirs.size == 0:
-       self.psr_dirs = np.array([''])
+      self.psr_dirs = np.array([''])
 
 
   def get_chain_file_name(self):
