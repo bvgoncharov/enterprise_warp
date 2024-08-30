@@ -198,27 +198,6 @@ class StandardModels(object):
       nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name)
     return option, nfreqs
 
-  #def option_nfreqs(self, option, sel_func_name=None, selection_flag=None):
-  #  """
-  #  Selecting and removing nfreqs from option, otherwise from 1/Tobs to 1/60days
-  #  """
-  #  condition = type(option) is str and "_nfreqs" in option
-  #  if condition:
-  #    op_sp = option.split('_')
-  #    split_idx_nfreqs = op_sp.index('nfreqs') - 1
-  #    nfreqs = int(op_sp[split_idx_nfreqs])
-  #    del op_sp[split_idx_nfreqs]
-  #    del op_sp[op_sp.index('nfreqs')]
-  #    option = '_'.join(op_sp)
-  #    if option.replace('.','',1).isdigit():
-  #      option = float(option)
-  #  if selection_flag is not None:
-  #    self.psr.sys_flags.append(selection_flag)
-  #    self.psr.sys_flagvals.append(option)
-  #  if not condition:
-  #    nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name)
-  #  return option, nfreqs
-
   def spin_noise(self,option="powerlaw"):
     """
     Achromatic red noise process is called spin noise, although generally
