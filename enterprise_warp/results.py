@@ -18,7 +18,7 @@ import pandas as pd
 from corner import corner
 from datetime import datetime
 from bilby import result as br
-from chainconsumer import ChainConsumer, Chain, PlotConfig
+#from chainconsumer import ChainConsumer, Chain, PlotConfig
 from dateutil.parser import parse as pdate
 
 from enterprise_extensions.frequentist.optimal_statistic import \
@@ -60,6 +60,9 @@ def parse_commandline():
                     default=None, type=str)
 
   parser.add_option("-a", "--chains", help="Plot chains (1/0)", \
+                    default=0, type=int)
+                
+  parser.add_option("-H", "--hists", help="Plot marginal posteriors (1/0)", \
                     default=0, type=int)
 
   parser.add_option("-b", "--logbf", help="Display log Bayes factors (1/0)", \
@@ -357,7 +360,7 @@ class EnterpriseWarpResult(object):
       self._get_covm()
 
       if not (self.opts.noisefiles or self.opts.logbf or self.opts.corner or \
-              self.opts.chains):
+              self.opts.chains or self.opts.hists):
         continue
 
       success = self.load_chains()
@@ -370,6 +373,7 @@ class EnterpriseWarpResult(object):
       self._print_logbf()
       self._make_corner_plot()
       self._make_chain_plot()
+      self._make_histograms()
 
     self._save_covm()
 
@@ -645,6 +649,27 @@ class EnterpriseWarpResult(object):
                     self.par_out_label + '_corner.png'
       fig = cobj.plotter.plot(filename=corner_name)
       plt.close()
+
+  def _make_histograms(self):
+    """ Histograms for the posterior distribution for all parameters """
+    if self.opts.hists:
+       thin_factor = 1000
+       x_tiles = int(np.floor(len(self.pars)**0.5))
+       y_tiles = int(np.ceil(len(self.pars)/x_tiles))
+       plt.figure(figsize=[6.4*x_tiles,4.8*y_tiles])
+       for pp, par in enumerate(self.pars):
+          plt.subplot(x_tiles, y_tiles, pp + 1)
+          cut_chain = self.chain[::int(self.chain[:,pp].size/thin_factor),pp]
+          plt.hist(cut_chain,label=par.replace('_','\n'),bins=50)
+          plt.legend()
+          plt.xlabel('Parameter')
+          plt.ylabel('Density')
+       plt.subplots_adjust(wspace=0.)
+       plt.tight_layout()
+       plt.savefig(self.outdir_all + '/' + self.psr_dir + '_hist_pars_' + \
+                   '.png')
+       plt.close()
+
 
   def _make_chain_plot(self):
     """ MCMC chain plots (evolution in time) """
