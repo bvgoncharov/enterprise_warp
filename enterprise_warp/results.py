@@ -18,7 +18,7 @@ import pandas as pd
 from corner import corner
 from datetime import datetime
 from bilby import result as br
-#from chainconsumer import ChainConsumer, Chain, PlotConfig
+from chainconsumer import ChainConsumer, Chain, PlotConfig
 from dateutil.parser import parse as pdate
 
 from enterprise_extensions.frequentist.optimal_statistic import \
