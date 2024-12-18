@@ -11,14 +11,13 @@ import glob
 import shutil
 import pickle
 import optparse
+import warnings
 import itertools
 import numpy as np
 import scipy as sp
 import pandas as pd
 from corner import corner
 from datetime import datetime
-from bilby import result as br
-from chainconsumer import ChainConsumer, Chain, PlotConfig
 from dateutil.parser import parse as pdate
 
 from enterprise_extensions.frequentist.optimal_statistic import \
@@ -26,6 +25,15 @@ OptimalStatistic as OptStat
 from enterprise.signals import signal_base
 
 from . import enterprise_warp
+
+try:
+  from chainconsumer import ChainConsumer, Chain, PlotConfig
+except:
+  warnings.warn('ChainConsumer is not available')
+try:
+  from bilby import result as br
+except:
+  warnings.warn('Bilby is not available')
 
 def parse_commandline():
   """
