@@ -27,7 +27,7 @@ try:
 except:
   warnings.warn("Warning: failed to import bilby.sampler")
 
-def EWParser(object):
+class EWParser(object):
   def __init__(self):
     self.parser = optparse.OptionParser()
 
