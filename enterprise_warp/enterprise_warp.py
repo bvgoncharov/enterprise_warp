@@ -126,6 +126,7 @@ class Params(object):
       "nsamp:": ["nsamp", int],
       "mcmc_covm_csv:": ["mcmc_covm_csv", str],
       "psrlist:": ["psrlist", str],
+      "psrdistfile:": ["psrdistfile", str],
       "ssephem:": ["ssephem", str],
       "clock:": ["clock", str],
       "AMweight:": ["AMweight", int],
@@ -262,6 +263,8 @@ class Params(object):
     else:
       self.__dict__['psrlist'] = np.array([])
       print('Using all available pulsars from .par/.tim directory')
+    if 'psrdistfile' not in self.__dict__:
+        self.__dict__['psrdistfile'] = None
     if 'psrcachefile' not in self.__dict__:
       self.psrcachefile = None
     if 'tm' not in self.__dict__:
@@ -412,7 +415,8 @@ class Params(object):
                 else:
                   psr = Pulsar(p, t, ephem=self.ssephem, clk=self.clock, \
                                drop_t2pulsar=False, \
-                               timing_package=self.timing_package)
+                               timing_package=self.timing_package, \
+                               distance_file=self.psrdistfile)
                   if 'load_toa_filenames' in self.__dict__.keys() and \
                       self.load_toa_filenames=='True':
                     psr.__dict__['filenames'] = read_tim(t, column=1)
@@ -537,6 +541,9 @@ def init_pta(params_all):
     if 'noisefiles' in params.__dict__.keys():
       noisedict = get_noise_dict(psrlist=[p.name for p in params_all.psrs],\
                                  noisefiles=params.noisefiles)
+      if not noisedict:
+        raise ValueError("Noise dictionary is empty, check if noisefiles directory exists.")
+      
       print('For constant parameters using noise files in PAL2 format')
       pta.set_default_params(noisedict)
 
