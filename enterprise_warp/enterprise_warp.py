@@ -27,6 +27,34 @@ try:
 except:
   warnings.warn("Warning: failed to import bilby.sampler")
 
+class EWParser(object):
+  def __init__(self):
+    self.parser = optparse.OptionParser()
+
+    self.parser.add_option("-n", "--num", \
+      help="Pulsar number",  default=0, type=int)
+    self.parser.add_option("-p", "--prfile", \
+      help="Parameter file", type=str)
+    self.parser.add_option("-d", "--drop", \
+      help="Drop pulsar with index --num in a full-PTA run \
+      (0 - No / 1 - Yes)", default=0, type=int)
+    self.parser.add_option("-c", "--clearcache", \
+      help="Clear psrs cache file, associated with the run \
+      (to-do after changes to .par and .tim files)", \
+      default=0, type=int)
+    self.parser.add_option("-w", "--wipe_old_output", \
+      help="Wipe contents of the output directory. Otherwise, \
+      the code will attempt to resume the previous run. \
+      Be careful: all subdirectories are removed too!", \
+      default=0, type=int)
+    self.parser.add_option("-x", "--extra_model_terms", \
+      help="Extra noise terms to add to the .json noise model \
+      file, a string that will be converted to dict. \
+      E.g. {'J0437-4715': {'system_noise': \
+      'CPSR2_20CM'}}. Extra terms are applied either on \
+      the only model, or the second model.", \
+      default='None', type=str)
+
 def parse_commandline():
   """
   Parse the command-line options.
@@ -43,31 +71,10 @@ def parse_commandline():
   opts: optparse.OptionParser
     Command line arguments to be used later in the code.
   """
-  parser = optparse.OptionParser()
 
-  parser.add_option("-n", "--num", help="Pulsar number",  default=0, type=int)
-  parser.add_option("-p", "--prfile", help="Parameter file", type=str)
-  parser.add_option("-d", "--drop", \
-                    help="Drop pulsar with index --num in a full-PTA run \
-                          (0 - No / 1 - Yes)", default=0, type=int)
-  parser.add_option("-c", "--clearcache", \
-                    help="Clear psrs cache file, associated with the run \
-                          (to-do after changes to .par and .tim files)", \
-                    default=0, type=int)
-  parser.add_option("-w", "--wipe_old_output", \
-                    help="Wipe contents of the output directory. Otherwise, \
-                          the code will attempt to resume the previous run. \
-                          Be careful: all subdirectories are removed too!", \
-                    default=0, type=int)
-  parser.add_option("-x", "--extra_model_terms", \
-                    help="Extra noise terms to add to the .json noise model \
-                          file, a string that will be converted to dict. \
-                          E.g. {'J0437-4715': {'system_noise': \
-                          'CPSR2_20CM'}}. Extra terms are applied either on \
-                          the only model, or the second model.", \
-                    default='None', type=str)
+  ewp = EWParser()
 
-  opts, args = parser.parse_args()
+  opts, args = ewp.parser.parse_args()
 
   return opts
 
@@ -132,6 +139,7 @@ class Params(object):
       "DMweight:": ["DMweight", int],
       "SCAMweight:": ["SCAMweight", int],
       "tm:": ["tm", str],
+      "tm_svd:": ["tm_svd", int],
       "fref:": ["fref", str]
     }
     if self.custom_models_obj is not None:
@@ -266,6 +274,9 @@ class Params(object):
     if 'tm' not in self.__dict__:
       self.tm = 'default'
       print('Setting a default linear timing model')
+    if 'tm_svd' not in self.__dict__:
+      self.tm_svd = 0
+      print('Setting timing model SVD to 0 (False)')
     if 'inc_events' not in self.__dict__:
       self.inc_events = True
       print('Including transient events to specific pulsar models')
@@ -487,9 +498,9 @@ def init_pta(params_all):
 
     # Including parameters common for all pulsars
     if params.tm=='default':
-      tm = gp_signals.TimingModel()
+      tm = gp_signals.TimingModel(use_svd=bool(params.tm_svd))
     elif params.tm=='fast':
-      tm = gp_signals.MarginalizingTimingModel()
+      tm = gp_signals.MarginalizingTimingModel(use_svd=bool(params.tm_svd))
     elif params.tm=='ridge_regression':
       log10_variance = parameter.Uniform(-20, -10)
       basis = scaled_tm_basis()
