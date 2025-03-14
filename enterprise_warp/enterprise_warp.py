@@ -15,6 +15,8 @@ from enterprise.pulsar import Pulsar
 import enterprise.constants as const
 from enterprise_extensions import models
 from .enterprise_models import StandardModels
+import discovery as ds
+from .discovery_warp import init_pta_discovery
 
 try:
   from mpi4py import MPI
@@ -113,6 +115,7 @@ class Params(object):
     self.sampler_kwargs = {}
     self.label_attr_map = {
       "paramfile_label:": ["paramfile_label", str],
+      "package": ["package", str],
       "datadir:": ["datadir", str],
       "out:": ["out", str],
       "overwrite:": ["overwrite", str],
@@ -248,6 +251,13 @@ class Params(object):
     """
     print('------------------')
     print('Setting default parameters with file ', self.input_file_name)
+    if 'package' not in self.__dict__:
+      self.__dict__['package'] = 'enterprise'
+      init_pta = init_pta_enterprise
+      print('Package not specified. Using Enterprise as default.')
+    elif self.__dict__['package'] == 'discovery':
+      init_pta = init_pta_discovery
+      print('Using Discovery as the package.')
     if 'timing_package' not in self.__dict__:
       # A keyword argument of enterprise.pulsar.Pulsar()
       self.__dict__['timing_package'] = 'tempo2'
@@ -478,8 +488,11 @@ class Params(object):
             warnings.warn(warn_message)
             shutil.rmtree(self.output_dir)
             os.makedirs(self.output_dir)
+      if self.__dict__['package'] == 'discovery':
+        ds.Pulsar.save_feather(psr, 'pulsar_object.arrow', self.__dict__['noisefiles'])
+    
 
-def init_pta(params_all):
+def init_pta_enterprise(params_all):
   """
   Initiate enterprise signal models and enterprise.signals.signal_base.PTA.
   """
