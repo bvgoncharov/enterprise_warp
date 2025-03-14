@@ -8,4 +8,4 @@ efac: -1
 equad: -1
 noisefiles: example_noisefiles/
 {0}
-noise_model_file: example_noisemodels/system_noise_example.json
+model_file: example_models/system_noise_example.json

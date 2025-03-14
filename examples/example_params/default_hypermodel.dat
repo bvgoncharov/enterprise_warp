@@ -9,6 +9,6 @@ AMweight: 15
 DEweight: 50
 nsamp: 1000000
 {0}
-noise_model_file: example_noisemodels/default_noise_example_1.json
+model_file: example_models/default_noise_example_1.json
 {1}
-noise_model_file: example_noisemodels/default_noise_example_2.json
+model_file: example_models/default_noise_example_2.json

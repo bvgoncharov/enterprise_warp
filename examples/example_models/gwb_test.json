@@ -1,0 +1,12 @@
+{
+    "model_name": "hd",
+    "universal":
+    {
+        "measurement_noise": {"selection": "by_backend"},
+        "spin_noise": {"psd": "powerlaw"},
+        "dm_noise": {"psd": "powerlaw"}
+    },
+    "common_signals": {
+    	"global_gp": {"psd": "powerlaw", "n_freqs": 30, "orf": "hd_orf"}
+    }
+}

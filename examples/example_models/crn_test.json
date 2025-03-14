@@ -1,0 +1,12 @@
+{
+    "model_name": "crn",
+    "universal":
+    {
+        "measurement_noise": {"selection": "by_backend"},
+        "spin_noise": {"psd": "powerlaw"},
+        "dm_noise": {"psd": "powerlaw"}
+    },
+    "common_signals": {
+    	"common_gp": {"psd": "powerlaw", "n_freqs": 30}
+    }
+}

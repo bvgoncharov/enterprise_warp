@@ -1,8 +1,14 @@
-import matplotlib
-matplotlib.use('Agg')
-#from matplotlib import rcParams
-#rcParams['text.latex.preamble'] = r'\newcommand{\mathdefault}[1][]{}'
-import matplotlib.pyplot as plt
+"""
+Result view and plotting for enterprise warp. Example:
+
+>>> python -m enterprise_warp.results --result parameter_file_dat_or_directory --info 1 
+
+See `python -m enterprise_warp.results -h` for a list of available options:
+    --corner 1: for corner plot (--corner 2 for ChainConsumer);
+    --par gw: to only include parameter with "gw" in its name into the corner plot;
+    --name J0437: to only plot results for pulsars which names contain string "J0437".
+    --chains 1: to make a plot of MCMC chain for all parameters.
+"""
 
 import os
 import re
@@ -11,21 +17,57 @@ import glob
 import shutil
 import pickle
 import optparse
+import warnings
 import itertools
 import numpy as np
 import scipy as sp
-import pandas as pd
-from corner import corner
+
+
 from datetime import datetime
-from bilby import result as br
-from chainconsumer import ChainConsumer, Chain, PlotConfig
 from dateutil.parser import parse as pdate
 
-from enterprise_extensions.frequentist.optimal_statistic import \
-OptimalStatistic as OptStat
-from enterprise.signals import signal_base
-
 from . import enterprise_warp
+
+try:
+  from enterprise.signals import signal_base
+except Exception as ex:
+  print(ex)
+  warnings.warn('enterprise is not available')
+
+try:
+  from bilby import result as br
+except Exception as ex:
+  print(ex)
+  warnings.warn('bilby is not available')
+
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    #from matplotlib import rcParams
+    #rcParams['text.latex.preamble'] = r'\newcommand{\mathdefault}[1][]{}'
+    import matplotlib.pyplot as plt
+    from corner import corner
+except Exception as ex:
+    print(ex)
+    warnings.warn('matplotlib or corner are not available for making plots')
+
+try:
+  from chainconsumer import ChainConsumer, Chain, PlotConfig
+except Exception as ex:
+  print(ex)
+  warnings.warn('[PLOTTING] chainconsumer is not available')
+
+try:
+  import pandas as pd
+except Exception as ex:
+  print(ex)
+  warnings.warn('pandas not available, required for ChainConsumer, EnterpriseWarpResult._save_covm()')
+
+try:
+    from enterprise_extensions.frequentist.optimal_statistic import OptimalStatistic as OptStat
+except Exception as ex:
+    print(ex)
+    warnings.warn('enterprise_extensions is not available, required for Optimal Statistic')
 
 def parse_commandline():
   """
@@ -60,6 +102,9 @@ def parse_commandline():
                     default=None, type=str)
 
   parser.add_option("-a", "--chains", help="Plot chains (1/0)", \
+                    default=0, type=int)
+                
+  parser.add_option("-H", "--hists", help="Plot marginal posteriors (1/0)", \
                     default=0, type=int)
 
   parser.add_option("-b", "--logbf", help="Display log Bayes factors (1/0)", \
@@ -357,7 +402,7 @@ class EnterpriseWarpResult(object):
       self._get_covm()
 
       if not (self.opts.noisefiles or self.opts.logbf or self.opts.corner or \
-              self.opts.chains):
+              self.opts.chains or self.opts.hists):
         continue
 
       success = self.load_chains()
@@ -370,6 +415,7 @@ class EnterpriseWarpResult(object):
       self._print_logbf()
       self._make_corner_plot()
       self._make_chain_plot()
+      self._make_histograms()
 
     self._save_covm()
 
@@ -645,6 +691,27 @@ class EnterpriseWarpResult(object):
                     self.par_out_label + '_corner.png'
       fig = cobj.plotter.plot(filename=corner_name)
       plt.close()
+
+  def _make_histograms(self):
+    """ Histograms for the posterior distribution for all parameters """
+    if self.opts.hists:
+       thin_factor = 1000
+       x_tiles = int(np.floor(len(self.pars)**0.5))
+       y_tiles = int(np.ceil(len(self.pars)/x_tiles))
+       plt.figure(figsize=[6.4*x_tiles,4.8*y_tiles])
+       for pp, par in enumerate(self.pars):
+          plt.subplot(x_tiles, y_tiles, pp + 1)
+          cut_chain = self.chain[::int(self.chain[:,pp].size/thin_factor),pp]
+          plt.hist(cut_chain,label=par.replace('_','\n'),bins=50)
+          plt.legend()
+          plt.xlabel('Parameter')
+          plt.ylabel('Density')
+       plt.subplots_adjust(wspace=0.)
+       plt.tight_layout()
+       plt.savefig(self.outdir_all + '/' + self.psr_dir + '_hist_pars_' + \
+                   '.png')
+       plt.close()
+
 
   def _make_chain_plot(self):
     """ MCMC chain plots (evolution in time) """

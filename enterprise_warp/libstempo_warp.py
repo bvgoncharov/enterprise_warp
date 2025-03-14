@@ -1,7 +1,16 @@
+import warnings
 import numpy as np
 
-import enterprise.constants as const
-import libstempo.toasim as LT
+try:
+    import enterprise.constants as const
+except Exception as ex:
+    print(ex)
+    warnings.warn('enterprise is not available for libstempo_warp.py')
+try:
+    import libstempo.toasim as LT
+except Exception as ex:
+    print(ex)
+    warnings.warn('libstempo is not available')
 
 def red_psd(ff,AA,gamma):
     norm = AA**2 * const.yr**3 / (12 * np.pi**2)

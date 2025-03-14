@@ -1,5 +1,8 @@
+"""
+The main module for running enterprise_warp. Reads command line arguments, parameter files (.dat). Based on the input, creates a enterprise.PTA object, with methods to compute likelihoods and priors.
+"""
+
 import numpy as np
-import pandas as pd
 import json
 import glob
 import os
@@ -8,15 +11,26 @@ import warnings
 import hashlib
 import pickle
 
-import enterprise.signals.parameter as parameter
-from enterprise.signals import signal_base
-import enterprise.signals.gp_signals as gp_signals
-from enterprise.pulsar import Pulsar
-import enterprise.constants as const
-from enterprise_extensions import models
 from .enterprise_models import StandardModels
 import discovery as ds
 from .discovery_warp import init_pta_discovery
+
+try:
+  import enterprise.signals.parameter as parameter
+  from enterprise.signals import signal_base
+  import enterprise.signals.gp_signals as gp_signals
+  from enterprise.pulsar import Pulsar
+  import enterprise.constants as const
+  from enterprise_extensions import models
+except Exception as ex:
+  print(ex)
+  warning.warn("enterprise is not available")
+
+try:
+  import pandas as pd
+except Exception as ex:
+  print(ex)
+  warnings.warn("pandas is not available, required for mcmc_covm_csv parameter")
 
 try:
   from mpi4py import MPI
@@ -28,6 +42,34 @@ try:
   from bilby import sampler as bimpler
 except:
   warnings.warn("Warning: failed to import bilby.sampler")
+
+class EWParser(object):
+  def __init__(self):
+    self.parser = optparse.OptionParser()
+
+    self.parser.add_option("-n", "--num", \
+      help="Pulsar number",  default=0, type=int)
+    self.parser.add_option("-p", "--prfile", \
+      help="Parameter file", type=str)
+    self.parser.add_option("-d", "--drop", \
+      help="Drop pulsar with index --num in a full-PTA run \
+      (0 - No / 1 - Yes)", default=0, type=int)
+    self.parser.add_option("-c", "--clearcache", \
+      help="Clear psrs cache file, associated with the run \
+      (to-do after changes to .par and .tim files)", \
+      default=0, type=int)
+    self.parser.add_option("-w", "--wipe_old_output", \
+      help="Wipe contents of the output directory. Otherwise, \
+      the code will attempt to resume the previous run. \
+      Be careful: all subdirectories are removed too!", \
+      default=0, type=int)
+    self.parser.add_option("-x", "--extra_model_terms", \
+      help="Extra noise terms to add to the .json noise model \
+      file, a string that will be converted to dict. \
+      E.g. {'J0437-4715': {'system_noise': \
+      'CPSR2_20CM'}}. Extra terms are applied either on \
+      the only model, or the second model.", \
+      default='None', type=str)
 
 def parse_commandline():
   """
@@ -45,31 +87,10 @@ def parse_commandline():
   opts: optparse.OptionParser
     Command line arguments to be used later in the code.
   """
-  parser = optparse.OptionParser()
 
-  parser.add_option("-n", "--num", help="Pulsar number",  default=0, type=int)
-  parser.add_option("-p", "--prfile", help="Parameter file", type=str)
-  parser.add_option("-d", "--drop", \
-                    help="Drop pulsar with index --num in a full-PTA run \
-                          (0 - No / 1 - Yes)", default=0, type=int)
-  parser.add_option("-c", "--clearcache", \
-                    help="Clear psrs cache file, associated with the run \
-                          (to-do after changes to .par and .tim files)", \
-                    default=0, type=int)
-  parser.add_option("-w", "--wipe_old_output", \
-                    help="Wipe contents of the output directory. Otherwise, \
-                          the code will attempt to resume the previous run. \
-                          Be careful: all subdirectories are removed too!", \
-                    default=0, type=int)
-  parser.add_option("-x", "--extra_model_terms", \
-                    help="Extra noise terms to add to the .json noise model \
-                          file, a string that will be converted to dict. \
-                          E.g. {'J0437-4715': {'system_noise': \
-                          'CPSR2_20CM'}}. Extra terms are applied either on \
-                          the only model, or the second model.", \
-                    default='None', type=str)
+  ewp = EWParser()
 
-  opts, args = parser.parse_args()
+  opts, args = ewp.parser.parse_args()
 
   return opts
 
@@ -122,7 +143,7 @@ class Params(object):
       "array_analysis:": ["array_analysis", str],
       "timing_package:": ["timing_package", str],
       "noisefiles:": ["noisefiles", str],
-      "noise_model_file:": ["noise_model_file", str],
+      "model_file:": ["model_file", str],
       "job_config_xlsx:": ["job_config_xlsx", str],
       "load_toa_filenames:": ["load_toa_filenames", str],
       "sampler:": ["sampler", str],
@@ -183,10 +204,14 @@ class Params(object):
         # Adding sampler kwargs to self.label_attr_map
         if attr == 'sampler' and 'bimpler' in globals():
           if data[0] in bimpler.IMPLEMENTED_SAMPLERS.keys():
-            self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].\
-                                    default_kwargs
-            self.label_attr_map.update( dict_to_label_attr_map(\
-                                        self.sampler_kwargs) )
+            self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].default_kwargs
+            if type(self.sampler_kwargs) is dict:
+              self.label_attr_map.update( dict_to_label_attr_map(\
+                                          self.sampler_kwargs) )
+            else:
+              warnings.warn('sampler kwargs type:'+str(type(self.sampler_kwargs))+', expected dict')
+              self.sampler_kwargs = {}
+              warnings.warn('Reading sampler kwargs from enterprise_warp parameter files is not supported for the selected sampler.')
           else:
             error_message = 'Unknown sampler: ' + data[0] + '\n' + \
                             'Known samplers: ' + \
@@ -314,8 +339,8 @@ class Params(object):
     Reading general noise model (which will overwrite model-specific ones,
     if they exists).
     """
-    if 'noise_model_file' in self.__dict__.keys():
-      self.__dict__['noisemodel'] = read_json_dict(self.noise_model_file)
+    if 'model_file' in self.__dict__.keys():
+      self.__dict__['noisemodel'] = read_json_dict(self.model_file)
       self.__dict__['common_signals'] = self.noisemodel['common_signals']
       self.__dict__['model_name'] = self.noisemodel['model_name']
       self.__dict__['universal'] = self.noisemodel['universal']
@@ -328,9 +353,9 @@ class Params(object):
       del self.noisemodel['model_name']
     # Reading model-specific noise model
     for mkey in self.models:
-      if 'noise_model_file' in self.models[mkey].__dict__.keys():
+      if 'model_file' in self.models[mkey].__dict__.keys():
         self.models[mkey].__dict__['noisemodel'] = read_json_dict(\
-                                  self.models[mkey].noise_model_file)
+                                  self.models[mkey].model_file)
         self.models[mkey].__dict__['common_signals'] = \
                                   self.models[mkey].noisemodel['common_signals']
         self.models[mkey].__dict__['model_name'] = \

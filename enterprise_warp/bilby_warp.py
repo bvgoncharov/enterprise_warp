@@ -1,4 +1,11 @@
-import bilby
+import warnings
+
+try:
+    import bilby
+except Exception as ex:
+    print(ex)
+    warnings.warn('bilby is not available')
+
 
 class PTABilbyLikelihood(bilby.Likelihood):
     """
@@ -51,28 +58,28 @@ def get_bilby_prior_dict(pta):
     for param in pta.params:
 
         if param.size==None:
-            if param.type=='uniform':
+            if param.type=='uniform_':
                 #priors[param.name] = bilby.core.prior.Uniform( \
                 #    param._pmin, param._pmax, param.name)
                 priors[param.name] = bilby.core.prior.Uniform( \
                     # param._pmin
                     param.prior._defaults['pmin'], param.prior._defaults['pmax'], \
                     param.name)
-            elif param.type=='normal':
+            elif param.type=='normal_':
                 #priors[param.name] = bilby.core.prior.Normal( \
                 #    param._mu, param._sigma, param.name)
                 priors[param.name] = bilby.core.prior.Normal( \
                     param.prior._defaults['mu'], param.prior._defaults['sigma'], \
                     param.name)
-            elif param.type=='truncatednormal':
+            elif param.type=='truncnormal_':
                 priors[param.name] = bilby.core.prior.TruncatedGaussian( \
                     param.prior._defaults['mu'], param.prior._defaults['sigma'], \
                     param.prior._defaults['minv'], param.prior._defaults['maxv'], \
                     param.name)
             else:
+                print('Unknown prior.type for bilby:', param.type)
                 raise ValueError(
-                    "Unknown prior type for translation into Bilby. "
-                    "Known types: Normal, Uniform."
+                    "Accepted prior.type: uniform_, normal_, truncnormal_"
                 )
 
         else:

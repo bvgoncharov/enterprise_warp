@@ -18,7 +18,7 @@ Parameter file options
 - **array_analysis**: whether to run analysis on a pulsar timing array, or on a single pulsar (True for array, False for single pulsars).
 - **noisefiles**: a path to .json noise files needed to fix white noise parameters. White noise parameters (EFAC, EQUAD, ECORR) are fixed in case you add lines ``efac: -1``, ``equad: -1``, and ``ecorr: -1`` to a parameter file. 
 - **sampler**: choose ``ptmcmcsampler`` or any of the samplers compatible with Bilby. Also, you can add any argument of a sampler as a line in a parameter file (e.g., ``AMweight`` for ``ptmcmcsampler``), they are automatically recognized. 
-- **noise_model_file**: a path to ``enterprise_warp`` json noise model files, one for each model (under {x)}. See examples. 
+- **model_file**: a path to ``enterprise_warp`` json noise model files, one for each model (under {x)}. See examples. 
 - **psrlist**: if provided, only pulsars with names from this text file will be analyzed. A file format is a column of pulsar names.
 - **ssephem**: Solar System ephemeris model, the default one is DE436.
 - **clock**: a clock argument for enterprise, it is passed to ``libstempo`` or ``pint`` (timing packages). At the moment, it is not supported for single-pulsar noise analysis (check the use of ``Pulsar()`` in ``enterprise_warp.py``). A default option is ``None``.
