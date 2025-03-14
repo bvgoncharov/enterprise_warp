@@ -206,65 +206,21 @@ class StandardModels(object):
       nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name)
     return option, nfreqs
 
-  def spin_noise(self, option="powerlaw"):
+  def spin_noise(self, option={}):
     """
     Achromatic red noise process is called spin noise, although generally
     this model is used to model any unknown red noise. If this model is
     preferred over chromatic models then the observed noise is really spin
     noise, associated with pulsar rotational irregularities.
     """
-    #IS THERE A WAY TO USE DISCOVERY FOR THIS?
-    log10_A = parameter.Uniform(self.params.sn_lgA[0],self.params.sn_lgA[1])
-    gamma = parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1])
     option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
-    if option=="powerlaw":
-      pl = ds.powerlaw(f, df, log10_A, gamma) ### ADD PROPER PARAMS
-    elif option=="turnover":
-      fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
-      pl = ds.brokenpowerlaw(f, df, log10_A, gamma, log10_fb) ### ADD PROPER PARAMS
+    if option["psd"]=="powerlaw":
+      pl = ds.powerlaw
+    elif option["psd"]=="turnover":
+      pl = ds.brokenpowerlaw
 
-    sn = ds.makegp_fourier(self.psr, self.priors, nfreqs, T=self.params.Tspan, name='red_noise') #or is priors pl?
+    sn = ds.makegp_fourier(self.psr, pl, components=nfreqs, name='red_noise') #or is priors pl?
     return sn
-
-  def spin_noise(self,option="powerlaw"):
-    """
-    Achromatic red noise process is called spin noise, although generally
-    this model is used to model any unknown red noise. If this model is
-    preferred over chromatic models then the observed noise is really spin
-    noise, associated with pulsar rotational irregularities.
-    """
-    log10_A = parameter.Uniform(self.params.sn_lgA[0],self.params.sn_lgA[1])
-    gamma = parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1])
-    option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
-    if option=="powerlaw":
-      pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-                          components=self.params.red_general_nfouriercomp)
-    elif option=="turnover":
-      fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
-      pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
-                        components=self.params.red_general_nfouriercomp)
-    sn = gp_signals.FourierBasisGP(spectrum=pl, Tspan=self.params.Tspan,
-                                   name='red_noise', components=nfreqs)
-    return sn
-
-  def dm_noise(self,option="powerlaw"):
-    log10_A = parameter.Uniform(self.params.dmn_lgA[0],self.params.dmn_lgA[1])
-    gamma = parameter.Uniform(self.params.dmn_gamma[0],self.params.dmn_gamma[1])
-    option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
-    if option=="powerlaw":
-      pl = ds.powerlaw(f, df, log10_A, gamma) ### ADD PROPER PARAMS
-    elif option=="turnover":
-      fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
-      pl = ds.brokenpowerlaw(f, df, log10_A, gamma, log10_fb) ### ADD PROPER PARAMS
-
-    #dm_basis = utils.createfourierdesignmatrix_dm(nmodes = nfreqs,
-    #                                          Tspan=self.params.Tspan,
-    #                                          fref=self.params.fref)  
-    dm_basis = ds.dmfourierbasis(self.psr, components=nfreqs, T=self.params.Tspan, \
-                           fref=self.params.fref) #APPLY THE PROPER COMPONENTS
-    dmn = ds.makegp_fourier(self.psr, priors=pl, components=nfreqs, T=self.params.Tspan, \
-                             fourierbasis=dm_basis, name='dm_gp')
-    return dmn
   
   def dm_noise(self,option="powerlaw"):
     """
@@ -272,24 +228,16 @@ class StandardModels(object):
     noise model, with Fourier amplitudes depending on radio frequency nu
     as ~ 1/nu^2.
     """
-    log10_A = parameter.Uniform(self.params.dmn_lgA[0],self.params.dmn_lgA[1])
-    gamma = parameter.Uniform(self.params.dmn_gamma[0],self.params.dmn_gamma[1])
     option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
-    if option=="powerlaw":
-      pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-                          components=self.params.red_general_nfouriercomp)
-    elif option=="turnover":
-      fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
-      pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
-                        components=self.params.red_general_nfouriercomp)
-    dm_basis = utils.createfourierdesignmatrix_dm(nmodes = nfreqs,
-                                                  Tspan=self.params.Tspan,
-                                                  fref=self.params.fref)
-    dmn = gp_signals.BasisGP(pl, dm_basis, name='dm_gp')
+    if option["psd"]=="powerlaw":
+      pl = ds.powerlaw
+    elif option["psd"]=="turnover":
+      pl = ds.brokenpowerlaw
 
+    dmn = ds.makegp_fourier(self.psr, pl, components=nfreqs, fourierbasis=ds.dmfourierbasis, name='red_noise') #or is priors pl?
     return dmn
 
-  def chromred(self,option="vary"):
+  def chromred(self,option={}):
     """
     This is an generalization of DM noise, with the dependence of Fourier
     amplitudes on radio frequency nu as ~ 1/nu^chi, where chi is a free
@@ -331,100 +279,24 @@ class StandardModels(object):
     chrn = gp_signals.BasisGP(pl, chr_basis, name='chromatic_gp')
 
     return chrn
-
-  def system_noise(self,option=[]):
-    """
-    Including red noise terms by "-group" flag, only with flagvals in noise
-    model file.
-
-    See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.
-    """
-    if type(option) is list:
-      option = {'group': option}
-    elif type(option) is not dict:
-      raise ValueError('System noise option must be a list or a dict. \
-                        E.g.: "system_noise": ["CPSR2_20CM","WBCORR_10CM"]')
-    for flag in option.keys():
-      for ii, sys_noise_term in enumerate(option[flag]):
-        log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
-        gamma = parameter.Uniform(self.params.syn_gamma[0],\
-                                  self.params.syn_gamma[1])
-        pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-                            components=self.params.red_general_nfouriercomp)
   
-        selection_function_name = 'sys_noise_selection_'+str(self.sys_noise_count)
-        setattr(self, selection_function_name,
-                selection_factory(selection_function_name))
-        sys_noise_term, nfreqs = self.option_nfreqs(sys_noise_term, \
-                                      selection_flag=flag, \
-                                      sel_func_name=selection_function_name)
-  
-        tspan = self.determine_tspan(sel_func_name=selection_function_name)
-  
-        syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=tspan,
-                                        name='system_noise_' + \
-                                        str(self.sys_noise_count),
-                                        selection=selections.Selection( \
-                                        self.__dict__[selection_function_name] ),
-                                        components=nfreqs)
-        if ii == 0:
-          syn = syn_term
-        elif ii > 0:
-          syn += syn_term
-  
-        self.sys_noise_count += 1
-
-    return syn
-
-  def ppta_band_noise(self,option=[]):
+  def common_gp(self, option={}):
     """
-    Including red noise terms by the PPTA "-B" flag, only with flagvals in
-    noise model file. It is considered a derivative of system noise in our code.
-
-    See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.
+    Common-spectrum red process (common red noise)
+    More information: https://doi.org/10.3847/2041-8213/ac17f4
     """
-    for ii, band_term in enumerate(option):
-      log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
-      gamma = parameter.Uniform(self.params.syn_gamma[0],\
-                                self.params.syn_gamma[1])
-      selection_function_name = 'band_noise_selection_' + \
-                                str(self.sys_noise_count)
-      setattr(self, selection_function_name,
-              selection_factory(selection_function_name))
-      band_term, nfreqs = self.option_nfreqs(band_term, \
-                                      selection_flag='B', \
-                                      sel_func_name=selection_function_name)
-      if "turnover" in band_term:
-        fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
-        pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
-                          components=self.params.red_general_nfouriercomp)
-        option_split = band_term.split("_")
-        del option_split[option_split.index("turnover")]
-        band_term = "_".join(option_split)
-      else:
-        pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-                            components=self.params.red_general_nfouriercomp)
+    option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
+    return ds.makecommongp_fourier(self.params.psrs, ds.makepowerlaw_crn(components=14), components=nfreqs, name='rednoise',
+                                                            common=['crn_log10_A', 'crn_gamma'])
 
-      tspan = self.determine_tspan(sel_func_name=selection_function_name)
+  def global_gp(self, option={}):
+    """
+    Gaussian process with inter-pulsar correlations (e.g., Hellings-Downs)
+    """
+    option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
+    return ds.makeglobalgp_fourier(self.params.psrs, ds.powerlaw, ds.hd_orf, components=nfreqs, name='gw')
 
-      syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=tspan,
-                                      name='band_noise_' + \
-                                      str(self.sys_noise_count),
-                                      selection=selections.Selection( \
-                                      self.__dict__[selection_function_name] ),
-                                      components=nfreqs)
-      if ii == 0:
-        syn = syn_term
-      elif ii > 0:
-        syn += syn_term
-
-      self.sys_noise_count += 1
-
-    return syn
-
-  # Common noise for multiple pulsars
-
-  def gwb(self,option="hd_vary_gamma"):
+  def gwb(self,option={}):
     """
     Spatially-correlated quadrupole signal from the nanohertz stochastic
     gravitational-wave background.
@@ -509,7 +381,7 @@ class StandardModels(object):
 
     return gwb_total
 
-  def bayes_ephem(self,option="default"):
+  def bayes_ephem(self,option={}):
     """
     Deterministic signal from errors in Solar System ephemerides.
     """
@@ -749,3 +621,4 @@ def toa_mask_from_selection_function(psr,selfunc):
     return [val for val in selection_mask_dict.values()][0]
   else:
     raise NotImplementedError
+
