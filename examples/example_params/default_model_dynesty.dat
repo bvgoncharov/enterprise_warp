@@ -4,7 +4,5 @@ out: out/
 overwrite: True
 array_analysis: False
 sampler: dynesty
-dlogz: 0.1
-nlive: 800
 {0}
-noise_model_file: example_noisemodels/default_noise_example_1.json
+model_file: example_models/default_noise_example_1.json

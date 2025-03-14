@@ -1,15 +1,63 @@
+"""
+Documentation for enterprise_warp.models. Here, :class:`CustomModels` has a set of methods which return enterprise signal objects. Names of the class methods are keys in .json noise model files, and method kwargs "option" must be a dict with values from .json noise model files. The class is used under the hood, unless the user choses to use their custom models. For custom models, it is recommended to create a child class of :class:`CustomModels`, with additional methods, and then pass it to :class:`Params`:
+
+>>> custom = my_models.My_CustomModels
+>>> params = enterprise_warp.Params(opts.prfile,opts=opts,custom_models_obj=custom)
+>>> pta = enterprise_warp.init_pta(params)
+
+Examples of how to add signal and noise term to .json noise model files:
+
+"measurement_noise": {
+  "selection": "no_selection" 
+}
+
+Here, value "no_selection" is the name of the function in enterprise.selection or this Python file (globals()).
+
+"spin_noise": {
+    "psd": "powerlaw", # enterprise.gp_priors or 
+    "n_freqs": 30 # n_days: 240
+}
+
+Here, "powerlaw" is function name from enterprise.gp_priors or this Python file (globals()). E.g., gp_priors has functions powerlaw, free_spectrum, whereas this file has a function powerlaw_bpl (see below).
+
+"system_noise": {
+    "psd": "powerlaw", # enterprise.gp_priors or 
+    "n_freqs": 30 # n_days: 240
+    "flags_flagvals": {
+    	"group": []
+    }
+}
+
+"global_gp": {
+    "psd": "powerlaw",
+    "n_freqs": 30, # n_days: 240
+    "orf": "hd_orf",
+    "parameters": {
+      "log10_A": -15.0,
+      "gamma": 4.33
+    }
+}
+
+Here, "orf" value is a function name from enterprise.utils (hd_orf, monopole_orf, dipole_orf) or this Python file (globals()).
+"""
+
 import numpy as np
-import enterprise.constants as const
-from enterprise.signals import signal_base
-from enterprise.signals import utils
-from enterprise.signals import gp_bases
-from enterprise.signals import gp_priors
-import enterprise.signals.parameter as parameter
-import enterprise.signals.gp_signals as gp_signals
-import enterprise.signals.deterministic_signals as deterministic_signals
-import enterprise.signals.white_signals as white_signals
-import enterprise.signals.selections as selections
-from enterprise.signals.parameter import function as parameter_function
+
+try:
+  import enterprise.constants as const
+  from enterprise.signals import signal_base
+  from enterprise.signals import utils
+  from enterprise.signals import gp_bases
+  from enterprise.signals import gp_priors
+  import enterprise.signals.parameter as parameter
+  import enterprise.signals.gp_signals as gp_signals
+  import enterprise.signals.deterministic_signals as deterministic_signals
+  import enterprise.signals.white_signals as white_signals
+  import enterprise.signals.selections as selections
+  from enterprise.signals.parameter import function as parameter_function
+except Exception as ex:
+  print(ex)
+  warnings.warn('enterprise is not available')
 
 try:
   from mpi4py import MPI
@@ -78,17 +126,19 @@ class StandardModels(object):
       "sn_fc": [-10., -6.],
       "dmn_lgA": [-20., -6.],
       "dmn_gamma": [0., 10.],
+      "dmn_fc": [-10., -6.],
       "chrom_idx": [0., 6.],
       "syn_lgA": [-20., -6.],
       "syn_gamma": [0., 10.],
       "gwb_lgA": [-20., -6.],
-      "gwb_lgA_prior": "uniform",
+      "gwb_lgA_prior": "Uniform",
       "gwb_lgrho": [-10., -4.],
       "gwb_gamma": [0., 10.],
-      "gwb_gamma_prior": "uniform",
+      "gwb_fc": [-10., -6.],
       "red_general_freqs": "tobs_60days",
       "red_general_nfouriercomp": 2
     }
+    # For system_noise
     if self.psr is not None and type(self.psr) is not list:
       if not hasattr(self.psr,'sys_flags'):
         setattr(self.psr,'sys_flags',[])
@@ -112,129 +162,118 @@ class StandardModels(object):
 
   # Signle pulsar noise models
 
-  def measurement_noise(self, option="by_backend"):
+  def measurement_noise(self, option={}):
     """
     EFAC + EQUAD in tempo2 format:
     sigma**2 = EFAC**2 * (toaerr**2 + EQUAD**2)
+
+    option format: {
+        "selection": "by_backend"
+    }
     """
-    if option not in selections.__dict__.keys():
+    if option["selection"] not in selections.__dict__.keys():
       raise ValueError('EFAC option must be Enterprise selection function name')
-    se=selections.Selection(selections.__dict__[option])
+    se=selections.Selection(selections.__dict__[option["selection"]])
     efacpr = interpret_white_noise_prior(self.params.efac)
     equadpr = interpret_white_noise_prior(self.params.equad)
     efeq = white_signals.MeasurementNoise(efac=efacpr, log10_t2equad=equadpr, \
                                           selection=se)
     return efeq
 
-  def efac(self,option="by_backend"):
+  def efac(self, option={}):
     """
     EFAC signal:  multiplies ToA variance by EFAC**2, where ToA variance
     are diagonal components of the Likelihood covariance matrix.
     """
-    if option not in selections.__dict__.keys():
+    if option["selection"] not in selections.__dict__.keys():
       raise ValueError('EFAC option must be Enterprise selection function name')
-    se=selections.Selection(selections.__dict__[option])
+    se=selections.Selection(selections.__dict__[option["selection"]])
     efacpr = interpret_white_noise_prior(self.params.efac)
     efs = white_signals.MeasurementNoise(efac=efacpr,selection=se)
     return efs
 
-  def equad(self,option="by_backend"):
+  def equad(self, option={}):
     """
     EQUAD signal: adds EQUAD**2 to the ToA variance, where ToA variance
     are diagonal components of the Likelihood covariance matrix.
     TempoNest format: sigma**2 = EFAC**2 * toaerr**2 + EQUAD**2
     """
-    if option not in selections.__dict__.keys():
+    if option["selection"] not in selections.__dict__.keys():
       raise ValueError('EQUAD option must be Enterprise selection function \
                         name')
-    se=selections.Selection(selections.__dict__[option])
+    se=selections.Selection(selections.__dict__[option["selection"]])
     equadpr = interpret_white_noise_prior(self.params.equad)
     eqs = white_signals.TNEquadNoise(log10_tnequad=equadpr,selection=se)
     return eqs
 
-  def ecorr(self,option="by_backend"):
+  def ecorr(self, option={}):
     """
     Similar to EFAC and EQUAD, ECORR is a white noise parameter that
     describes a correlation between ToAs in a single epoch (observation).
 
     Arzoumanian, Zaven, et al. The Astrophysical Journal 859.1 (2018): 47.
     """
-    if option not in selections.__dict__.keys():
+    if option["selection"] not in selections.__dict__.keys():
       raise ValueError('ECORR option must be Enterprise selection function \
                         name')
-    se=selections.Selection(selections.__dict__[option])
+    se=selections.Selection(selections.__dict__[option["selection"]])
     ecorrpr = interpret_white_noise_prior(self.params.ecorr)
     ecs = white_signals.EcorrKernelNoise(log10_ecorr=ecorrpr,selection=se)
     return ecs
 
-  def option_nfreqs(self, option, sel_func_name=None, selection_flag=None):
+  def option_nfreqs(self, option, sel_func_name=None, selection_flag=None, selection_flagval=None):
     """
     Selecting and removing nfreqs from option, otherwise from 1/Tobs to 1/60days
     """
-    condition1 = type(option) is str and "_nfreqs" in option
-    condition2 = type(option) is str and "_ndays" in option
-    if condition1:
-      divider = "nfreqs"
-    elif condition2:
-      divider = "ndays"
-    if condition1 or condition2:
-      op_sp = option.split('_')
-      split_idx = op_sp.index(divider) - 1
-    if condition1:
-      nfreqs = int(op_sp[split_idx])
-    if condition2:
-      ndays = int(op_sp[split_idx])
-      nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name, cadence=ndays)
-    if condition1 or condition2:
-      del op_sp[split_idx]
-      del op_sp[op_sp.index(divider)]
-      option = '_'.join(op_sp)
-      if option.replace('.','',1).isdigit():
-        option = float(option)
+    # For determining T_span
     if selection_flag is not None:
       self.psr.sys_flags.append(selection_flag)
-      self.psr.sys_flagvals.append(option)
-    if not condition1 and not condition2:
+      self.psr.sys_flagvals.append(selection_flagval)
+    
+    if "n_freqs" in option.keys():
+      nfreqs = option["n_freqs"]
+    elif "n_days" in option.keys():
+      nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name, cadence=option["ndays"])
+    else:
       nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name)
-    return option, nfreqs
+      
+    return nfreqs
 
-  def spin_noise(self,option="powerlaw"):
+  def spin_noise(self,option={}):
     """
     Achromatic red noise process is called spin noise, although generally
     this model is used to model any unknown red noise. If this model is
     preferred over chromatic models then the observed noise is really spin
     noise, associated with pulsar rotational irregularities.
     """
-    log10_A = parameter.Uniform(self.params.sn_lgA[0],self.params.sn_lgA[1])
-    gamma = parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1])
-    option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
-    if option=="powerlaw":
-      pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-                          components=self.params.red_general_nfouriercomp)
-    elif option=="turnover":
-      fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
-      pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
-                        components=self.params.red_general_nfouriercomp)
+    kwargs = {
+        "log10_A": parameter.Uniform(self.params.sn_lgA[0],self.params.sn_lgA[1]),
+        "gamma": parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1]),
+        "fc": parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1]),
+    }
+    nfreqs = self.option_nfreqs(option, sel_func_name=None)
+
+    pl = get_enterprise_function(option, "psd", kwargs, gp_priors)
+    
     sn = gp_signals.FourierBasisGP(spectrum=pl, Tspan=self.params.Tspan,
                                    name='red_noise', components=nfreqs)
     return sn
 
-  def dm_noise(self,option="powerlaw"):
+  def dm_noise(self,option={}):
     """
     A term to account for stochastic variations in DM. It is based on spin
     noise model, with Fourier amplitudes depending on radio frequency nu
     as ~ 1/nu^2.
     """
-    log10_A = parameter.Uniform(self.params.dmn_lgA[0],self.params.dmn_lgA[1])
-    gamma = parameter.Uniform(self.params.dmn_gamma[0],self.params.dmn_gamma[1])
-    option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
-    if option=="powerlaw":
-      pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-                          components=self.params.red_general_nfouriercomp)
-    elif option=="turnover":
-      fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
-      pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
-                        components=self.params.red_general_nfouriercomp)
+    kwargs = {
+        "log10_A": parameter.Uniform(self.params.dmn_lgA[0],self.params.dmn_lgA[1]),
+        "gamma": parameter.Uniform(self.params.dmn_gamma[0],self.params.dmn_gamma[1]),
+        "fc": parameter.Uniform(self.params.dmn_fc[0],self.params.dmn_fc[1]),
+    }
+    nfreqs = self.option_nfreqs(option, sel_func_name=None)
+
+    pl = get_enterprise_function(option, "psd", kwargs, gp_priors)
+
     dm_basis = utils.createfourierdesignmatrix_dm(nmodes = nfreqs,
                                                   Tspan=self.params.Tspan,
                                                   fref=self.params.fref)
@@ -242,7 +281,7 @@ class StandardModels(object):
 
     return dmn
 
-  def chromred(self,option="vary"):
+  def chromred(self,option={}):
     """
     This is an generalization of DM noise, with the dependence of Fourier
     amplitudes on radio frequency nu as ~ 1/nu^chi, where chi is a free
@@ -255,23 +294,16 @@ class StandardModels(object):
     - Refractive propagation: chi = 6.4 (Shannon, R. M., and J. M. Cordes.
       MNRAS, 464.2 (2017): 2075-2089).
     """
-    log10_A = parameter.Uniform(self.params.dmn_lgA[0],self.params.dmn_lgA[1])
-    gamma = parameter.Uniform(self.params.dmn_gamma[0],self.params.dmn_gamma[1])
-    option, nfreqs = self.option_nfreqs(option, sel_func_name=None)
-    if type(option) is str and "turnover" in option:
-      fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
-      pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
-                        components=self.params.red_general_nfouriercomp)
-      option_split = option.split("_")
-      del option_split[option_split.index("turnover")]
-      option = "_".join(option_split)
-      if option.isdigit(): option = float(option)
-    else:
-      pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-                          components=self.params.red_general_nfouriercomp)
+    kwargs = {
+        "log10_A": parameter.Uniform(self.params.sn_lgA[0],self.params.sn_lgA[1]),
+        "gamma": parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1]),
+        "fc": parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1]),
+    }
+    nfreqs = self.option_nfreqs(option, sel_func_name=None)
 
-    #idx_code = option.split"_").index("idx") + 1
-    if option=="vary":
+    pl = get_enterprise_function(option, "psd", kwargs, gp_priors)
+
+    if option["idx"]=="vary":
       idx = parameter.Uniform(self.params.chrom_idx[0], \
                               self.params.chrom_idx[1])
     else:
@@ -281,188 +313,121 @@ class StandardModels(object):
                                                    Tspan=self.params.Tspan,
                                                    idx=idx)
 
-    chrn = gp_signals.BasisGP(pl, chr_basis, name='chromatic_gp')
+    chrn = gp_signals.BasisGP(pl, chr_basis, name='chrom_gp')
 
     return chrn
 
-  def system_noise(self,option=[]):
+  def system_noise(self,option={}):
     """
     Including red noise terms by "-group" flag, only with flagvals in noise
     model file.
 
     See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.
     """
-    if type(option) is list:
-      option = {'group': option}
-    elif type(option) is not dict:
-      raise ValueError('System noise option must be a list or a dict. \
-                        E.g.: "system_noise": ["CPSR2_20CM","WBCORR_10CM"]')
-    for flag in option.keys():
-      for ii, sys_noise_term in enumerate(option[flag]):
-        log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
-        gamma = parameter.Uniform(self.params.syn_gamma[0],\
-                                  self.params.syn_gamma[1])
-        pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-                            components=self.params.red_general_nfouriercomp)
-  
+
+    kwargs = {
+        "log10_A": parameter.Uniform(self.params.sn_lgA[0],self.params.sn_lgA[1]),
+        "gamma": parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1]),
+        "fc": parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1]),
+    }
+
+    pl = get_enterprise_function(option, "psd", kwargs, gp_priors)
+
+    print("============")
+    print("Adding system noise (count, flag, flagval, nfreqs, tspan [yr]): ")
+    for flag, flagval_list in option["flags_flagvals"].items():
+      for flagval in flagval_list:
         selection_function_name = 'sys_noise_selection_'+str(self.sys_noise_count)
-        setattr(self, selection_function_name,
+        setattr(self, selection_function_name, 
                 selection_factory(selection_function_name))
-        sys_noise_term, nfreqs = self.option_nfreqs(sys_noise_term, \
-                                      selection_flag=flag, \
-                                      sel_func_name=selection_function_name)
-  
+        nfreqs = self.option_nfreqs(option, selection_flag=flag, selection_flagval=flagval, sel_func_name=selection_function_name)
         tspan = self.determine_tspan(sel_func_name=selection_function_name)
-  
+        
+        print(self.sys_noise_count, flag, flagval, nfreqs, tspan/const.yr)
+        
         syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=tspan,
                                         name='system_noise_' + \
                                         str(self.sys_noise_count),
                                         selection=selections.Selection( \
                                         self.__dict__[selection_function_name] ),
                                         components=nfreqs)
-        if ii == 0:
+        if self.sys_noise_count == 0:
           syn = syn_term
-        elif ii > 0:
+        else:
           syn += syn_term
   
         self.sys_noise_count += 1
+        
+    print("============")
 
     return syn
 
-  def ppta_band_noise(self,option=[]):
+  # PTA-wide signals and noise
+  
+  def common_gp(self, option={}):
     """
-    Including red noise terms by the PPTA "-B" flag, only with flagvals in
-    noise model file. It is considered a derivative of system noise in our code.
-
-    See Lentati, Lindley, et al. MNRAS 458.2 (2016): 2161-2187.
+    Common-spectrum red process (common red noise)
+    More information: https://doi.org/10.3847/2041-8213/ac17f4
     """
-    for ii, band_term in enumerate(option):
-      log10_A = parameter.Uniform(self.params.syn_lgA[0],self.params.syn_lgA[1])
-      gamma = parameter.Uniform(self.params.syn_gamma[0],\
-                                self.params.syn_gamma[1])
-      selection_function_name = 'band_noise_selection_' + \
-                                str(self.sys_noise_count)
-      setattr(self, selection_function_name,
-              selection_factory(selection_function_name))
-      band_term, nfreqs = self.option_nfreqs(band_term, \
-                                      selection_flag='B', \
-                                      sel_func_name=selection_function_name)
-      if "turnover" in band_term:
-        fc = parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1])
-        pl = powerlaw_bpl(log10_A=log10_A, gamma=gamma, fc=fc,
-                          components=self.params.red_general_nfouriercomp)
-        option_split = band_term.split("_")
-        del option_split[option_split.index("turnover")]
-        band_term = "_".join(option_split)
-      else:
-        pl = utils.powerlaw(log10_A=log10_A, gamma=gamma, \
-                            components=self.params.red_general_nfouriercomp)
+    name = 'crn'
+    nfreqs = self.option_nfreqs(option, sel_func_name=None)
+    kwargs = {
+        "log10_A": parameter.__dict__[self.params.gwb_lgA_prior]\
+        	(self.params.sn_lgA[0],self.params.sn_lgA[1]),
+        "gamma": parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1]),
+        "fc": parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1]),
+        "log10_rho": parameter.Uniform(self.params.gwb_lgrho[0],
+                                       self.params.gwb_lgrho[1],
+                                       size=nfreqs)
+    }
 
-      tspan = self.determine_tspan(sel_func_name=selection_function_name)
+    pl = get_enterprise_function(option, "psd", kwargs, gp_priors)
+    
+    crn = gp_signals.FourierBasisGP(pl, components=nfreqs,
+                            name='gw', Tspan=self.params.Tspan)
+                                            
+    return crn
 
-      syn_term = gp_signals.FourierBasisGP(spectrum=pl, Tspan=tspan,
-                                      name='band_noise_' + \
-                                      str(self.sys_noise_count),
-                                      selection=selections.Selection( \
-                                      self.__dict__[selection_function_name] ),
-                                      components=nfreqs)
-      if ii == 0:
-        syn = syn_term
-      elif ii > 0:
-        syn += syn_term
 
-      self.sys_noise_count += 1
-
-    return syn
-
-  # Common noise for multiple pulsars
-
-  def gwb(self,option="hd_vary_gamma"):
+  def global_gp(self, option={}):
     """
-    Spatially-correlated quadrupole signal from the nanohertz stochastic
-    gravitational-wave background.
+    Gaussian process with inter-pulsar correlations (e.g., Hellings-Downs)
     """
-    name = 'gw'
-    optsp = option.split('+')
-    for option in optsp:
-      if "_nfreqs" in option:
-        split_idx_nfreqs = option.split('_').index('nfreqs') - 1
-        nfreqs = int(option.split('_')[split_idx_nfreqs])
-      else:
-        nfreqs = self.determine_nfreqs(sel_func_name=None, common_signal=True)
-      print('Number of Fourier frequencies for the GWB/CPL signal: ', nfreqs)
+    name = option["orf"]
+    nfreqs = self.option_nfreqs(option, sel_func_name=None)
+    kwargs = {
+        "log10_A": parameter.__dict__[self.params.gwb_lgA_prior]\
+        	(self.params.sn_lgA[0],self.params.sn_lgA[1]),
+        "gamma": parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1]),
+        "fc": parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1]),
+        "log10_rho": parameter.Uniform(self.params.gwb_lgrho[0],
+                                       self.params.gwb_lgrho[1],
+                                       size=nfreqs)
+    }
 
-      if "_gamma" in option:
-        amp_name = '{}_log10_A'.format(name)
-        if (len(optsp) > 1 and 'hd' in option) or ('namehd' in option):
-          amp_name += '_hd'
-        elif (len(optsp) > 1 and ('varorf' in option or \
-                                  'interporf' in option)) \
-                                  or ('nameorf' in option):
-          amp_name += '_orf'
-        if self.params.gwb_lgA_prior == "uniform":
-          gwb_log10_A = parameter.Uniform(self.params.gwb_lgA[0],
-                                          self.params.gwb_lgA[1])(amp_name)
-        elif self.params.gwb_lgA_prior == "linexp":
-          gwb_log10_A = parameter.LinearExp(self.params.gwb_lgA[0],
-                                            self.params.gwb_lgA[1])(amp_name)
+    pl = get_enterprise_function(option, "psd", kwargs, gp_priors)
+    
+    orf = get_enterprise_function(option, "orf", kwargs, utils)
+    
+    gwb = gp_signals.FourierBasisCommonGP(pl, orf, components=nfreqs,
+                                            name='gw',
+                                            Tspan=self.params.Tspan)
+                                            
+    return gwb
+    
+  def global_gp_2(self, option={}):
+    """
+    A second global_gp, in case two need to be added.
+    """
+    return self.global_gp(option=option)
 
-        gam_name = '{}_gamma'.format(name)
-        if "vary_gamma" in option:
-          gwb_gamma = parameter.Uniform(self.params.gwb_gamma[0],
-                                        self.params.gwb_gamma[1])(gam_name)
-        elif "fixed_gamma" in option:
-          gwb_gamma = parameter.Constant(4.33)(gam_name)
-        else:
-          split_idx_gamma = option.split('_').index('gamma') - 1
-          gamma_val = float(option.split('_')[split_idx_gamma])
-          gwb_gamma = parameter.Constant(gamma_val)(gam_name)
-        gwb_pl = utils.powerlaw(log10_A=gwb_log10_A, gamma=gwb_gamma)
-      elif "freesp" in option:
-        amp_name = '{}_log10_rho'.format(name)
-        log10_rho = parameter.Uniform(self.params.gwb_lgrho[0],
-                                      self.params.gwb_lgrho[1],
-                                      size=nfreqs)(amp_name)
-        gwb_pl = gp_priors.free_spectrum(log10_rho=log10_rho)
+  def global_gp_3(self, option={}):
+    """
+    A third global_gp, in case three need to be added.
+    """
+    return self.global_gp(option=option)
 
-      if "hd" in option:
-        print('Adding HD ORF')
-        if "noauto" in option:
-          print('Removing auto-correlation')
-          orf = hd_orf_noauto()
-        else:
-          orf = utils.hd_orf()
-        if len(optsp) > 1 or 'namehd' in option:
-          gwname = 'gw_hd'
-        else:
-          gwname = 'gw'
-        gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                              name=gwname,
-                                              Tspan=self.params.Tspan)
-      elif "mono" in option:
-        print('Adding monopole ORF')
-        orf = utils.monopole_orf()
-        gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                              name='gw',
-                                              Tspan=self.params.Tspan)
-      elif "dipo" in option:
-        print('Adding dipole ORF')
-        orf = utils.dipole_orf()
-        gwb = gp_signals.FourierBasisCommonGP(gwb_pl, orf, components=nfreqs,
-                                              name='gw',
-                                              Tspan=self.params.Tspan)
-
-      else:
-        gwb = gp_signals.FourierBasisGP(gwb_pl, components=nfreqs,
-                                        name='gw', Tspan=self.params.Tspan)
-      if 'gw_total' in locals():
-        gwb_total += gwb
-      else:
-        gwb_total = gwb
-
-    return gwb_total
-
-  def bayes_ephem(self,option="default"):
+  def bayes_ephem(self,option={}):
     """
     Deterministic signal from errors in Solar System ephemerides.
     """
@@ -588,6 +553,26 @@ def interpret_white_noise_prior(prior):
   else:
     raise ValueError('Unknown prior ', prior)
 
+def get_enterprise_function(option, key, kwargs, module):
+    """
+    Returns enterprise @signal_base function with set up priors, passing only those priors from kwargs which are relevant for this function.
+
+    option: dict, the standard kwarg of methods of StandardModels.
+    module: enterprise module name (e.g., gp_priors).
+    key: str, a key in option (dict), the value of which corresponds a function in module. Example keys: "psd", "orf".
+    kwargs: dict, all possible parameters for the function corresponding to option[key].
+
+    Equivalent to returning `pl` here: 
+    >>> log10_A = parameter.Uniform(self.params.sn_lgA[0],self.params.sn_lgA[1])
+    >>> gamma = parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1])
+    >>> pl = utils.powerlaw(log10_A=log10_A, gamma=gamma)
+    """
+    all_models = {**globals(), **module.__dict__}
+    selected_func = all_models[option[key]]
+    signature = inspect.signature(selected_func)
+    kwargs = {kk: vv for kk, vv in kwargs.items() if kk in signature.parameters}
+    return selected_func(**kwargs)
+
 # Signal models
 
 @signal_base.function
@@ -646,6 +631,7 @@ def selection_factory(new_selection_name):
         print('Kwargs sys_flags and sys_flagvals must be specified!')
         raise ValueError
     seldict = dict()
+
     seldict[sys_flagvals[idx]] = flags[sys_flags[idx]]==sys_flagvals[idx]
     return seldict
 

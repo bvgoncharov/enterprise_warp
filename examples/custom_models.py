@@ -20,7 +20,7 @@ class CustomModels(StandardModels):
         "event_j1713_t0": [54500., 54900.]
       })
 
-    def my_powerlaw(self,option="default"):
+    def my_powerlaw(self,option={}):
       """
       Example for custom power-law red noise with parameters amp and cc
       """

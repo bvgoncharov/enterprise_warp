@@ -1,5 +1,8 @@
+"""
+The main module for running enterprise_warp. Reads command line arguments, parameter files (.dat). Based on the input, creates a enterprise.PTA object, with methods to compute likelihoods and priors.
+"""
+
 import numpy as np
-import pandas as pd
 import json
 import glob
 import os
@@ -8,13 +11,24 @@ import warnings
 import hashlib
 import pickle
 
-import enterprise.signals.parameter as parameter
-from enterprise.signals import signal_base
-import enterprise.signals.gp_signals as gp_signals
-from enterprise.pulsar import Pulsar
-import enterprise.constants as const
-from enterprise_extensions import models
 from .enterprise_models import StandardModels
+
+try:
+  import enterprise.signals.parameter as parameter
+  from enterprise.signals import signal_base
+  import enterprise.signals.gp_signals as gp_signals
+  from enterprise.pulsar import Pulsar
+  import enterprise.constants as const
+  from enterprise_extensions import models
+except Exception as ex:
+  print(ex)
+  warning.warn("enterprise is not available")
+
+try:
+  import pandas as pd
+except Exception as ex:
+  print(ex)
+  warnings.warn("pandas is not available, required for mcmc_covm_csv parameter")
 
 try:
   from mpi4py import MPI
@@ -126,7 +140,7 @@ class Params(object):
       "array_analysis:": ["array_analysis", str],
       "timing_package:": ["timing_package", str],
       "noisefiles:": ["noisefiles", str],
-      "noise_model_file:": ["noise_model_file", str],
+      "model_file:": ["model_file", str],
       "job_config_xlsx:": ["job_config_xlsx", str],
       "load_toa_filenames:": ["load_toa_filenames", str],
       "sampler:": ["sampler", str],
@@ -186,10 +200,14 @@ class Params(object):
         # Adding sampler kwargs to self.label_attr_map
         if attr == 'sampler' and 'bimpler' in globals():
           if data[0] in bimpler.IMPLEMENTED_SAMPLERS.keys():
-            self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].\
-                                    default_kwargs
-            self.label_attr_map.update( dict_to_label_attr_map(\
-                                        self.sampler_kwargs) )
+            self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].default_kwargs
+            if type(self.sampler_kwargs) is dict:
+              self.label_attr_map.update( dict_to_label_attr_map(\
+                                          self.sampler_kwargs) )
+            else:
+              warnings.warn('sampler kwargs type:'+str(type(self.sampler_kwargs))+', expected dict')
+              self.sampler_kwargs = {}
+              warnings.warn('Reading sampler kwargs from enterprise_warp parameter files is not supported for the selected sampler.')
           else:
             error_message = 'Unknown sampler: ' + data[0] + '\n' + \
                             'Known samplers: ' + \
@@ -308,8 +326,8 @@ class Params(object):
     Reading general noise model (which will overwrite model-specific ones,
     if they exists).
     """
-    if 'noise_model_file' in self.__dict__.keys():
-      self.__dict__['noisemodel'] = read_json_dict(self.noise_model_file)
+    if 'model_file' in self.__dict__.keys():
+      self.__dict__['noisemodel'] = read_json_dict(self.model_file)
       self.__dict__['common_signals'] = self.noisemodel['common_signals']
       self.__dict__['model_name'] = self.noisemodel['model_name']
       self.__dict__['universal'] = self.noisemodel['universal']
@@ -322,9 +340,9 @@ class Params(object):
       del self.noisemodel['model_name']
     # Reading model-specific noise model
     for mkey in self.models:
-      if 'noise_model_file' in self.models[mkey].__dict__.keys():
+      if 'model_file' in self.models[mkey].__dict__.keys():
         self.models[mkey].__dict__['noisemodel'] = read_json_dict(\
-                                  self.models[mkey].noise_model_file)
+                                  self.models[mkey].model_file)
         self.models[mkey].__dict__['common_signals'] = \
                                   self.models[mkey].noisemodel['common_signals']
         self.models[mkey].__dict__['model_name'] = \

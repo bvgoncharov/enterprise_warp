@@ -1,36 +1,32 @@
-#!/bin/python
+"""
+An example of the script to run enterprise_warp
+"""
 
 import numpy as np
 import sys
+sys.path.insert(0,'/work/boris.goncharov/dev_enterprise_warp/')
 import os
 import inspect
 import bilby
 from enterprise_warp import enterprise_warp
 from enterprise_warp import bilby_warp
-from enterprise_extensions import model_utils
+from enterprise_extensions import hypermodel
 
 import custom_models
 
-include_custom_models = True
-
 opts = enterprise_warp.parse_commandline()
-if include_custom_models: 
-  custom = custom_models.CustomModels
-else:
-  custom = None
+
+# Adding custom models is optional:
+custom = custom_models.CustomModels
+#custom = None
 
 params = enterprise_warp.Params(opts.prfile,opts=opts,custom_models_obj=custom)
 pta = enterprise_warp.init_pta(params)
 
 if params.sampler == 'ptmcmcsampler':
-  if len(params.models)==1:
-    sampler = model_utils.setup_sampler(pta[0], resume=False,
-                                        outdir=params.output_dir)
-    x0 = np.hstack(p.sample() for p in pta[0].params)
-    sampler.sample(x0, params.nsamp, **params.sampler_kwargs)
-  else:
-    super_model = model_utils.HyperModel(pta)
+    super_model = hypermodel.HyperModel(pta)
     print('Super model parameters: ', super_model.params)
+    print('Output directory: ', params.output_dir)
     sampler = super_model.setup_sampler(resume=False, outdir=params.output_dir)
     N = params.nsamp
     x0 = super_model.initial_sample()
