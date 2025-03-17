@@ -12,6 +12,8 @@ import hashlib
 import pickle
 
 from .enterprise_models import StandardModels
+import discovery as ds
+from .discovery_warp import init_pta_discovery
 
 try:
   import enterprise.signals.parameter as parameter
@@ -134,6 +136,7 @@ class Params(object):
     self.sampler_kwargs = {}
     self.label_attr_map = {
       "paramfile_label:": ["paramfile_label", str],
+      "package": ["package", str],
       "datadir:": ["datadir", str],
       "out:": ["out", str],
       "overwrite:": ["overwrite", str],
@@ -147,6 +150,7 @@ class Params(object):
       "nsamp:": ["nsamp", int],
       "mcmc_covm_csv:": ["mcmc_covm_csv", str],
       "psrlist:": ["psrlist", str],
+      "psrdistfile:": ["psrdistfile", str],
       "ssephem:": ["ssephem", str],
       "clock:": ["clock", str],
       "AMweight:": ["AMweight", int],
@@ -272,6 +276,13 @@ class Params(object):
     """
     print('------------------')
     print('Setting default parameters with file ', self.input_file_name)
+    if 'package' not in self.__dict__:
+      self.__dict__['package'] = 'enterprise'
+      init_pta = init_pta_enterprise
+      print('Package not specified. Using Enterprise as default.')
+    elif self.__dict__['package'] == 'discovery':
+      init_pta = init_pta_discovery
+      print('Using Discovery as the package.')
     if 'timing_package' not in self.__dict__:
       # A keyword argument of enterprise.pulsar.Pulsar()
       self.__dict__['timing_package'] = 'tempo2'
@@ -287,6 +298,8 @@ class Params(object):
     else:
       self.__dict__['psrlist'] = np.array([])
       print('Using all available pulsars from .par/.tim directory')
+    if 'psrdistfile' not in self.__dict__:
+        self.__dict__['psrdistfile'] = None
     if 'psrcachefile' not in self.__dict__:
       self.psrcachefile = None
     if 'tm' not in self.__dict__:
@@ -437,7 +450,8 @@ class Params(object):
                 else:
                   psr = Pulsar(p, t, ephem=self.ssephem, clk=self.clock, \
                                drop_t2pulsar=False, \
-                               timing_package=self.timing_package)
+                               timing_package=self.timing_package, \
+                               distance_file=self.psrdistfile)
                   if 'load_toa_filenames' in self.__dict__.keys() and \
                       self.load_toa_filenames=='True':
                     psr.__dict__['filenames'] = read_tim(t, column=1)
@@ -499,8 +513,11 @@ class Params(object):
             warnings.warn(warn_message)
             shutil.rmtree(self.output_dir)
             os.makedirs(self.output_dir)
+      if self.__dict__['package'] == 'discovery':
+        ds.Pulsar.save_feather(psr, 'pulsar_object.arrow', self.__dict__['noisefiles'])
+    
 
-def init_pta(params_all):
+def init_pta_enterprise(params_all):
   """
   Initiate enterprise signal models and enterprise.signals.signal_base.PTA.
   """
@@ -562,6 +579,9 @@ def init_pta(params_all):
     if 'noisefiles' in params.__dict__.keys():
       noisedict = get_noise_dict(psrlist=[p.name for p in params_all.psrs],\
                                  noisefiles=params.noisefiles)
+      if not noisedict:
+        raise ValueError("Noise dictionary is empty, check if noisefiles directory exists.")
+      
       print('For constant parameters using noise files in PAL2 format')
       pta.set_default_params(noisedict)
 
