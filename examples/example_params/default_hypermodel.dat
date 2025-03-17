@@ -2,7 +2,7 @@ paramfile_label: v1
 datadir: data/
 out: out/
 overwrite: True
-array_analysis: False
+array_analysis: 0
 sampler: ptmcmcsampler
 SCAMweight: 30
 AMweight: 15

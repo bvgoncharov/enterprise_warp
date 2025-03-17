@@ -439,10 +439,10 @@ class EnterpriseWarpResult(object):
       self.params = enterprise_warp.Params(self.opts.result, \
                       init_pulsars=False, \
                       custom_models_obj=self.custom_models_obj)
-      if self.params.array_analysis=='True':
+      if self.params.array_analysis:
         self.outdir_all = self.params.out + self.params.label_models + '_' + \
                           self.params.paramfile_label + '/0/'
-      elif self.params.array_analysis=='False':
+      else:
         self.outdir_all = self.params.out + self.params.label_models + '_' + \
                         self.params.paramfile_label + '/'
     else:

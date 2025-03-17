@@ -16,7 +16,6 @@ import enterprise.constants as const
 from enterprise_extensions import models
 from .enterprise_models import StandardModels
 import discovery as ds
-from .enterprise_warp import psrs
 
 try:
   from mpi4py import MPI

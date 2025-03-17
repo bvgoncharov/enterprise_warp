@@ -11,9 +11,12 @@ import warnings
 import hashlib
 import pickle
 
-from .enterprise_models import StandardModels
-import discovery as ds
-from .discovery_warp import init_pta_discovery
+try:
+  import discovery as ds
+  from .discovery_warp import init_pta_discovery
+except Exception as ex:
+  print(ex)
+  warnings.warn("discovery is not available")
 
 try:
   import enterprise.signals.parameter as parameter
@@ -22,9 +25,10 @@ try:
   from enterprise.pulsar import Pulsar
   import enterprise.constants as const
   from enterprise_extensions import models
+  from .enterprise_models import StandardModels
 except Exception as ex:
   print(ex)
-  warning.warn("enterprise is not available")
+  warnings.warn("enterprise is not available")
 
 try:
   import pandas as pd
@@ -54,10 +58,6 @@ class EWParser(object):
     self.parser.add_option("-d", "--drop", \
       help="Drop pulsar with index --num in a full-PTA run \
       (0 - No / 1 - Yes)", default=0, type=int)
-    self.parser.add_option("-c", "--clearcache", \
-      help="Clear psrs cache file, associated with the run \
-      (to-do after changes to .par and .tim files)", \
-      default=0, type=int)
     self.parser.add_option("-w", "--wipe_old_output", \
       help="Wipe contents of the output directory. Otherwise, \
       the code will attempt to resume the previous run. \
@@ -134,14 +134,15 @@ class Params(object):
     self.Tspan = None
     self.custom_models_obj = custom_models_obj
     self.sampler_kwargs = {}
+    self.noisedict = {}
     self.label_attr_map = {
-      "paramfile_label:": ["paramfile_label", str],
-      "package": ["package", str],
+      "paramfile_label:": ["paramfile_label", str], 
+      "pta_package": ["pta_package", str], # enterprise / discovery
       "datadir:": ["datadir", str],
       "out:": ["out", str],
       "overwrite:": ["overwrite", str],
-      "array_analysis:": ["array_analysis", str],
-      "timing_package:": ["timing_package", str],
+      "array_analysis:": ["array_analysis", int], # 0 / 1
+      "timing_package:": ["timing_package", str], # tempo2 / pint
       "noisefiles:": ["noisefiles", str],
       "model_file:": ["model_file", str],
       "job_config_xlsx:": ["job_config_xlsx", str],
@@ -156,7 +157,7 @@ class Params(object):
       "AMweight:": ["AMweight", int],
       "DMweight:": ["DMweight", int],
       "SCAMweight:": ["SCAMweight", int],
-      "tm:": ["tm", str],
+      "tm:": ["tm", str], # default / fast / ridge_regression
       "tm_svd:": ["tm_svd", int],
       "fref:": ["fref", str]
     }
@@ -276,13 +277,13 @@ class Params(object):
     """
     print('------------------')
     print('Setting default parameters with file ', self.input_file_name)
-    if 'package' not in self.__dict__:
-      self.__dict__['package'] = 'enterprise'
-      init_pta = init_pta_enterprise
-      print('Package not specified. Using Enterprise as default.')
-    elif self.__dict__['package'] == 'discovery':
-      init_pta = init_pta_discovery
-      print('Using Discovery as the package.')
+    if 'pta_package' not in self.__dict__ or self.__dict__['pta_package'] == 'enterprise':
+      self.__dict__['pta_package'] = 'enterprise'
+      globals()['init_pta'] = init_pta_enterprise
+      print('PTA package: Enterprise (default).')
+    elif self.__dict__['pta_package'] == 'discovery':
+      globals()['init_pta'] = init_pta_discovery
+      print('PTA package: Discovery.')
     if 'timing_package' not in self.__dict__:
       # A keyword argument of enterprise.pulsar.Pulsar()
       self.__dict__['timing_package'] = 'tempo2'
@@ -294,14 +295,12 @@ class Params(object):
       print('Setting a default Enterprise clock convention (check the code)')
     if 'psrlist' in self.__dict__:
       self.psrlist = np.loadtxt(self.psrlist, dtype=np.unicode_)
-      print('Only using pulsars from psrlist')
+      print('Only using pulsars from psrlist:', self.psrlist)
     else:
       self.__dict__['psrlist'] = np.array([])
       print('Using all available pulsars from .par/.tim directory')
     if 'psrdistfile' not in self.__dict__:
         self.__dict__['psrdistfile'] = None
-    if 'psrcachefile' not in self.__dict__:
-      self.psrcachefile = None
     if 'tm' not in self.__dict__:
       self.tm = 'default'
       print('Setting a default linear timing model')
@@ -319,6 +318,7 @@ class Params(object):
       self.__dict__['mcmc_covm'] = pd.read_csv(self.mcmc_covm_csv, index_col=0)
     else:
       self.__dict__['mcmc_covm'] = None
+
     # Copying default priors from StandardModels/CustomModels object
     # Priors are chosen not to be model-specific because HyperModel
     # (which is the only reason to have multiple models) does not support
@@ -375,147 +375,107 @@ class Params(object):
     self.label_models = '_'.join([self.models[mkey].model_name \
                                                     for mkey in self.models])
 
+  def selection_pulsars(self, psr_strings):
+      """
+      psr_strings: list of pulsar names or paths with pulsar names
+      """
+      psr_strings = sorted(psr_strings)
+      if not self.array_analysis and len(psr_strings)>0:
+        psr_strings = [psr_strings[self.opts.num]]
+      else:
+        # Skip pulsars with index self.opts.num (--num)
+        if self.opts.drop:
+          psr_strings = [pstr for ii, pstr in enumerate(psr_strings) if ii!=self.opts.num]
+        # Skip pulsars which are not in the pulsar list
+        if len(self.psrlist) > 0:
+          psr_strings = [pstr for pstr in psr_strings if psrname_from_filename(pstr) in self.psrlist]
+        
+      return sorted(psr_strings)
+
   def init_pulsars(self):
       """
-      Initiate Enterprise pulsar objects.
+      Initiate Enterprise or Discovery pulsar objects.
       """
-
-      cachedir = self.out+'.psrs_cache/'
-      psrs_cache = None
-      # Caching is disabled due to problems: Part 1
-      #if not os.path.exists(cachedir):
-      #  if process_rank == 0:
-      #    os.makedirs(cachedir)
-      #
-      #if not self.psrcachefile==None or (not self.psrlist==[]):
-      #    print('Attempting to load pulsar objects from cache')
-      #    if self.psrcachefile is not None:
-      #        cached_file = self.psrcachefile
-      #    else:
-      #        psr_str = ''.join(sorted(self.psrlist)) + self.ssephem
-      #        psr_hash = hashlib.sha1(psr_str.encode()).hexdigest()
-      #        cached_file = cachedir + psr_hash
-
-      #    if os.path.exists(cached_file):
-      #        if bool(self.opts.clearcache):
-      #            os.remove(cached_file)
-      #            print('Cache file existed, but got removed, following \
-      #                   command line options')
-      #        else:
-      #            with open(cached_file, 'rb') as fin:
-      #                print('Loading pulsars from cache')
-      #                psrs_cache = pickle.load(fin)
-      #    else:
-      #        print('Could not load pulsars from cache: file does not exist')
-      #        psrs_cache = None
-      #else:
-      #    psrs_cache = None
-      #    print('Condition for loading pulsars from cache is not satisfied')
-
+      # Pickled enterprise pulsars, simulation realizations
       if '.pkl' in self.datadir:
+        # determine if datadir points to simulation realizations
         if '{:.0f}' in self.datadir:
-          # In case pickle file name contains a format
           self.datadir = self.datadir.format(self.opts.num)
         with open(self.datadir, 'rb') as pif:
           pkl_data = pickle.load(pif)
-        parfiles = sorted([po.name+'.par' for po in pkl_data])
-        timfiles = sorted([po.name+'.tim' for po in pkl_data])
-        pkl_data = {pp: psrobj for pp, psrobj in zip(parfiles, pkl_data)}
+        sel_p = self.selection_pulsars([psr.name for psr in pkl_data])
+        pkl_data = [psr for psr in pkl_data if psr.name in sel_p]
+        print('Loaded pulsars', [psr.name for psr in pkl_data])
+        print('From', self.datadir)
+        print('------------------')
       else:
-        parfiles = sorted(glob.glob(self.datadir + '/*.par'))
-        timfiles = sorted(glob.glob(self.datadir + '/*.tim'))
-        print('Number of .par files: ',len(parfiles))
-        print('Number of .tim files: ',len(timfiles))
-      if len(parfiles)!=len(timfiles):
-        print('Error: there should be the same number of .par and .tim files.')
-        exit()
+        feathers = self.selection_pulsars(glob.glob(self.datadir + '/*.feather'))
+        parfiles = self.selection_pulsars(glob.glob(self.datadir + '/*.par'))
+        timfiles = self.selection_pulsars(glob.glob(self.datadir + '/*.tim'))
+        if len(feathers)>0 and self.pta_package=='discovery':
+          self.psrs = [ds.Pulsar.read_feather(ff) for ff in feathers]
+        else:
+          self.psrs = []
+          print('Loading .par and .tim files from', self.datadir)
+          for pp, tt in zip(parfiles, timfiles):
+            print(pp.split('/')[-1],tt.split('/')[-1])
+            psr = Pulsar(pp, tt, ephem=self.ssephem, 
+                  clk=self.clock, 
+                  drop_t2pulsar=False, 
+                  timing_package=self.timing_package, 
+                  distance_file=self.psrdistfile)
+            psr.__dict__['parfile_name'] = pp
+            psr.__dict__['timfile_name'] = tt
+            if 'load_toa_filenames' in self.__dict__.keys() and \
+                  self.load_toa_filenames=='True':
+                  psr.__dict__['filenames'] = read_tim(t, column=1)
+            self.psrs.append(psr)
 
-      if self.array_analysis=='True':
-        self.output_dir = self.out + self.label_models + '_' + \
-                          self.paramfile_label + '/' + \
-                          self.extra_term_label + str(self.opts.num) + '/'
-        if psrs_cache == None:
-          print('Loading pulsars')
-          self.psrlist_new = list()
-          for num, (p, t) in enumerate(zip(parfiles, timfiles)):
-            pname = p.split('/')[-1].split('_')[0].split('.')[0]
-            if (pname in self.psrlist) or self.psrlist.size==0:
-                if self.opts is not None:
-                  if self.opts.drop and self.opts.num==num:
-                    print('Dropping pulsar ', pname)
-                    self.output_dir += str(num) + '_' + pname + '/'
-                    continue
-                if '.pkl' in self.datadir:
-                  psr = pkl_data[p]
+            if self.pta_package=='discovery':
+              if process_rank == 0:
+                # Saving feather file for future use
+                feather = pp.replace('par','feather')
+                if 'noisefiles' in self.__dict__.keys():
+                  noise_dict_psr = get_noise_dict_psr(psr.name, \
+                        self.noisefiles)
+                  self.validate_noisedict(noise_dict_psr)
                 else:
-                  psr = Pulsar(p, t, ephem=self.ssephem, clk=self.clock, \
-                               drop_t2pulsar=False, \
-                               timing_package=self.timing_package, \
-                               distance_file=self.psrdistfile)
-                  if 'load_toa_filenames' in self.__dict__.keys() and \
-                      self.load_toa_filenames=='True':
-                    psr.__dict__['filenames'] = read_tim(t, column=1)
-                psr.__dict__['parfile_name'] = p
-                psr.__dict__['timfile_name'] = t
-                self.psrs.append(psr)
-                self.psrlist_new.append(pname)
-          # Caching is disabled due to problems: Part 2
-          #print('Writing pulsars to cache.\n')
-          #psr_str = ''.join(sorted(self.psrlist_new)) + self.ssephem
-          #psr_hash = hashlib.sha1(psr_str.encode()).hexdigest()
-          #cached_file = cachedir + psr_hash
-          #with open(cached_file, 'wb') as fout:
-          #  pickle.dump(self.psrs, fout)
-        else:
-          print('Using pulsars from cache')
-          self.psrs = psrs_cache
-        # find the maximum time span to set GW frequency sampling
-        tmin = [p.toas.min() for p in self.psrs]
-        tmax = [p.toas.max() for p in self.psrs]
-        self.Tspan = np.max(tmax) - np.min(tmin)
-        #psr = []
-        exit_message = "PTA analysis has already been carried out using a given parameter file"
+                  noise_dict_psr = {}
+                psr.to_feather(feather, noisedict=noise_dict_psr)
+              # Convert to PTA Discovery pulsars...
+              # IN PROGRESS
+          print('------------------')
 
-      elif self.array_analysis=='False':
-        if '.pkl' in self.datadir:
-          self.psrs = psr = pkl_data[parfiles[self.opts.num]]
-        else:
-          self.psrs = Pulsar(parfiles[self.opts.num], timfiles[self.opts.num], \
-                             drop_t2pulsar=False, \
-                             timing_package=self.timing_package, \
-                             ephem=self.ssephem) #, clk=self.clock)
-          if 'load_toa_filenames' in self.__dict__.keys() and \
-              self.load_toa_filenames=='True':
-            self.psrs.__dict__['filenames'] = read_tim(timfiles[self.opts.num], column=1)
-        self.psrs.__dict__['parfile_name'] = parfiles[self.opts.num]
-        self.psrs.__dict__['timfile_name'] = timfiles[self.opts.num]
-        self.Tspan = self.psrs.toas.max() - self.psrs.toas.min() # observation time in seconds
-        self.output_dir = self.out + self.label_models + '_' + \
-                          self.paramfile_label + '/' + \
-                          self.extra_term_label + '/' + \
-                          str(self.opts.num) + \
-                          '_' + self.psrs.name + '/'
+      # Determining Tspan
+      tmin = [p.toas.min() for p in self.psrs]
+      tmax = [p.toas.max() for p in self.psrs]
+      self.Tspan = np.max(tmax) - np.min(tmin)
 
-        parfiles = parfiles[self.opts.num]
-        timfiles = timfiles[self.opts.num]
-        print('Current .par file: ',parfiles)
-        print('Current .tim file: ',timfiles)
+      # Loading noisefiles (if set)
+      if 'noisefiles' in self.__dict__.keys():
+        self.noisedict = get_noise_dict(psrlist=[p.name for p in self.psrs], noisefiles=self.noisefiles)
+        self.validate_noisedict(self.noisedict)
+      else:
+        self.noisedict = {}
 
-        exit_message = "This pulsar has already been processed"
-        self.psrs = [self.psrs]
-
+      # Creating an output directory
+      self.output_dir = self.out + self.label_models + '_' + \
+                        self.paramfile_label + '/' + \
+                        self.extra_term_label + '/' + \
+                        str(self.opts.num)
+      if self.array_analysis:
+        self.output_dir += '/'
+      else:
+        self.output_dir += '_' + self.psrs[0].name + '/'
       if self.opts is not None:
         if process_rank == 0:
           if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
-          elif bool(self.opts.wipe_old_output):
-            warn_message = 'Warning: removing everything in ' + self.output_dir
-            warnings.warn(warn_message)
-            shutil.rmtree(self.output_dir)
-            os.makedirs(self.output_dir)
-      if self.__dict__['package'] == 'discovery':
-        ds.Pulsar.save_feather(psr, 'pulsar_object.arrow', self.__dict__['noisefiles'])
-    
+
+  def validate_noisedict(self, noisedict):
+    if 'noisefiles' in self.__dict__.keys():
+      if not noisedict:
+        raise ValueError("Noise dictionary is empty, check if noisefiles directory exists (noisefiles).")
 
 def init_pta_enterprise(params_all):
   """
@@ -577,13 +537,8 @@ def init_pta_enterprise(params_all):
     pta = signal_base.PTA(models)
 
     if 'noisefiles' in params.__dict__.keys():
-      noisedict = get_noise_dict(psrlist=[p.name for p in params_all.psrs],\
-                                 noisefiles=params.noisefiles)
-      if not noisedict:
-        raise ValueError("Noise dictionary is empty, check if noisefiles directory exists.")
-      
-      print('For constant parameters using noise files in PAL2 format')
-      pta.set_default_params(noisedict)
+      print('Setting default PTA parameters based on noisefiles:',self.noisedict)
+      pta.set_default_params(self.noisedict)
 
     print('Model',ii,'params (',len(pta.param_names),') in order: ', \
           pta.param_names)
@@ -595,6 +550,17 @@ def init_pta_enterprise(params_all):
     ptas[ii]=pta
 
   return ptas
+
+def psrname_from_filename(filename):
+    """
+    This function splits a strong based on symbols:
+    ".", "/", "_". Thus, it converts any of the strings below:
+    1. /path/0_J0437-4715.par
+    2. /path/J0437-4715.tim
+    3. J0437-4715
+    Into pulsar name: J0437-4715
+    """
+    return filename.split('/')[-1].split('_')[0].split('.')[0]
 
 def checkifconstpar(params):
     [doconstpar_ef, doconstpar_eq, doconstpar_ec] = [False, False, False]

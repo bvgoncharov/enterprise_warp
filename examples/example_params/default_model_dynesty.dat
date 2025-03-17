@@ -2,7 +2,7 @@ paramfile_label: v1
 datadir: data/
 out: out/
 overwrite: True
-array_analysis: False
+array_analysis: 0
 sampler: dynesty
 {0}
 model_file: example_models/default_noise_example_1.json

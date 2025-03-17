@@ -1,6 +1,7 @@
 paramfile_label: model_sel
 datadir: data/
 out: out/
+pta_package: discovery
 overwrite: True
 array_analysis: 1
 sampler: ptmcmcsampler
@@ -10,5 +11,3 @@ DEweight: 50
 nsamp: 1000000
 {0}
 model_file: example_models/crn_test.json
-{1}
-model_file: example_models/gwb_test.json
