@@ -1,4 +1,4 @@
-paramfile_label: model_sel
+paramfile_label: discovery
 datadir: data/
 out: out/
 pta_package: discovery
@@ -10,4 +10,4 @@ AMweight: 15
 DEweight: 50
 nsamp: 1000000
 {0}
-model_file: example_models/crn_test.json
+model_file: example_models/discovery_test.json

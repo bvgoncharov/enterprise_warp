@@ -1,5 +1,5 @@
 """
-Documentation for enterprise_warp.models. Here, :class:`CustomModels` has a set of methods which return enterprise signal objects. Names of the class methods are keys in .json noise model files, and method kwargs "option" must be a dict with values from .json noise model files. The class is used under the hood, unless the user choses to use their custom models. For custom models, it is recommended to create a child class of :class:`CustomModels`, with additional methods, and then pass it to :class:`Params`:
+Documentation for enterprise_warp.models. Here, :class:`EnterpriseModels` has a set of methods which return enterprise signal objects. Names of the class methods are keys in .json noise model files, and method kwargs "option" must be a dict with values from .json noise model files. The class is used under the hood, unless the user choses to use their custom models. For custom models, it is recommended to create a child class of :class:`CustomModels`, with additional methods, and then pass it to :class:`Params`:
 
 >>> custom = my_models.My_CustomModels
 >>> params = enterprise_warp.Params(opts.prfile,opts=opts,custom_models_obj=custom)
@@ -71,7 +71,7 @@ import inspect
 import types
 import sys
 
-class StandardModels(object):
+class EnterpriseModels(object):
   """
   Standard models for pulsar timing analyses.
 
@@ -388,7 +388,6 @@ class StandardModels(object):
                                             
     return crn
 
-
   def global_gp(self, option={}):
     """
     Gaussian process with inter-pulsar correlations (e.g., Hellings-Downs)
@@ -557,7 +556,7 @@ def get_enterprise_function(option, key, kwargs, module):
     """
     Returns enterprise @signal_base function with set up priors, passing only those priors from kwargs which are relevant for this function.
 
-    option: dict, the standard kwarg of methods of StandardModels.
+    option: dict, the standard kwarg of methods of EnterpriseModels.
     module: enterprise module name (e.g., gp_priors).
     key: str, a key in option (dict), the value of which corresponds a function in module. Example keys: "psd", "orf".
     kwargs: dict, all possible parameters for the function corresponding to option[key].

@@ -1,12 +1,7 @@
 {
     "model_name": "sysn_example",
-    "universal":
-    {
-        "measurement_noise": {"selection": "by_backend"},
-        "spin_noise": {"psd": "powerlaw"},
-        "dm_noise": {"psd": "powerlaw"}
-    },
     "common_signals": {},
+    "to_each_psr": {},
     "J1832-0836":
     {
         "efac": {"selection": "by_backend"},
@@ -15,5 +10,11 @@
         "spin_noise": {"psd": "powerlaw"},
         "dm_noise": {"psd": "powerlaw"},
         "system_noise": {"psd": "powerlaw", "flags_flagvals": {"group": ["PDFB_40CM","CASPSR_40CM"]}}
+    },
+    "to_remaining_psrs":
+    {
+        "measurement_noise": {"selection": "by_backend"},
+        "spin_noise": {"psd": "powerlaw"},
+        "dm_noise": {"psd": "powerlaw"}
     }
 }

@@ -6,9 +6,9 @@ import enterprise.signals.parameter as parameter
 import enterprise.signals.gp_signals as gp_signals
 import enterprise.signals.selections as selections
 
-from enterprise_warp.enterprise_models import StandardModels
+from enterprise_warp.enterprise_models import EnterpriseModels
 
-class CustomModels(StandardModels):
+class CustomModels(EnterpriseModels):
     """
     Please follow this example to add your own models for enterprise_warp.
     """

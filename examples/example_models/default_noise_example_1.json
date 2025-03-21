@@ -1,16 +1,17 @@
 {
     "model_name": "examp_1",
-    "universal":
-    {
-        "measurement_noise": {"selection": "by_backend"},
-        "spin_noise": {"psd": "powerlaw"},
-        "dm_noise": {"psd": "powerlaw"}
-    },
+    "to_each_psr": {},
     "common_signals": {},
     "J1832-0836":
     {
         "efac": {"selection": "by_backend"},
         "equad": {"selection": "by_backend"},
+        "spin_noise": {"psd": "powerlaw"},
+        "dm_noise": {"psd": "powerlaw"}
+    },
+    "to_remaining_psrs":
+    {
+        "measurement_noise": {"selection": "by_backend"},
         "spin_noise": {"psd": "powerlaw"},
         "dm_noise": {"psd": "powerlaw"}
     }

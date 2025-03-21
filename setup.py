@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="enterprise_warp",
-    version="0.0.2",
+    version="0.1",
     author="Boris Goncharov, Andrew Zic",
     author_email="goncharov.boris@physics.msu.ru",
     description="A wrapper for Nanograv's Enterprise",

@@ -1,5 +1,7 @@
 """
-The main module for running enterprise_warp. Reads command line arguments, parameter files (.dat). Based on the input, creates a enterprise.PTA object, with methods to compute likelihoods and priors.
+The main module for running enterprise_warp:
+- Reads command line arguments, parameter files (.dat). 
+- Based on the input, creates a enterprise.PTA object, with methods to compute likelihoods and priors.
 """
 
 import numpy as np
@@ -11,8 +13,11 @@ import warnings
 import hashlib
 import pickle
 
+from .utils import get_noise_dict, get_noise_dict_psr
+
 try:
   import discovery as ds
+  import discovery.const as const
   from .discovery_warp import init_pta_discovery
 except Exception as ex:
   print(ex)
@@ -24,8 +29,8 @@ try:
   import enterprise.signals.gp_signals as gp_signals
   from enterprise.pulsar import Pulsar
   import enterprise.constants as const
-  from enterprise_extensions import models
-  from .enterprise_models import StandardModels
+  from .enterprise_models import EnterpriseModels
+  from .discovery_models import DiscoveryModels
 except Exception as ex:
   print(ex)
   warnings.warn("enterprise is not available")
@@ -121,7 +126,7 @@ class Params(object):
     Path to enterprise_warp parameter file.
   opts: optparse.OptionParser
     The output of enterprise_warp.parse_commandline()
-  custom_models_obj: enterprise_models.StandardModels or a child class
+  custom_models_obj: enterprise_models.EnterpriseModels or a child class
     A class of enterprise_warp models to use later on (not initialized)
   init_pulsars: bool
     Initiate enterprise pulsars (use True by default)
@@ -132,12 +137,11 @@ class Params(object):
     self.opts = opts
     self.psrs = list()
     self.Tspan = None
-    self.custom_models_obj = custom_models_obj
     self.sampler_kwargs = {}
     self.noisedict = {}
     self.label_attr_map = {
       "paramfile_label:": ["paramfile_label", str], 
-      "pta_package": ["pta_package", str], # enterprise / discovery
+      "pta_package:": ["pta_package", str], # enterprise/discovery
       "datadir:": ["datadir", str],
       "out:": ["out", str],
       "overwrite:": ["overwrite", str],
@@ -161,10 +165,19 @@ class Params(object):
       "tm_svd:": ["tm_svd", int],
       "fref:": ["fref", str]
     }
-    if self.custom_models_obj is not None:
-      self.noise_model_obj = self.custom_models_obj
-    else:
-      self.noise_model_obj = StandardModels
+    self.pta_package = get_pta_package(input_file_name)
+    if self.pta_package=="enterprise":
+      self.noise_model_obj = EnterpriseModels
+    elif self.pta_package=="discovery":
+      self.noise_model_obj = DiscoveryModels
+    if custom_models_obj is not None:
+      if self.pta_package=='discovery' and not custom_models_obj.__bases__[0] == DiscoveryModels:
+        warnings.warn('Parameter pta_package is \'discovery\', but the custom model object is not based on discovery_models.DiscoveryModels. Using discovery_models.DiscoveryModels instead.')
+      elif self.pta_package=='enterprise' and not custom_models_obj.__bases__[0] == EnterpriseModels:
+        warnings.warn('Parameter pta_package is \'enterprise\', but the custom model object is not based on enterprise_models.EnterpriseModels. Using enterprise_models.EnterpriseModels instead.')
+      else:
+        self.noise_model_obj = custom_models_obj
+        print('Using a custom noise model object:', custom_models_obj)
     self.label_attr_map.update( self.noise_model_obj().get_label_attr_map() )
     model_id = None
     self.model_ids = list()
@@ -277,11 +290,10 @@ class Params(object):
     """
     print('------------------')
     print('Setting default parameters with file ', self.input_file_name)
-    if 'pta_package' not in self.__dict__ or self.__dict__['pta_package'] == 'enterprise':
-      self.__dict__['pta_package'] = 'enterprise'
+    if self.pta_package == 'enterprise':
       globals()['init_pta'] = init_pta_enterprise
       print('PTA package: Enterprise (default).')
-    elif self.__dict__['pta_package'] == 'discovery':
+    elif self.pta_package == 'discovery':
       globals()['init_pta'] = init_pta_discovery
       print('PTA package: Discovery.')
     if 'timing_package' not in self.__dict__:
@@ -319,7 +331,7 @@ class Params(object):
     else:
       self.__dict__['mcmc_covm'] = None
 
-    # Copying default priors from StandardModels/CustomModels object
+    # Copying default priors from EnterpriseModels/CustomModels object
     # Priors are chosen not to be model-specific because HyperModel
     # (which is the only reason to have multiple models) does not support
     # different priors for different models
@@ -343,13 +355,15 @@ class Params(object):
       self.__dict__['noisemodel'] = read_json_dict(self.model_file)
       self.__dict__['common_signals'] = self.noisemodel['common_signals']
       self.__dict__['model_name'] = self.noisemodel['model_name']
-      self.__dict__['universal'] = self.noisemodel['universal']
+      self.__dict__['to_remaining_psrs'] = self.noisemodel['to_remaining_psrs']
+      self.__dict__['to_each_psr'] = self.noisemodel['to_each_psr']
       if self.opts.extra_model_terms != 'None':
         self.__dict__['noisemodel'] = merge_two_noise_model_dicts(\
                      self.__dict__['noisemodel'],\
                      eval(self.opts.extra_model_terms))
       del self.noisemodel['common_signals']
-      del self.noisemodel['universal']
+      del self.noisemodel['to_remaining_psrs']
+      del self.noisemodel['to_each_psr']
       del self.noisemodel['model_name']
     # Reading model-specific noise model
     for mkey in self.models:
@@ -360,8 +374,10 @@ class Params(object):
                                   self.models[mkey].noisemodel['common_signals']
         self.models[mkey].__dict__['model_name'] = \
                                   self.models[mkey].noisemodel['model_name']
-        self.models[mkey].__dict__['universal'] = \
-                                  self.models[mkey].noisemodel['universal']
+        self.models[mkey].__dict__['to_remaining_psrs'] = \
+                                  self.models[mkey].noisemodel['to_remaining_psrs']
+        self.models[mkey].__dict__['to_each_psr'] = \
+                                  self.models[mkey].noisemodel['to_each_psr']
         # Including an extra term only when there is only one model,
         # or only to the second model if there are two models compared.
         if self.opts is not None and self.opts.extra_model_terms != 'None' and \
@@ -371,7 +387,8 @@ class Params(object):
                                     eval(self.opts.extra_model_terms))
         del self.models[mkey].noisemodel['common_signals']
         del self.models[mkey].noisemodel['model_name']
-        del self.models[mkey].noisemodel['universal']
+        del self.models[mkey].noisemodel['to_remaining_psrs']
+        del self.models[mkey].noisemodel['to_each_psr']
     self.label_models = '_'.join([self.models[mkey].model_name \
                                                     for mkey in self.models])
 
@@ -442,14 +459,18 @@ class Params(object):
                 else:
                   noise_dict_psr = {}
                 psr.to_feather(feather, noisedict=noise_dict_psr)
-              # Convert to PTA Discovery pulsars...
-              # IN PROGRESS
+                print('Saved:',feather)
+          feathers = self.selection_pulsars(glob.glob(self.datadir + '/*.feather'))
+          self.psrs = [ds.Pulsar.read_feather(ff) for ff in feathers]
           print('------------------')
 
       # Determining Tspan
       tmin = [p.toas.min() for p in self.psrs]
       tmax = [p.toas.max() for p in self.psrs]
       self.Tspan = np.max(tmax) - np.min(tmin)
+      print('N_psrs: ', len(self.psrs))
+      print('Tspan [yr]:', self.Tspan/const.yr)
+      print('------------------')
 
       # Loading noisefiles (if set)
       if 'noisefiles' in self.__dict__.keys():
@@ -488,8 +509,7 @@ def init_pta_enterprise(params_all):
     allpsr_model = params_all.noise_model_obj(psr=params_all.psrs,
                                               params=params)
 
-    models = list()
-    from_par_file = list()
+    models = []
 
     # Including parameters common for all pulsars
     if params.tm=='default':
@@ -505,34 +525,33 @@ def init_pta_enterprise(params_all):
     # Adding common signal/noise terms for all pulsars
     # Only those common signals are added that are listed in the noise model
     # file, getting Enterprise models from the noise model object.
-    if 'm_all' in locals():
-      del m_all
+    if 'pta_model' in locals():
+      del pta_model
     for psp, option in params.common_signals.items():
-      if 'm_all' in locals():
-        m_all += getattr(allpsr_model, psp)(option=option)
+      if 'pta_model' in locals():
+        pta_model += getattr(allpsr_model, psp)(option=option)
       else:
-        m_all = tm + getattr(allpsr_model, psp)(option=option)
+        pta_model = tm + getattr(allpsr_model, psp)(option=option)
 
     # Including single pulsar noise models
     for pnum, psr in enumerate(params_all.psrs):
 
       singlepsr_model = params_all.noise_model_obj(psr=psr, params=params)
 
-      # Add noise models
       if psr.name in params.noisemodel.keys():
         noise_model_dict_psr = params.noisemodel[psr.name]
       else:
-        noise_model_dict_psr = params.universal
-      for psp, option in noise_model_dict_psr.items():
-        if 'm_sep' in locals():
-          m_sep += getattr(singlepsr_model, psp)(option=option)
-        elif 'm_all' in locals():
-          m_sep = m_all + getattr(singlepsr_model, psp)(option=option)
+        noise_model_dict_psr = params.to_remaining_psrs
+      for psp, option in {**noise_model_dict_psr, **params.to_each_psr}.items():
+        if 'psr_model' in locals():
+          psr_model += getattr(singlepsr_model, psp)(option=option)
+        elif 'pta_model' in locals():
+          psr_model = pta_model + getattr(singlepsr_model, psp)(option=option)
         else:
-          m_sep = tm + getattr(singlepsr_model, psp)(option=option)
+          psr_model = tm + getattr(singlepsr_model, psp)(option=option)
 
-      models.append(m_sep(psr))
-      del m_sep
+      models.append(psr_model(psr))
+      del psr_model
 
     pta = signal_base.PTA(models)
 
@@ -540,8 +559,7 @@ def init_pta_enterprise(params_all):
       print('Setting default PTA parameters based on noisefiles:',self.noisedict)
       pta.set_default_params(self.noisedict)
 
-    print('Model',ii,'params (',len(pta.param_names),') in order: ', \
-          pta.param_names)
+    print('Model',ii,'params (',len(pta.param_names),') in order: ', pta.param_names)
 
     if params.opts is not None:
       if process_rank == 0:
@@ -583,31 +601,6 @@ def readconstpar(prior,noisemodel,mark,psrname,constpar):
               else: constpar[constpar_dictkey] = np.log(val.val)
               #constpar[constpar_dictkey] = val.val
     return constpar
-
-def get_noise_dict(psrlist,noisefiles):
-    """
-    Reads in list of pulsar names and returns dictionary
-    of {parameter_name: value} for all noise parameters.
-    By default the input list is None and we use the 34 pulsars used in
-    the stochastic background analysis.
-    """
-
-    params = {}
-    json_files = sorted(glob.glob(noisefiles + '*.json'))
-    for ff in json_files:
-        if any([pp in ff for pp in psrlist]):
-            with open(ff, 'r') as fin:
-                params.update(json.load(fin))
-    return params
-
-def get_noise_dict_psr(psrname,noisefiles):
-    """
-    get_noise_dict for only one pulsar
-    """
-    params = dict()
-    with open(noisefiles+psrname+'_noise.json', 'r') as fin:
-        params.update(json.load(fin))
-    return params
 
 def read_json_dict(json_file):
     out_dict = dict()
@@ -662,3 +655,15 @@ def read_tim(tim_file_name, column=1):
       if len(line_elements)>2 and line_elements[0]=='':
         elements.append(line_elements[column])
   return np.array(elements)
+
+def get_pta_package(filename):
+  """
+  Extracting pta_package from parameter name ahead of the rest
+  """
+  with open(filename) as f:
+    return next(
+        (line.split(":", 1)[1].strip() 
+         for line in f 
+         if line.startswith("pta_package:")),
+        'enterprise'  # default, if not found
+    )
