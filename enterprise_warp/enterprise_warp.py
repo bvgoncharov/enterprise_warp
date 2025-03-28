@@ -207,6 +207,14 @@ class Params(object):
         row = line.split()
         label = row[0]
         data = row[1:]  # rest of row is data list
+
+        if not label in self.label_attr_map.keys():
+          if init_pulsars:
+            raise ValueError('Uknown parameter: '+label)
+          else:
+            # For enterprise_warp.results, no pulsar initialization
+            continue
+
         attr = self.label_attr_map[label][0]
         datatypes = self.label_attr_map[label][1:]
         if len(datatypes)==1 and len(data)>1:
