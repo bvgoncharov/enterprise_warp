@@ -169,8 +169,30 @@ def parse_commandline():
 
   return opts
 
-def get_HD_curve(zeta):
+class FakeResultOpts:
+  """
+  Fake output of parse_commandline()
+  """
+  def __init__(self, outdir):
+    self.result = outdir
+    self.info = 1
+    self.name = "all"
+    self.corner = 0
+    self.par = None
+    self.truths = None
+    self.chains = 0
+    self.hists = 0
+    self.logbf = 0
+    self.noisefiles = 0
+    self.credlevels = 0
+    self.covm = 0
+    self.separate_earliest = 0
+    self.load_separated = 0
+    self.optimal_statistic = 0
+    self.bilby = 0
+    self.custom_models_py = None
 
+def get_HD_curve(zeta):
   coszeta = np.cos(zeta)
   xip = (1.-coszeta) / 2.
   HD = 3.*( 1./3. + xip * ( np.log(xip) -1./6.) )
@@ -180,7 +202,6 @@ def get_HD_curve(zeta):
 def get_dipole_curve(zeta):
   coszeta = np.cos(zeta)
   return coszeta
-
 
 def get_monopole_curve(zeta):
   return zeta * 0.0

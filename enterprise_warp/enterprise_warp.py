@@ -136,7 +136,7 @@ class Params(object):
     self.input_file_name = input_file_name
     self.opts = opts
     self.psrs = list()
-    self.Tspan = None
+    self.Tspan = None # over all pulsar ToAs
     self.sampler_kwargs = {}
     self.noisedict = {}
     self.label_attr_map = {
@@ -427,10 +427,10 @@ class Params(object):
         if '{:.0f}' in self.datadir:
           self.datadir = self.datadir.format(self.opts.num)
         with open(self.datadir, 'rb') as pif:
-          pkl_data = pickle.load(pif)
-        sel_p = self.selection_pulsars([psr.name for psr in pkl_data])
-        pkl_data = [psr for psr in pkl_data if psr.name in sel_p]
-        print('Loaded pulsars', [psr.name for psr in pkl_data])
+          self.psrs = pickle.load(pif)
+        sel_p = self.selection_pulsars([psr.name for psr in self.psrs])
+        self.psrs = [psr for psr in self.psrs if psr.name in sel_p]
+        print('Loaded pulsars', [psr.name for psr in self.psrs])
         print('From', self.datadir)
         print('------------------')
       else:
@@ -564,8 +564,8 @@ def init_pta_enterprise(params_all):
     pta = signal_base.PTA(models)
 
     if 'noisefiles' in params.__dict__.keys():
-      print('Setting default PTA parameters based on noisefiles:',self.noisedict)
-      pta.set_default_params(self.noisedict)
+      print('Setting default PTA parameters based on noisefiles:',params_all.noisedict)
+      pta.set_default_params(params_all.noisedict)
 
     print('Model',ii,'params (',len(pta.param_names),') in order: ', pta.param_names)
 

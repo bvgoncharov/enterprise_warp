@@ -2,6 +2,9 @@
 Utility functions for enterprise_warp
 """
 
+import glob
+import json
+
 def get_noise_dict(psrlist,noisefiles):
     """
     Reads in list of pulsar names and returns dictionary

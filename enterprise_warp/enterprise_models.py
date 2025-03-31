@@ -552,27 +552,50 @@ def interpret_white_noise_prior(prior):
   else:
     raise ValueError('Unknown prior ', prior)
 
-def get_enterprise_function(option, key, kwargs, module):
+def get_enterprise_function(option, key, kwargs, module, custom_models={}):
     """
-    Returns enterprise @signal_base function with set up priors, passing only those priors from kwargs which are relevant for this function.
+    Returns enterprise @signal_base function with set up priors, passing only those priors from kwargs which are relevant for this function. The function is collected from:
+    1. This module (enterprise_warp/enteprirse_models.py)
+    2. A relevant imported enterprise module (arg module)
+    3. Custom models globals(), if applicable (kwarg custom_models)
 
+    Arguments:
     option: dict, the standard kwarg of methods of EnterpriseModels.
     module: enterprise module name (e.g., gp_priors).
     key: str, a key in option (dict), the value of which corresponds a function in module. Example keys: "psd", "orf".
     kwargs: dict, all possible parameters for the function corresponding to option[key].
+
+    custom_models: globals() if used in a child class of EnterpriseModels, to pass all local applicable functions. Otherwise, {}.
 
     Equivalent to returning `pl` here: 
     >>> log10_A = parameter.Uniform(self.params.sn_lgA[0],self.params.sn_lgA[1])
     >>> gamma = parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1])
     >>> pl = utils.powerlaw(log10_A=log10_A, gamma=gamma)
     """
-    all_models = {**globals(), **module.__dict__}
+    all_models = {**globals(), **module.__dict__, **custom_models}
     selected_func = all_models[option[key]]
     signature = inspect.signature(selected_func)
     kwargs = {kk: vv for kk, vv in kwargs.items() if kk in signature.parameters}
     return selected_func(**kwargs)
 
 # Signal models
+
+@signal_base.function
+def regularized_powerlaw(f, log10_A=-16, gamma=5, components=2, min_psd_df=-20.):
+    """
+    We avoid numerical issues in the likelihood by introducing a minimum possible PSD value.
+    Note, this value should be much below the minimum measurable value, such that the result
+    obtained with this function is the same as with the standard power law model.
+
+    min_psd_df=1e-20 corresponds to psd=1e-21 times df=1e-9
+    For the reference on PSDs and sensitivity, see Goncharov, Thrane, Shannon (2022).
+    """
+    df = np.diff(np.concatenate((np.array([0]), f[::components])))
+    psd_df =  (
+        (10**log10_A) ** 2 / 12.0 / np.pi**2 * const.fyr ** (gamma - 3) * f ** (-gamma) * np.repeat(df, components)
+    )
+    psd_df[psd_df<=10**(min_psd_df)] = 10**(min_psd_df)
+    return psd_df
 
 @signal_base.function
 def powerlaw_bpl(f, log10_A=-16, gamma=5, fc=-9, components=2):
