@@ -453,9 +453,8 @@ class Params(object):
             psr.__dict__['timfile_name'] = tt
             if 'load_toa_filenames' in self.__dict__.keys() and \
                   self.load_toa_filenames=='True':
-                  psr.__dict__['filenames'] = read_tim(t, column=1)
+                  psr.__dict__['filenames'] = read_tim(tt, column=1)
             self.psrs.append(psr)
-
             if self.pta_package=='discovery':
               if process_rank == 0:
                 # Saving feather file for future use
@@ -468,10 +467,9 @@ class Params(object):
                   noise_dict_psr = {}
                 psr.to_feather(feather, noisedict=noise_dict_psr)
                 print('Saved:',feather)
-          feathers = self.selection_pulsars(glob.glob(self.datadir + '/*.feather'))
-          self.psrs = [ds.Pulsar.read_feather(ff) for ff in feathers]
+              feathers = self.selection_pulsars(glob.glob(self.datadir + '/*.feather'))
+              self.psrs = [ds.Pulsar.read_feather(ff) for ff in feathers]
           print('------------------')
-
       # Determining Tspan
       tmin = [p.toas.min() for p in self.psrs]
       tmax = [p.toas.max() for p in self.psrs]
@@ -557,7 +555,7 @@ def init_pta_enterprise(params_all):
           psr_model = pta_model + getattr(singlepsr_model, psp)(option=option)
         else:
           psr_model = tm + getattr(singlepsr_model, psp)(option=option)
-
+      
       models.append(psr_model(psr))
       del psr_model
 
