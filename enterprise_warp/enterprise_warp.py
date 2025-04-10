@@ -277,7 +277,8 @@ class Params(object):
   def clone_all_params_to_models(self):
     for key, val in self.__dict__.items():
       for mm in self.models:
-        self.models[mm].__dict__[key] = val
+        if key not in self.models[mm].__dict__.keys(): # This activates custom parameters/priors for every model, otherwise they are assumed the same for all models
+          self.models[mm].__dict__[key] = val
 
   def create_model(self, model_id):
     self.model_ids.append(model_id)
@@ -343,6 +344,7 @@ class Params(object):
     # Priors are chosen not to be model-specific because HyperModel
     # (which is the only reason to have multiple models) does not support
     # different priors for different models
+    # (This is actually enabled in clone_all_params_to_models)
     for prior_key, prior_default in self.noise_model_obj().priors.items():
       if prior_key not in self.__dict__.keys():
         self.__dict__[prior_key] = prior_default
