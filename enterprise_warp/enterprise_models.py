@@ -373,12 +373,16 @@ class EnterpriseModels(object):
     nfreqs = self.option_nfreqs(option, sel_func_name=None)
     kwargs = {
         "log10_A": parameter.__dict__[self.params.gwb_lgA_prior]\
-        	(self.params.sn_lgA[0],self.params.sn_lgA[1]),
-        "gamma": parameter.Uniform(self.params.sn_gamma[0],self.params.sn_gamma[1]),
-        "fc": parameter.Uniform(self.params.sn_fc[0],self.params.sn_fc[1]),
+        	(self.params.sn_lgA[0],\
+                self.params.sn_lgA[1])(name+"_log10_A"),
+        "gamma": parameter.Uniform(self.params.sn_gamma[0],\
+                self.params.sn_gamma[1])(name+"_gamma"),
+        "fc": parameter.Uniform(self.params.sn_fc[0],\
+                self.params.sn_fc[1])(name+"_fc"),
         "log10_rho": parameter.Uniform(self.params.gwb_lgrho[0],
                                        self.params.gwb_lgrho[1],
-                                       size=nfreqs)
+                                       size=nfreqs)\
+                                       (name+"_log10_rho")
     }
 
     pl = get_enterprise_function(option, "psd", kwargs, gp_priors)
