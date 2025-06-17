@@ -470,9 +470,9 @@ class Params(object):
                   noise_dict_psr = {}
                 psr.to_feather(feather, noisedict=noise_dict_psr)
                 print('Saved:',feather)
-          feathers = self.selection_pulsars(glob.glob(self.datadir + '/*.feather'))
-          self.psrs = [ds.Pulsar.read_feather(ff) for ff in feathers]
-          print('------------------')
+              feathers = self.selection_pulsars(glob.glob(self.datadir + '/*.feather'))
+              self.psrs = [ds.Pulsar.read_feather(ff) for ff in feathers]
+              print('------------------')
 
       # Determining Tspan
       tmin = [p.toas.min() for p in self.psrs]
