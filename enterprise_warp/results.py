@@ -128,6 +128,10 @@ def parse_commandline():
                     If --par are supplied, load only files with --par \
                     columns.", default=0, type=int)
 
+  parser.add_option("-T", "--thin", help="Save a new chain file with N times \
+                    less samples after 25% burn in, N=thin.", default=None, \
+                    type=int)
+
 
   parser.add_option("-o", "--optimal_statistic", help="Calculate optimal \
                     statistic and make key plots (1/0)", default = 0,
@@ -188,6 +192,7 @@ class FakeResultOpts:
     self.covm = 0
     self.separate_earliest = 0
     self.load_separated = 0
+    self.thin = None
     self.optimal_statistic = 0
     self.bilby = 0
     self.custom_models_py = None
@@ -423,7 +428,7 @@ class EnterpriseWarpResult(object):
       self._get_covm()
 
       if not (self.opts.noisefiles or self.opts.logbf or self.opts.corner or \
-              self.opts.chains or self.opts.hists):
+              self.opts.chains or self.opts.hists or self.opts.thin):
         continue
 
       success = self.load_chains()
@@ -552,6 +557,10 @@ class EnterpriseWarpResult(object):
         print('Empty chain file in ', self.outdir)
         return False
     burn = int(0.25*self.chain.shape[0])
+    if self.opts.thin is not None:
+      new_chain_fname = self.chain_file.replace("chain","thin_chain")
+      np.savetxt(new_chain_fname, self.chain[burn::self.opts.thin,:])
+      print("Saved thinned chain:", new_chain_fname)
     self.chain_burn = self.chain[burn:,:-4]
 
     if 'nmodel' in self.pars:
@@ -566,7 +575,6 @@ class EnterpriseWarpResult(object):
       self.unique, self.counts, self.dict_real_counts = [None], None, None
 
     return True
-
 
   def _get_par_mask(self):
     """ Get an array mask to select only parameters chosen with --par """
