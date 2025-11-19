@@ -41,7 +41,6 @@ class DiscoveryModels(EnterpriseModels):
       raise ValueError('Only selection by_backend is supported for Discovery, for now')
     else:
       se = ds.signals.selection_backend_flags
-
     measurement_noise_values = ds.makenoise_measurement(self.psr, noisedict=self.params.noisedict, selection=se)
     return measurement_noise_values
 

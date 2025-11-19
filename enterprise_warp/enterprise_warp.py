@@ -489,6 +489,12 @@ class Params(object):
       else:
         self.noisedict = {}
 
+      # Setting pulsar noise parameters
+      if self.pta_package=='discovery':
+        for psr in self.psrs:
+            noisedict = {par: val for par, val in self.noisedict.items() if par.startswith(psr.name) and par.endswith(('efac', 'equad', 'ecorr'))}
+            psr.noisedict = noisedict
+
       # Creating an output directory
       self.output_dir = self.out + self.label_models + '_' + \
                         self.paramfile_label + '/' + \

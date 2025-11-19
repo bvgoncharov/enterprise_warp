@@ -667,16 +667,19 @@ class EnterpriseWarpResult(object):
 
   def _print_logbf(self):
     """ Print log Bayes factors (product-space) from PTMCMC on the screen """
+    self.logbf = {}
     if self.opts.logbf:
       print('=====', self.psr_dir, ' model selection results', '=====')
       print('Samples in favor of models: ', self.dict_real_counts)
       if len(self.unique) > 1:
         count_by_pairs = list(itertools.combinations(sorted(self.unique), 2))
+        self.logbf = {}
         for combination in count_by_pairs:
           logbf = np.log(self.dict_real_counts[combination[1]] / \
                          self.dict_real_counts[combination[0]])
           print('logBF for ', int(combination[1]), 'over ', \
                 int(combination[0]),': ', logbf)
+          self.logbf[combination] = logbf
 
 
   def _make_corner_plot(self):
