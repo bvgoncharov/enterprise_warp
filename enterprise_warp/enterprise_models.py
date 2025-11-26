@@ -706,7 +706,7 @@ def toa_mask_from_selection_function(psr,selfunc):
   selfunc: function
     Selection function. Examples are in enterprise.signals.selections
   """
-  args_selfunc = inspect.getargspec(selfunc).args
+  args_selfunc = inspect.getfullargspec(selfunc).args
   argdict = {attr: getattr(psr,attr) for attr in dir(psr) \
                                               if attr in args_selfunc}
   selection_mask_dict = selfunc(**argdict)

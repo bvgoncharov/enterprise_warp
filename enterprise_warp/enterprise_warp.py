@@ -48,6 +48,7 @@ except:
   process_rank = 0
 
 try:
+  import bilby
   from bilby import sampler as bimpler
 except:
   warnings.warn("Warning: failed to import bilby.sampler")
@@ -223,17 +224,19 @@ class Params(object):
         values = [(datatypes[i](data[i])) if not datatypes[i] is type(None) \
                   else int(data[i]) for i in range(len(data))]
 
-        # Adding sampler kwargs to self.label_attr_map
         if attr == 'sampler' and 'bimpler' in globals():
           if data[0] in bimpler.IMPLEMENTED_SAMPLERS.keys():
-            self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].default_kwargs
-            if type(self.sampler_kwargs) is dict:
-              self.label_attr_map.update( dict_to_label_attr_map(\
+              if tuple(map(int, bilby.__version__.split("."))) <= (2, 2, 0):
+                self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].default_kwargs
+              elif tuple(map(int, bilby.__version__.split("."))) > (2, 2, 0):
+                self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].load().default_kwargs
+              if type(self.sampler_kwargs) is dict:
+                self.label_attr_map.update( dict_to_label_attr_map(\
                                           self.sampler_kwargs) )
-            else:
-              warnings.warn('sampler kwargs type:'+str(type(self.sampler_kwargs))+', expected dict')
-              self.sampler_kwargs = {}
-              warnings.warn('Reading sampler kwargs from enterprise_warp parameter files is not supported for the selected sampler.')
+              else:
+                warnings.warn('sampler kwargs type:'+str(type(self.sampler_kwargs))+', expected dict')
+                self.sampler_kwargs = {}
+                warnings.warn('Reading sampler kwargs from enterprise_warp parameter files is not supported for the selected sampler.')
           else:
             error_message = 'Unknown sampler: ' + data[0] + '\n' + \
                             'Known samplers: ' + \
