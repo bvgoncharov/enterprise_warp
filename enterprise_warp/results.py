@@ -169,6 +169,10 @@ def parse_commandline():
                     enterprise_warp model object in --custom_models_py.",
                     default = None, type = str)
 
+  parser.add_option("-R", "--realization", help = "For full-PTA run, \
+                    whether to use 0/ or other folder (--num).",
+                    default = 0, type = int)
+
   opts, args = parser.parse_args()
 
   return opts
@@ -196,6 +200,7 @@ class FakeResultOpts:
     self.optimal_statistic = 0
     self.bilby = 0
     self.custom_models_py = None
+    self.realization = 0
 
 def get_HD_curve(zeta):
   coszeta = np.cos(zeta)
@@ -467,7 +472,7 @@ class EnterpriseWarpResult(object):
                       custom_models_obj=self.custom_models_obj)
       if self.params.array_analysis:
         self.outdir_all = self.params.out + self.params.label_models + '_' + \
-                          self.params.paramfile_label + '/0/'
+                          self.params.paramfile_label + '/' + str(self.opts.realization) + '/'
       else:
         self.outdir_all = self.params.out + self.params.label_models + '_' + \
                         self.params.paramfile_label + '/'
