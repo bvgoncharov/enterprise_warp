@@ -75,7 +75,7 @@ def parse_commandline():
   """
 
   parser = optparse.OptionParser()
-
+  parser.add_option("--num", help="Number of the analysis", default=0, type=int)
   parser.add_option("-r", "--result", help="Output directory or a parameter \
                     file. In case of individual pulsar analysis, specify a \
                     directory that contains subdirectories with individual \
@@ -455,14 +455,42 @@ class EnterpriseWarpResult(object):
   def interpret_opts_result(self):
     """ Determine output directory from the --results argument """
     if os.path.isdir(self.opts.result):
-      self.outdir_all = self.opts.result
+      root = os.path.abspath(self.opts.result.rstrip('/'))
+      entries = os.listdir(root)
+      has_pars_here = (
+          'pars.txt' in entries
+          or any(fn.startswith('pars_') and fn.endswith('.txt')
+                 for fn in entries)
+      )
+      has_psr_dirs = any(check_if_psr_dir(e) for e in entries)
+
+      if has_pars_here or has_psr_dirs:
+        self.outdir_all = root + '/'
+        return
+      sub0 = os.path.join(root, '0')
+      if os.path.isdir(sub0):
+        entries0 = os.listdir(sub0)
+        has_pars_in_0 = (
+            'pars.txt' in entries0
+            or any(fn.startswith('pars_') and fn.endswith('.txt')
+                   for fn in entries0)
+        )
+        if has_pars_in_0:
+          self.outdir_all = sub0 + '/'
+          return
+      self.outdir_all = root + '/'
+    
     elif os.path.isfile(self.opts.result):
       self.params = enterprise_warp.Params(self.opts.result, \
                       init_pulsars=False, \
                       custom_models_obj=self.custom_models_obj)
       if self.params.array_analysis:
-        self.outdir_all = self.params.out + self.params.label_models + '_' + \
-                          self.params.paramfile_label + '/0/'
+        if self.opts.num != 0:
+          self.outdir_all = self.params.out + self.params.label_models + '_' + \
+                            self.params.paramfile_label + "/{}/".format(self.opts.num)
+        else:
+          self.outdir_all = self.params.out + self.params.label_models + '_' + \
+                            self.params.paramfile_label + '/0/'
       else:
         self.outdir_all = self.params.out + self.params.label_models + '_' + \
                         self.params.paramfile_label + '/'
@@ -551,7 +579,7 @@ class EnterpriseWarpResult(object):
       if len(self.chain)==0:
         print('Empty chain file in ', self.outdir)
         return False
-    burn = int(0.25*self.chain.shape[0])
+    burn = int(0.5*self.chain.shape[0])
     self.chain_burn = self.chain[burn:,:-4]
 
     if 'nmodel' in self.pars:
@@ -574,6 +602,8 @@ class EnterpriseWarpResult(object):
       masks = list()
       for pp in self.opts.par:
         masks.append( [True if pp in label else False for label in self.pars] )
+      # for pp in self.opts.par:
+      #   masks.append([label == pp for label in self.pars])
       self.par_mask = np.sum(masks, dtype=bool, axis=0)
     else:
       self.par_mask = np.repeat(True, len(self.pars))

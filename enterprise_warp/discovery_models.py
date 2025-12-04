@@ -50,12 +50,17 @@ class DiscoveryModels(EnterpriseModels):
     EFAC signal:  multiplies ToA variance by EFAC**2, where ToA variance
     are diagonal components of the Likelihood covariance matrix.
     """
-    if option["selection"] != "by_backend": # not in selections.__dict__.keys():
-      raise ValueError('Only selection by_backend is supported for Discovery, for now')
+    # if option["selection"] != "by_backend": # not in selections.__dict__.keys():
+    #   raise ValueError('Only selection by_backend is supported for Discovery, for now')
+    # else:
+    se = ds.signals.selection_backend_flags
+    if option["selection"] == "no_selection":
+      noisedict = {}
+      for flag in se(self.psr).keys():
+          noisedict[f"{self.psr.name}_{flag}_efac"] = 1.0
+      efs = ds.makenoise_measurement(self.psr, noisedict=noisedict, selection=se)
     else:
-      se = ds.signals.selection_backend_flags
-
-    efs = ds.makenoise_measurement(self.psr, noisedict=self.params.noisedict, selection=se)
+      efs = ds.makenoise_measurement(self.psr, noisedict=self.params.noisedict, selection=se)
     return efs
 
 
@@ -84,7 +89,7 @@ class DiscoveryModels(EnterpriseModels):
       raise ValueError('Only selection by_backend is supported for Discovery, for now')
     else:
       se = ds.signals.selection_backend_flags
-
+    import ipdb; ipdb.set_trace()
     ecs = ds.makegp_ecorr(self.psr, noisedict=self.params.noisedict, enterprise=False, scale=1.0, selection=se, name='ecorrGP')
     return ecs
 

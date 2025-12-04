@@ -219,14 +219,16 @@ class Params(object):
         datatypes = self.label_attr_map[label][1:]
         if len(datatypes)==1 and len(data)>1:
           datatypes = [datatypes[0] for dd in data]
-
-        values = [(datatypes[i](data[i])) if not datatypes[i] is type(None) \
-                  else int(data[i]) for i in range(len(data))]
+        try:
+          values = [(datatypes[i](data[i])) if not datatypes[i] is type(None) \
+                    else int(data[i]) for i in range(len(data))]
+        except:
+          import ipdb; ipdb.set_trace()
 
         # Adding sampler kwargs to self.label_attr_map
         if attr == 'sampler' and 'bimpler' in globals():
           if data[0] in bimpler.IMPLEMENTED_SAMPLERS.keys():
-            self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].default_kwargs
+            self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].load().default_kwargs # for python 3.11, [data[0]].load().default_kawrgs
             if type(self.sampler_kwargs) is dict:
               self.label_attr_map.update( dict_to_label_attr_map(\
                                           self.sampler_kwargs) )
@@ -277,7 +279,8 @@ class Params(object):
   def clone_all_params_to_models(self):
     for key, val in self.__dict__.items():
       for mm in self.models:
-        self.models[mm].__dict__[key] = val
+        if key not in self.models[mm].__dict__.keys(): # This activates custom parameters/priors for every model, otherwise they are assumed the same for all models
+          self.models[mm].__dict__[key] = val
 
   def create_model(self, model_id):
     self.model_ids.append(model_id)
@@ -404,16 +407,17 @@ class Params(object):
       """
       psr_strings: list of pulsar names or paths with pulsar names
       """
-      psr_strings = sorted(psr_strings)
-      if not self.array_analysis and len(psr_strings)>0:
-        psr_strings = [psr_strings[self.opts.num]]
-      else:
-        # Skip pulsars with index self.opts.num (--num)
-        if self.opts.drop:
-          psr_strings = [pstr for ii, pstr in enumerate(psr_strings) if ii!=self.opts.num]
-        # Skip pulsars which are not in the pulsar list
-        if len(self.psrlist) > 0:
-          psr_strings = [pstr for pstr in psr_strings if psrname_from_filename(pstr) in self.psrlist]
+      if self.opts is not None:
+        psr_strings = sorted(psr_strings)
+        if not self.array_analysis and len(psr_strings)>0:
+          psr_strings = [psr_strings[self.opts.num]]
+        else:
+          # Skip pulsars with index self.opts.num (--num)
+          if self.opts.drop:
+            psr_strings = [pstr for ii, pstr in enumerate(psr_strings) if ii!=self.opts.num]
+          # Skip pulsars which are not in the pulsar list
+          if len(self.psrlist) > 0:
+            psr_strings = [pstr for pstr in psr_strings if psrname_from_filename(pstr) in self.psrlist]
         
       return sorted(psr_strings)
 
@@ -421,17 +425,29 @@ class Params(object):
       """
       Initiate Enterprise or Discovery pulsar objects.
       """
-      # Pickled enterprise pulsars, simulation realizations
-      if '.pkl' in self.datadir:
-        # determine if datadir points to simulation realizations
-        if '{:.0f}' in self.datadir:
-          self.datadir = self.datadir.format(self.opts.num)
-        with open(self.datadir, 'rb') as pif:
+      load_path = self.datadir
+      if os.path.isdir(self.datadir):
+        pkl_files = glob.glob(os.path.join(self.datadir, '*.pkl'))
+        if pkl_files:
+          load_path = pkl_files[0]
+        with open(load_path, 'rb') as pif:
           self.psrs = pickle.load(pif)
         sel_p = self.selection_pulsars([psr.name for psr in self.psrs])
         self.psrs = [psr for psr in self.psrs if psr.name in sel_p]
         print('Loaded pulsars', [psr.name for psr in self.psrs])
-        print('From', self.datadir)
+        print('From', load_path)
+        print('------------------')
+      # Pickled enterprise pulsars, simulation realizations
+      elif '.pkl' in self.datadir:
+        # determine if datadir points to simulation realizations
+        if '{:.0f}' in self.datadir:
+          load_path = self.datadir.format(self.opts.num)
+        with open(load_path, 'rb') as pif:
+          self.psrs = pickle.load(pif)
+        sel_p = self.selection_pulsars([psr.name for psr in self.psrs])
+        self.psrs = [psr for psr in self.psrs if psr.name in sel_p]
+        print('Loaded pulsars', [psr.name for psr in self.psrs])
+        print('From', load_path)
         print('------------------')
       else:
         feathers = self.selection_pulsars(glob.glob(self.datadir + '/*.feather'))
@@ -458,7 +474,13 @@ class Params(object):
             if self.pta_package=='discovery':
               if process_rank == 0:
                 # Saving feather file for future use
-                feather = pp.replace('par','feather')
+                parent_dir = os.path.dirname(pp)  
+                feather_dir = os.path.join(parent_dir, "feather")
+                os.makedirs(feather_dir, exist_ok=True)
+                base = os.path.basename(pp)
+                feather_file = os.path.splitext(base)[0] + ".feather"
+                feather = os.path.join(feather_dir, feather_file)                  
+                #feather = pp.replace('par','feather')
                 if 'noisefiles' in self.__dict__.keys():
                   noise_dict_psr = get_noise_dict_psr(psr.name, \
                         self.noisefiles)
@@ -467,7 +489,7 @@ class Params(object):
                   noise_dict_psr = {}
                 psr.to_feather(feather, noisedict=noise_dict_psr)
                 print('Saved:',feather)
-              feathers = self.selection_pulsars(glob.glob(self.datadir + '/*.feather'))
+              feathers = self.selection_pulsars(glob.glob(self.datadir + '/feather/*.feather'))
               self.psrs = [ds.Pulsar.read_feather(ff) for ff in feathers]
           print('------------------')
       # Determining Tspan
@@ -486,18 +508,19 @@ class Params(object):
         self.noisedict = {}
 
       # Creating an output directory
-      self.output_dir = self.out + self.label_models + '_' + \
-                        self.paramfile_label + '/' + \
-                        self.extra_term_label + '/' + \
-                        str(self.opts.num)
-      if self.array_analysis:
-        self.output_dir += '/'
-      else:
-        self.output_dir += '_' + self.psrs[0].name + '/'
       if self.opts is not None:
-        if process_rank == 0:
-          if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
+        self.output_dir = self.out + self.label_models + '_' + \
+                          self.paramfile_label + '/' + \
+                          self.extra_term_label + '/' + \
+                          str(self.opts.num)
+        if self.array_analysis:
+          self.output_dir += '/'
+        else:
+          self.output_dir += '_' + self.psrs[0].name + '/'
+        if self.opts is not None:
+          if process_rank == 0:
+            if not os.path.exists(self.output_dir):
+              os.makedirs(self.output_dir)
 
   def validate_noisedict(self, noisedict):
     if 'noisefiles' in self.__dict__.keys():
@@ -570,7 +593,7 @@ def init_pta_enterprise(params_all):
     if params.opts is not None:
       if process_rank == 0:
         np.savetxt(params.output_dir + '/pars.txt', pta.param_names, fmt='%s')
-        
+        print("Saving pars.txt file at:", params.output_dir)
     ptas[ii]=pta
 
   return ptas
