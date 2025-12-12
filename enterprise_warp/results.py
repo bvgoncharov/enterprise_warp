@@ -156,6 +156,8 @@ def parse_commandline():
 
   parser.add_option("-y", "--bilby", help="Load bilby result", \
                     default=0, type=int)
+  parser.add_option("-d", "--discovery", help="Load Discovery result", \
+                    default=0, type=int)
 
   parser.add_option("-P", "--custom_models_py", help = "Full path to a .py \
                     file with custom enterprise_warp model object, derived \
@@ -417,6 +419,10 @@ class EnterpriseWarpResult(object):
   def __init__(self, opts, custom_models_obj=None):
     self.opts = opts
     self.custom_models_obj = custom_models_obj
+    self.truth_path = None
+    self.truth_values = None
+    self._truth_cache = {}
+    self._auto_truth_paths_seen = set()
     self.interpret_opts_result()
     self.get_psr_dirs()
 
@@ -459,8 +465,64 @@ class EnterpriseWarpResult(object):
 
     self.get_pars()
     self.get_chain_file_name()
+    self._detect_truth_file()
+    self._load_truth_values()
 
     return True
+
+  def _detect_truth_file(self):
+    if self.opts.truths is not None:
+      self.truth_path = self.opts.truths
+      return
+    candidates = []
+    if self.outdir:
+      candidates.append(os.path.join(self.outdir, 'truth.json'))
+    if self.outdir_all:
+      candidates.append(os.path.join(self.outdir_all, 'truth.json'))
+    self.truth_path = None
+    for candidate in candidates:
+      if os.path.isfile(candidate):
+        self.truth_path = candidate
+        if candidate not in self._auto_truth_paths_seen:
+          print('Using truth file ', candidate)
+          self._auto_truth_paths_seen.add(candidate)
+        break
+
+  def _load_truth_values(self):
+    self.truth_values = None
+    if self.truth_path is None:
+      return
+    if self.truth_path in self._truth_cache:
+      self.truth_values = self._truth_cache[self.truth_path]
+      return
+    try:
+      with open(self.truth_path, 'r') as truth_file:
+        truths = json.load(truth_file)
+    except Exception as exc:
+      warnings.warn('Could not load truths from {}: {}'.format(
+                    self.truth_path, exc))
+      return
+    if not isinstance(truths, dict):
+      warnings.warn('Truth file {} does not contain a JSON object, ignoring.'
+                    .format(self.truth_path))
+      return
+    self.truth_values = truths
+    self._truth_cache[self.truth_path] = truths
+
+  def _get_truths_for_pars(self, par_subset):
+    if self.truth_values is None:
+      return None
+    try:
+      return [self.truth_values[str(par)] for par in par_subset]
+    except KeyError as exc:
+      warnings.warn('Truth value for {} not found in {}'.format(
+                    exc, self.truth_path))
+      return None
+
+  def _get_truth_value(self, par_name):
+    if self.truth_values is None:
+      return None
+    return self.truth_values.get(str(par_name))
 
   def interpret_opts_result(self):
     """ Determine output directory from the --results argument """
@@ -690,6 +752,7 @@ class EnterpriseWarpResult(object):
   def _make_corner_plot(self):
     """ Corner plot for a posterior distribution from the result """
     if self.opts.corner == 1:
+      truths = self._get_truths_for_pars(self.pars[self.par_mask])
       for jj in self.unique:
         if jj is not None:
           model_mask = np.round(self.chain_burn[:,self.ind_model]) == jj
@@ -697,11 +760,6 @@ class EnterpriseWarpResult(object):
           model_mask = np.repeat(True, self.chain_burn.shape[0])
         chain_plot = self.chain_burn[model_mask,:]
         chain_plot = chain_plot[:,self.par_mask]
-        if self.opts.truths is not None:
-          truths = json.load(open(self.opts.truths, 'r'))
-          truths = [truths[pp] for pp in self.pars[self.par_mask]]
-        else:
-          truths = None
         figure = corner(chain_plot, 30, labels=self.pars[self.par_mask], \
                         truths=truths)
         plt.savefig(self.outdir_all + '/' + self.psr_dir + '_corner_' + \
@@ -740,6 +798,9 @@ class EnterpriseWarpResult(object):
           plt.subplot(x_tiles, y_tiles, pp + 1)
           cut_chain = self.chain[::int(self.chain[:,pp].size/thin_factor),pp]
           plt.hist(cut_chain,label=par.replace('_','\n'),bins=50)
+          truth_val = self._get_truth_value(par)
+          if truth_val is not None:
+            plt.axvline(truth_val, color='r', linestyle='--', linewidth=1.5)
           plt.legend()
           plt.xlabel('Parameter')
           plt.ylabel('Density')
@@ -1117,6 +1178,50 @@ class OptimalStatisticWarp(EnterpriseWarpResult):
     #need to add functionalitu
     return True
 
+
+class DiscoveryWarpResult(EnterpriseWarpResult):
+  """
+  Result handler for Discovery/NumPyro runs that save CSV chains.
+  """
+
+  def get_chain_file_name(self):
+    csv_candidates = sorted(glob.glob(os.path.join(self.outdir, "*_chain.csv")))
+    if not csv_candidates:
+      csv_candidates = sorted(glob.glob(os.path.join(self.outdir, "*.csv")))
+    self.chain_file = csv_candidates[0] if csv_candidates else None
+    if self.chain_file is None:
+      print('Could not find CSV chain file in ', self.outdir)
+    elif self.opts.info:
+      size_mb = int(np.round(os.path.getsize(self.chain_file) / 1e6))
+      print('Available CSV chain file ', self.chain_file, '(', size_mb, ' Mb)')
+
+  def load_chains(self):
+    """Load NumPyro CSV chains."""
+    if self.chain_file is None:
+      print('No chain file selected for ', self.outdir)
+      return False
+    try:
+      df = pd.read_csv(self.chain_file)
+    except Exception as exc:
+      print('Could not load CSV ', self.chain_file, ':', exc)
+      return False
+    if df.empty:
+      print('Empty CSV chain file in ', self.outdir)
+      return False
+
+    # Discovery CSV headers contain the true parameter ordering (including vector entries),
+    # so replace the pars/mask derived from pars.txt to keep shapes consistent.
+    self.pars = np.asarray(df.columns, dtype=str)
+    self._get_par_mask()
+
+    self.chain = df.to_numpy()
+    burn = int(0.1 * self.chain.shape[0])
+    burn = min(self.chain.shape[0], max(burn, 0))
+    self.chain_burn = self.chain[burn:, :]
+
+    self.ind_model = 0
+    self.unique, self.counts, self.dict_real_counts = [None], None, None
+    return True
 
 
 class BilbyWarpResult(EnterpriseWarpResult):

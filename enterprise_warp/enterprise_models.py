@@ -136,7 +136,8 @@ class EnterpriseModels(object):
       "gwb_gamma": [0., 10.],
       "gwb_fc": [-10., -6.],
       "red_general_freqs": "tobs_60days",
-      "red_general_nfouriercomp": 2
+      "red_general_nfouriercomp": 2,
+      "discovery_array_mode": False,
     }
     # For system_noise
     if self.psr is not None and type(self.psr) is not list:
