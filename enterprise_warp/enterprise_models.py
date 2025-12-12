@@ -709,7 +709,9 @@ def toa_mask_from_selection_function(psr,selfunc):
   args_selfunc = inspect.getfullargspec(selfunc).args
   argdict = {attr: getattr(psr,attr) for attr in dir(psr) \
                                               if attr in args_selfunc}
+  
   selection_mask_dict = selfunc(**argdict)
+  
   if len(selection_mask_dict.keys())==1:
     return [val for val in selection_mask_dict.values()][0]
   else:

@@ -95,7 +95,7 @@ class DiscoveryModels(EnterpriseModels):
     noise, associated with pulsar rotational irregularities.
     """
     nfreqs = self.option_nfreqs(option, sel_func_name=None)
-    pl = ds.__dict__[option["psd"]]
+    pl = ds.powerlaw
 
     sn = ds.makegp_fourier(self.psr, pl, components=nfreqs, name='red_noise')
     return sn
@@ -107,7 +107,7 @@ class DiscoveryModels(EnterpriseModels):
     as ~ 1/nu^2.
     """
     nfreqs = self.option_nfreqs(option, sel_func_name=None)
-    pl = ds.__dict__[option["psd"]]
+    pl = ds.powerlaw
 
     dmn = ds.makegp_fourier(self.psr, pl, components=nfreqs, fourierbasis=ds.dmfourierbasis, name='dm_gp')
     return dmn
@@ -117,17 +117,36 @@ class DiscoveryModels(EnterpriseModels):
     Common-spectrum red process (common red noise)
     More information: https://doi.org/10.3847/2041-8213/ac17f4
     """
-    nfreqs = self.option_nfreqs(option, sel_func_name=None)
+    nfreqs = self.option_nfreqs(option, sel_func_name=None, common_signal=True)
     pl = ds.__dict__[option["psd"]]
-    return ds.makecommongp_fourier(self.params.psrs, pl, nfreqs, self.params.Tspan, name='crn', common=['crn_log10_A', 'crn_gamma'])
+    return ds.makecommongp_fourier(self.params.psrs, pl, nfreqs, self.params.Tspan, name='gw', common=['crn_log10_A', 'crn_gamma'])
 
   def global_gp(self, option={}):
     """
     Gaussian process with inter-pulsar correlations (e.g., Hellings-Downs)
     """
     name = option["orf"]
-    nfreqs = self.option_nfreqs(option, sel_func_name=None)
+    nfreqs = self.option_nfreqs(option, sel_func_name=None, common_signal=True)
     pl = ds.__dict__[option["psd"]]
     orf = ds.__dict__[option["orf"]]
     return ds.makeglobalgp_fourier(self.params.psrs, pl, orf, nfreqs, self.params.Tspan, name='gw')
+  
+  def option_nfreqs(self, option, sel_func_name=None, selection_flag=None, selection_flagval=None, common_signal=False):
+    """
+    Selecting and removing nfreqs from option, otherwise from 1/Tobs to 1/60days
+    """
 
+    # For determining T_span
+    if selection_flag is not None:
+        self.psr.sys_flags.append(selection_flag)
+        self.psr.sys_flagvals.append(selection_flagval)
+    
+    if "n_freqs" in option.keys():
+        nfreqs = option["n_freqs"]
+    elif "n_days" in option.keys():
+        nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name, cadence=option["ndays"], common_signal=common_signal)
+    else:
+        nfreqs = self.determine_nfreqs(sel_func_name=sel_func_name, common_signal=common_signal)
+      
+    return nfreqs
+  

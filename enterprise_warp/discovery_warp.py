@@ -32,6 +32,7 @@ def init_pta_discovery(params_all):
     pta_model = []
     common_gp_list = []
     global_gp_list = []
+    cw_list = []
 
     # Loop over pulsars
     for pnum, psr in enumerate(params_all.psrs):
@@ -50,14 +51,14 @@ def init_pta_discovery(params_all):
 
       psr_model_list += [ds.PulsarLikelihood(psr_model)]
 
-      # Common signals in all pulsars
-      for psp, option in params.common_signals.items():
-        if "common_gp" in psp:
-          common_gp_list += [getattr(allpsr_model, psp)(option=option)]
-        elif "global_gp" in psp:
-          global_gp_list += [getattr(allpsr_model, psp)(option=option)]
-        else:
-          raise ValueError('Only common_gp and global_gp are supported as common signal when using Discovery as your package.')
+    # Common signals in all pulsars
+    for psp, option in params.common_signals.items():
+      if "common_gp" in psp:
+        common_gp_list += [getattr(allpsr_model, psp)(option=option)]
+      elif "global_gp" in psp:
+        global_gp_list += [getattr(allpsr_model, psp)(option=option)]
+      else:
+        raise ValueError('Only common_gp, global_gp are supported as common signal when using Discovery as your package.')
 
   if not global_gp_list: global_gp_list = None
   if not common_gp_list: common_gp_list = None
