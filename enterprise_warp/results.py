@@ -71,12 +71,13 @@ except Exception as ex:
     print(ex)
     warnings.warn('enterprise_extensions is not available, required for Optimal Statistic')
 
-def parse_commandline():
+def add_result_commandline_options(parser=None):
   """
-  Parsing command line arguments for action on results
+  Add command line arguments for action on results.
   """
 
-  parser = optparse.OptionParser()
+  if parser is None:
+    parser = optparse.OptionParser()
 
   parser.add_option("-r", "--result", help="Output directory or a parameter \
                     file. In case of individual pulsar analysis, specify a \
@@ -182,9 +183,26 @@ def parse_commandline():
                     whether to use 0/ or other folder (--num).",
                     default = 0, type = int)
 
-  opts, args = parser.parse_args()
+  return parser
 
-  return opts
+
+class ResultsParser(object):
+  """
+  Parser class for enterprise_warp result actions.
+  """
+  def __init__(self):
+    self.parser = add_result_commandline_options()
+
+  def parse_args(self):
+    opts, args = self.parser.parse_args()
+    return opts
+
+
+def parse_commandline():
+  """
+  Parsing command line arguments for action on results.
+  """
+  return ResultsParser().parse_args()
 
 class FakeResultOpts:
   """
