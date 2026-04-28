@@ -1,7 +1,8 @@
 """
 Result view and plotting for enterprise warp. Example:
 
->>> python -m enterprise_warp.results --result parameter_file_dat_or_directory --info 1 
+>>> python -m enterprise_warp.results --result parameter_file_dat_or_directory --info 1
+>>> python -m enterprise_warp.results --result enterprise_dir --result discovery_dir --corner 2 --hists 1 --chains 1
 
 See `python -m enterprise_warp.results -h` for a list of available options:
     --corner 1: for corner plot (--corner 2 for ChainConsumer);
@@ -14,6 +15,7 @@ import os
 import re
 import json
 import glob
+import copy
 import shutil
 import pickle
 import optparse
@@ -80,8 +82,8 @@ def parse_commandline():
                     file. In case of individual pulsar analysis, specify a \
                     directory that contains subdirectories with individual \
                     pulsar results. In case of an array analysis, specify a \
-                    directory with result files.", \
-                    default=None, type=str)
+                    directory with result files. Repeat --result to compare \
+                    multiple runs.", action="append", default=None, type=str)
 
   parser.add_option("-i", "--info", help="Print information about all results. \
                     In case \"-n\" is specified, print an information about \
@@ -96,6 +98,11 @@ def parse_commandline():
 
   parser.add_option("-p", "--par", help="Include only model parameters that \
                     contain \"par\" (more than one could be added)",
+                    action="append", default=None, type=str)
+  parser.add_option("-A", "--par_equal", help="Treat parameters as equivalent \
+                    across compared results, e.g. cw_log10_h0=crn_log10_hcw. \
+                    The left-hand side is used as the plotted parameter name. \
+                    Repeat to add more equivalences.",
                     action="append", default=None, type=str)
 
   parser.add_option("-t", "--truths", help="Truths for corner plots",
@@ -189,6 +196,7 @@ class FakeResultOpts:
     self.name = "all"
     self.corner = 0
     self.par = None
+    self.par_equal = None
     self.truths = None
     self.chains = 0
     self.hists = 0
@@ -203,6 +211,120 @@ class FakeResultOpts:
     self.bilby = 0
     self.custom_models_py = None
     self.realization = 0
+
+def normalize_result_args(result_arg):
+  if result_arg is None:
+    return []
+  if isinstance(result_arg, (list, tuple, np.ndarray)):
+    return list(result_arg)
+  return [result_arg]
+
+def clone_opts_with_result(opts, result_arg):
+  opts_copy = copy.copy(opts)
+  opts_copy.result = result_arg
+  return opts_copy
+
+def get_result_label(result_arg):
+  norm_path = os.path.normpath(result_arg)
+  label = os.path.basename(norm_path)
+  return label if label else norm_path
+
+def get_unique_result_labels(result_args):
+  norm_paths = [os.path.normpath(result_arg) for result_arg in result_args]
+  split_paths = [path.split(os.sep) for path in norm_paths]
+  labels = [parts[-1] if parts[-1] else path
+            for parts, path in zip(split_paths, norm_paths)]
+
+  while len(labels) != len(set(labels)):
+    duplicates = {label for label in labels if labels.count(label) > 1}
+    for ii, label in enumerate(labels):
+      if label not in duplicates:
+        continue
+      parts = split_paths[ii]
+      if len(parts) > 1:
+        split_paths[ii] = parts[:-1]
+        parent = parts[-2]
+        labels[ii] = os.path.join(parent, label)
+      else:
+        labels[ii] = '{}__{}'.format(label, ii + 1)
+
+  return labels
+
+def sanitize_filename_component(label):
+  safe_label = str(label)
+  if os.sep:
+    safe_label = safe_label.replace(os.sep, '__')
+  if os.altsep:
+    safe_label = safe_label.replace(os.altsep, '__')
+  safe_label = re.sub(r'[^A-Za-z0-9._+-]+', '_', safe_label)
+  safe_label = safe_label.strip('._')
+  return safe_label if safe_label else 'result'
+
+def get_par_out_label(par_filters):
+  return '' if par_filters is None else '_'.join(par_filters)
+
+def get_plot_stride(size, target_samples):
+  if size <= 0:
+    return 1
+  return max(1, int(size/target_samples))
+
+def filter_parameter_names(par_names, par_filters=None):
+  filtered_names = list()
+  for par in par_names:
+    par_name = str(par)
+    if par_filters is None or any(flt in par_name for flt in par_filters):
+      filtered_names.append(par_name)
+  return filtered_names
+
+def parse_equal_par_specs(par_equal_specs):
+  if par_equal_specs is None:
+    return {}
+
+  canonical_map = {}
+  for spec in par_equal_specs:
+    if '=' not in spec:
+      raise ValueError('Invalid --par_equal specification: {}'.format(spec))
+    lhs, rhs = spec.split('=', 1)
+    lhs = lhs.strip()
+    rhs = rhs.strip()
+    if not lhs or not rhs:
+      raise ValueError('Invalid --par_equal specification: {}'.format(spec))
+    canonical_map.setdefault(lhs, [])
+    for par_name in [lhs, rhs]:
+      if par_name not in canonical_map[lhs]:
+        canonical_map[lhs].append(par_name)
+  return canonical_map
+
+def get_canonical_par_name(par_name, equal_par_map=None):
+  if equal_par_map is None:
+    return str(par_name)
+  par_name = str(par_name)
+  for canonical_name, aliases in equal_par_map.items():
+    if par_name in aliases:
+      return canonical_name
+  return par_name
+
+def get_union_parameter_names(results, par_filters=None, equal_par_map=None):
+  par_union = list()
+  seen = set()
+  for result_obj in results:
+    for par in np.asarray(result_obj.pars, dtype=str):
+      canonical_par = get_canonical_par_name(par, equal_par_map=equal_par_map)
+      if canonical_par not in seen:
+        par_union.append(canonical_par)
+        seen.add(canonical_par)
+  return filter_parameter_names(par_union, par_filters=par_filters)
+
+def get_common_psr_dirs(results, name_filter='all'):
+  if not results:
+    return []
+  common_dirs = set(np.asarray(results[0].psr_dirs, dtype=str).tolist())
+  for result_obj in results[1:]:
+    common_dirs &= set(np.asarray(result_obj.psr_dirs, dtype=str).tolist())
+  common_dirs = sorted(common_dirs)
+  if name_filter != 'all':
+    common_dirs = [psr_dir for psr_dir in common_dirs if name_filter in psr_dir]
+  return common_dirs
 
 def get_HD_curve(zeta):
   coszeta = np.cos(zeta)
@@ -524,6 +646,58 @@ class EnterpriseWarpResult(object):
       return None
     return self.truth_values.get(str(par_name))
 
+  def get_display_label(self):
+    return get_result_label(self.opts.result)
+
+  def get_filtered_par_names(self):
+    pars = np.asarray(self.pars, dtype=str)
+    if 'par_mask' in self.__dict__:
+      return pars[self.par_mask]
+    return pars
+
+  def get_samples_for_par(self, par_name, burned=True):
+    pars = np.asarray(self.pars, dtype=str)
+    matches = np.where(pars == str(par_name))[0]
+    if matches.size == 0:
+      return None
+    chain_source = self.chain_burn if burned else self.chain
+    return chain_source[:, matches[0]]
+
+  def get_samples_for_equal_par(self, par_name, equal_par_map=None, burned=True):
+    alias_names = [str(par_name)]
+    if equal_par_map is not None and str(par_name) in equal_par_map:
+      alias_names = [str(alias) for alias in equal_par_map[str(par_name)]]
+
+    matched_indices = list()
+    pars = np.asarray(self.pars, dtype=str)
+    for alias_name in alias_names:
+      matches = np.where(pars == alias_name)[0]
+      if matches.size > 0:
+        matched_indices.extend(matches.tolist())
+
+    if len(matched_indices) == 0:
+      return None
+    if len(matched_indices) > 1:
+      warnings.warn('More than one equivalent parameter found for {} in {}. '
+                    'Ignoring this result for that plotted parameter.'.format(
+                    par_name, self.get_display_label()))
+      return None
+
+    chain_source = self.chain_burn if burned else self.chain
+    return chain_source[:, matched_indices[0]]
+
+  def get_truth_value_for_equal_par(self, par_name, equal_par_map=None):
+    truth_val = self._get_truth_value(par_name)
+    if truth_val is not None:
+      return truth_val
+    if equal_par_map is None or str(par_name) not in equal_par_map:
+      return None
+    for alias_name in equal_par_map[str(par_name)]:
+      truth_val = self._get_truth_value(alias_name)
+      if truth_val is not None:
+        return truth_val
+    return None
+
   def interpret_opts_result(self):
     """ Determine output directory from the --results argument """
     if os.path.isdir(self.opts.result):
@@ -796,7 +970,8 @@ class EnterpriseWarpResult(object):
        plt.figure(figsize=[6.4*x_tiles,4.8*y_tiles])
        for pp, par in enumerate(self.pars):
           plt.subplot(x_tiles, y_tiles, pp + 1)
-          cut_chain = self.chain[::int(self.chain[:,pp].size/thin_factor),pp]
+          stride = get_plot_stride(self.chain[:,pp].size, thin_factor)
+          cut_chain = self.chain[::stride,pp]
           plt.hist(cut_chain,label=par.replace('_','\n'),bins=50)
           truth_val = self._get_truth_value(par)
           if truth_val is not None:
@@ -820,7 +995,8 @@ class EnterpriseWarpResult(object):
        plt.figure(figsize=[6.4*x_tiles,4.8*y_tiles])
        for pp, par in enumerate(self.pars):
           plt.subplot(x_tiles, y_tiles, pp + 1)
-          cut_chain = self.chain[::int(self.chain[:,pp].size/thin_factor),pp]
+          stride = get_plot_stride(self.chain[:,pp].size, thin_factor)
+          cut_chain = self.chain[::stride,pp]
           plt.plot(cut_chain,label=par.replace('_','\n'))
           plt.legend()
           plt.xlabel('Thinned MCMC iterations')
@@ -1224,6 +1400,189 @@ class DiscoveryWarpResult(EnterpriseWarpResult):
     return True
 
 
+class ResultCollection(object):
+  """
+  Compare multiple result directories using their loaded sample arrays.
+  """
+
+  def __init__(self, opts, result_cls, custom_models_obj=None):
+    self.opts = opts
+    self.result_cls = result_cls
+    self.custom_models_obj = custom_models_obj
+    self.result_args = normalize_result_args(self.opts.result)
+    self.result_objs = list()
+    for result_arg in self.result_args:
+      member_opts = clone_opts_with_result(self.opts, result_arg)
+      result_obj = self.result_cls(member_opts,
+                                   custom_models_obj=self.custom_models_obj)
+      self.result_objs.append(result_obj)
+    self.result_labels = get_unique_result_labels(self.result_args)
+    self.filename_labels = [sanitize_filename_component(label)
+                            for label in self.result_labels]
+    self.equal_par_map = parse_equal_par_specs(getattr(self.opts, 'par_equal', None))
+    self.outdir_all = self.result_objs[0].outdir_all
+    self.psr_dirs = get_common_psr_dirs(self.result_objs, self.opts.name)
+    self.par_out_label = get_par_out_label(self.opts.par)
+
+  def _build_output_prefix(self):
+    return '__vs__'.join(self.filename_labels)
+
+  def _get_truth_value(self, par_name):
+    if not self.loaded_results:
+      return None
+    return self.loaded_results[0].get_truth_value_for_equal_par(
+        par_name, equal_par_map=self.equal_par_map)
+
+  def _get_plot_pars(self):
+    return get_union_parameter_names(self.loaded_results,
+                                     par_filters=self.opts.par,
+                                     equal_par_map=self.equal_par_map)
+
+  def _load_results_for_psr_dir(self, psr_dir):
+    loaded_results = list()
+    for result_obj in self.result_objs:
+      result_obj.psr_dir = psr_dir
+      success = result_obj._scan_psr_output()
+      if not success:
+        return None
+      if not (self.opts.corner or self.opts.chains or self.opts.hists):
+        loaded_results.append(result_obj)
+        continue
+      success = result_obj.load_chains()
+      if not success:
+        return None
+      loaded_results.append(result_obj)
+    return loaded_results
+
+  def main_pipeline(self):
+    if not self.psr_dirs:
+      warnings.warn('No common result directories found among the supplied --result inputs.')
+      return
+
+    for psr_dir in self.psr_dirs:
+      self.psr_dir = psr_dir
+      self.loaded_results = self._load_results_for_psr_dir(psr_dir)
+      if self.loaded_results is None:
+        continue
+      self.output_prefix = self._build_output_prefix()
+      self._make_corner_plot()
+      self._make_chain_plot()
+      self._make_histograms()
+
+  def _make_corner_plot(self):
+    if not self.opts.corner:
+      return
+    if self.opts.corner == 1:
+      raise ValueError('ResultCollection only supports --corner 2 for comparison plots.')
+
+    par_names = self._get_plot_pars()
+    if not par_names:
+      warnings.warn('No parameters selected for comparison corner plot.')
+      return
+
+    cobj = ChainConsumer()
+    chain_columns = ['$'+par+'$' for par in par_names]
+    for result_index, result_obj in enumerate(self.loaded_results):
+      result_label = self.result_labels[result_index]
+      available = [par for par in par_names if
+                   result_obj.get_samples_for_equal_par(
+                       par, equal_par_map=self.equal_par_map) is not None]
+      if not available:
+        continue
+      pd_chain = pd.DataFrame({('$'+par+'$'): result_obj.get_samples_for_equal_par(
+                                  par, equal_par_map=self.equal_par_map)
+                               for par in available},
+                              columns=['$'+par+'$' for par in available])
+      cobj.add_chain(Chain(samples=pd_chain, name=result_label))
+
+    cobj.set_plot_config(PlotConfig(serif=True, label_font_size=12,
+                   tick_font_size=12, legend_color_text=False,
+                   legend_artists=True))
+    corner_name = self.outdir_all + '/' + self.psr_dir + '_comparison_corner_' + \
+                  self.output_prefix + '_' + self.par_out_label + '.png'
+    cobj.plotter.plot(columns=chain_columns, filename=corner_name)
+    plt.close()
+
+  def _make_histograms(self):
+    if not self.opts.hists:
+      return
+
+    par_names = self._get_plot_pars()
+    if not par_names:
+      warnings.warn('No parameters selected for comparison histogram plot.')
+      return
+
+    x_tiles = int(np.floor(len(par_names)**0.5))
+    y_tiles = int(np.ceil(len(par_names)/x_tiles))
+    plt.figure(figsize=[6.4*x_tiles,4.8*y_tiles])
+    for pp, par in enumerate(par_names):
+      plt.subplot(x_tiles, y_tiles, pp + 1)
+      available_samples = list()
+      for result_obj in self.loaded_results:
+        par_samples = result_obj.get_samples_for_equal_par(
+            par, equal_par_map=self.equal_par_map, burned=True)
+        if par_samples is not None:
+          available_samples.append(np.asarray(par_samples))
+      if not available_samples:
+        continue
+
+      combined_samples = np.concatenate(available_samples)
+      bins = np.histogram_bin_edges(combined_samples, bins=50)
+      for rr, result_obj in enumerate(self.loaded_results):
+        par_samples = result_obj.get_samples_for_equal_par(
+            par, equal_par_map=self.equal_par_map, burned=True)
+        if par_samples is None:
+          continue
+        plt.hist(par_samples, bins=bins, alpha=0.35, density=True,
+                 label=self.result_labels[rr], color='C{}'.format(rr % 10))
+
+      truth_val = self._get_truth_value(par)
+      if truth_val is not None:
+        plt.axvline(truth_val, color='r', linestyle='--', linewidth=1.5)
+      plt.legend()
+      plt.xlabel('Parameter')
+      plt.ylabel('Density')
+      plt.title(par.replace('_','\n'))
+    plt.subplots_adjust(wspace=0.)
+    plt.tight_layout()
+    plt.savefig(self.outdir_all + '/' + self.psr_dir + '_comparison_hist_pars_' + \
+                self.output_prefix + '_' + self.par_out_label + '.png')
+    plt.close()
+
+  def _make_chain_plot(self):
+    if not self.opts.chains:
+      return
+
+    par_names = self._get_plot_pars()
+    if not par_names:
+      warnings.warn('No parameters selected for comparison chain plot.')
+      return
+
+    thin_factor = 200
+    x_tiles = int(np.floor(len(par_names)**0.5))
+    y_tiles = int(np.ceil(len(par_names)/x_tiles))
+    plt.figure(figsize=[6.4*x_tiles,4.8*y_tiles])
+    for pp, par in enumerate(par_names):
+      plt.subplot(x_tiles, y_tiles, pp + 1)
+      for rr, result_obj in enumerate(self.loaded_results):
+        par_samples = result_obj.get_samples_for_equal_par(
+            par, equal_par_map=self.equal_par_map, burned=False)
+        if par_samples is None:
+          continue
+        stride = get_plot_stride(par_samples.size, thin_factor)
+        plt.plot(par_samples[::stride], label=self.result_labels[rr],
+                 alpha=0.7, color='C{}'.format(rr % 10))
+      plt.legend()
+      plt.xlabel('Thinned MCMC iterations')
+      plt.ylabel('Value')
+      plt.title(par.replace('_','\n'))
+    plt.subplots_adjust(wspace=0.)
+    plt.tight_layout()
+    plt.savefig(self.outdir_all + '/' + self.psr_dir + '_comparison_samples_trace_' + \
+                self.output_prefix + '_' + self.par_out_label + '.png')
+    plt.close()
+
+
 class BilbyWarpResult(EnterpriseWarpResult):
 
   def __init__(self, opts):
@@ -1272,6 +1631,10 @@ def main():
   """
 
   opts = parse_commandline()
+  result_args = normalize_result_args(opts.result)
+  if not result_args:
+    raise ValueError('Please supply at least one --result.')
+  opts.result = result_args if len(result_args) > 1 else result_args[0]
 
   if opts.custom_models is not None and opts.custom_models_py is not None:
     import importlib
@@ -1285,11 +1648,22 @@ def main():
   else:
     raise ValueError('Please set both --custom_models and --custom_models_obj')
 
+  if opts.bilby and len(result_args) > 1:
+    raise ValueError('Multiple --result inputs are not supported with --bilby.')
+  if opts.optimal_statistic and len(result_args) > 1:
+    raise ValueError('Multiple --result inputs are not supported with --optimal_statistic.')
+
   if opts.bilby:
     result_obj = BilbyWarpResult(opts)
   elif opts.optimal_statistic:
     print('running OS analysis')
     result_obj = OptimalStatisticWarp(opts)
+  elif len(result_args) > 1:
+    result_cls = DiscoveryWarpResult if opts.discovery else EnterpriseWarpResult
+    result_obj = ResultCollection(opts, result_cls,
+                                  custom_models_obj=custom_models_obj)
+  elif opts.discovery:
+    result_obj = DiscoveryWarpResult(opts, custom_models_obj=custom_models_obj)
   else:
     result_obj = EnterpriseWarpResult(opts, custom_models_obj=custom_models_obj)
 

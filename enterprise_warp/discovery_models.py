@@ -165,8 +165,6 @@ class DiscoveryModels(EnterpriseModels):
 
     Arzoumanian, Zaven, et al. The Astrophysical Journal 859.1 (2018): 47.
     """
-    if self._use_simple_selection(option):
-      return ds.makegp_ecorr_simple(self.psr, noisedict=self.params.noisedict)
 
     if option.get("selection", "by_backend") != "by_backend": # not in selections.__dict__.keys():
       raise ValueError('Only selection by_backend is supported for Discovery, for now')
@@ -208,7 +206,7 @@ class DiscoveryModels(EnterpriseModels):
     """
     nfreqs = self.option_nfreqs(option, sel_func_name=None)
     pl = ds.__dict__[option["psd"]]
-    return ds.makecommongp_fourier(self.params.psrs, pl, nfreqs, self.params.Tspan, name='crn', common=['crn_log10_A', 'crn_gamma'])
+    return ds.makecommongp_fourier(self.params.psrs, pl, nfreqs, self.params.Tspan, name='crn', common=['crn_log10_A', 'crn_gamma','crn_log10_rho'])
 
   def global_gp(self, option={}):
     """
