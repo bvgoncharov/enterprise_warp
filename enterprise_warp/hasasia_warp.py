@@ -279,6 +279,19 @@ class HasasiaWarpMixin(object):
       return None
     return posterior_mode(self.chain_burn[:, matches[0]])
 
+  def _samples(self, par_name):
+    if getattr(self, 'chain_burn', None) is None:
+      return None
+    pars = np.asarray(self.pars, dtype=str)
+    matches = np.where(pars == par_name)[0]
+    if matches.size == 0:
+      return None
+    samples = np.asarray(self.chain_burn[:, matches[0]], dtype=float)
+    samples = samples[np.isfinite(samples)]
+    if samples.size == 0:
+      return None
+    return samples
+
   def _rho_modes(self, nfreq):
     if nfreq is None:
       return None, None
@@ -305,6 +318,38 @@ class HasasiaWarpMixin(object):
       gamma = self._mode('{}_gamma'.format(prefix))
       if amp is not None and gamma is not None:
         return prefix, amp, gamma
+    return None
+
+  def _astro_common_powerlaw_modes(self):
+    """Approximate astro common-background hyperparameters as a power law.
+
+    The Sato-Polito/Zaldarriaga discrete-background model stores either
+    log10_h2c directly or the pair log10_Nc/log10_h2peak.  For the current
+    hasasia RRF path we need a power-law strain amplitude A.  These runs use
+    the standard f_ref = 1/yr convention, so log10_A = 0.5 * log10_h2c.
+    """
+    gamma = 13.0 / 3.0
+    for prefix in ['gw', 'crn']:
+      h2c_samples = self._samples('{}_log10_h2c'.format(prefix))
+      if h2c_samples is not None:
+        amp = posterior_mode(0.5 * h2c_samples)
+        if amp is not None:
+          return prefix, amp, gamma, 'derived from {}_log10_h2c'.format(prefix)
+
+      log10_nc = self._samples('{}_log10_Nc'.format(prefix))
+      if log10_nc is None:
+        nc = self._samples('{}_Nc'.format(prefix))
+        if nc is not None and np.all(nc > 0.0):
+          log10_nc = np.log10(nc)
+      log10_h2peak = self._samples('{}_log10_h2peak'.format(prefix))
+      if log10_nc is None or log10_h2peak is None:
+        continue
+      size = min(log10_nc.size, log10_h2peak.size)
+      log10_h2c = log10_nc[:size] + log10_h2peak[:size]
+      amp = posterior_mode(0.5 * log10_h2c)
+      if amp is not None:
+        return prefix, amp, gamma, (
+            'derived from {}_log10_Nc + {}_log10_h2peak'.format(prefix, prefix))
     return None
 
   def _toas_seconds(self, psr):
@@ -388,34 +433,51 @@ class HasasiaWarpMixin(object):
       self.log.write('No pulsar red-noise covariance added.')
 
     common_powerlaw = None
-    rho_prefix, log10_rho = self._rho_modes(common_nfreq)
-    if rho_prefix is not None:
-      common_freqs = np.arange(1, int(common_nfreq) + 1, dtype=float) / common_tspan
-      if spectrum_kind == 'rrf':
-        self.log.write('Found {} free-spectrum common process, but Spectrum_RRF '
-                       'requires log10_A/gamma.'.format(rho_prefix))
+    common_powerlaw_source = None
+    if spectrum_kind == 'rrf':
+      common_powerlaw = self._common_powerlaw_modes()
+      if common_powerlaw is not None:
+        common_powerlaw_source = 'explicit log10_A/gamma'
+      if common_powerlaw is None:
+        astro_powerlaw = self._astro_common_powerlaw_modes()
+        if astro_powerlaw is not None:
+          prefix, amp_log10, gamma, source = astro_powerlaw
+          common_powerlaw = (prefix, amp_log10, gamma)
+          common_powerlaw_source = source
+      if common_powerlaw is None:
+        rho_prefix, _ = self._rho_modes(common_nfreq)
+        if rho_prefix is not None:
+          self.log.write('Found {} free-spectrum common process, but '
+                         'Spectrum_RRF requires log10_A/gamma or astro '
+                         'log10_Nc/log10_h2peak.'.format(rho_prefix))
+        else:
+          self.log.write('No common GWB/CRN covariance added.')
       else:
+        prefix, amp_log10, gamma = common_powerlaw
+        self.log.write('Using {} power-law common process in Spectrum_RRF: '
+                       'log10_A={} gamma={} nfreq={} ({})'.format(
+                           prefix, amp_log10, gamma, common_nfreq,
+                           common_powerlaw_source))
+    else:
+      rho_prefix, log10_rho = self._rho_modes(common_nfreq)
+      if rho_prefix is not None:
+        common_freqs = np.arange(1, int(common_nfreq) + 1, dtype=float) / common_tspan
         total_n += np.asarray(hsen.corr_from_psd(
             common_freqs, log10rho_psd(log10_rho, common_tspan), toas))
         self.log.write('Added {} free-spectrum common process with nfreq={}'
                        .format(rho_prefix, common_nfreq))
-    else:
-      common_powerlaw = self._common_powerlaw_modes()
-      if common_powerlaw is not None and common_nfreq is not None:
-        prefix, amp_log10, gamma = common_powerlaw
-        common_freqs = np.arange(1, int(common_nfreq) + 1, dtype=float) / common_tspan
-        common_psd = hsen.red_noise_powerlaw(
-            A=10.0**float(amp_log10), gamma=float(gamma), freqs=common_freqs)
-        if spectrum_kind == 'rrf':
-          self.log.write('Using {} power-law common process in Spectrum_RRF: '
-                         'log10_A={} gamma={} nfreq={}'.format(
-                             prefix, amp_log10, gamma, common_nfreq))
-        else:
+      else:
+        common_powerlaw = self._common_powerlaw_modes()
+        if common_powerlaw is not None and common_nfreq is not None:
+          prefix, amp_log10, gamma = common_powerlaw
+          common_freqs = np.arange(1, int(common_nfreq) + 1, dtype=float) / common_tspan
+          common_psd = hsen.red_noise_powerlaw(
+              A=10.0**float(amp_log10), gamma=float(gamma), freqs=common_freqs)
           total_n += np.asarray(hsen.corr_from_psd(common_freqs, common_psd, toas))
           self.log.write('Added {} power-law common process: log10_A={} gamma={} '
                          'nfreq={}'.format(prefix, amp_log10, gamma, common_nfreq))
-      else:
-        self.log.write('No common GWB/CRN covariance added.')
+        else:
+          self.log.write('No common GWB/CRN covariance added.')
 
     hpsr = hsen.Pulsar(toas=toas, toaerrs=toaerrs,
                        phi=psr.phi, theta=psr.theta, name=psr.name,
@@ -448,6 +510,13 @@ class HasasiaWarpMixin(object):
         'selected_pulsar_index': self.hasasia_psr_index,
         'realization_num': int(getattr(self.opts, 'num', 0)),
         'common_nfreq': common_nfreq,
+        'common_powerlaw_prefix': None if common_powerlaw is None
+                                  else common_powerlaw[0],
+        'common_powerlaw_log10_A': None if common_powerlaw is None
+                                  else float(common_powerlaw[1]),
+        'common_powerlaw_gamma': None if common_powerlaw is None
+                                 else float(common_powerlaw[2]),
+        'common_powerlaw_source': common_powerlaw_source,
         'red_noise_nfreq': red_nfreq,
         'curve_nf': int(getattr(self.opts, 'hasasia_nf', 600)),
         'curve_fmin': float(curve_freqs[0]),
