@@ -33,7 +33,7 @@ class HasasiaParser(ResultsParser):
     self.parser.add_option("--hasasia_model", default=0, type=int,
                            help="Model block id.")
     self.parser.add_option("--hasasia_spectrum", default="spectrum", type=str,
-                           help="spectrum or rrf.")
+                           help="spectrum, rrf, or rrf_projected.")
     self.parser.add_option("--hasasia_load_latest", default=0, type=int,
                            help="Load latest checkpoint (1/0).")
     self.parser.add_option("--hasasia_nf", default=600, type=int,
@@ -146,6 +146,180 @@ def build_white_noise_covariance(psr, noise, hsen=None, log=None):
           backend, summary['value'], summary['key'],
           summary['epochs'], summary['toas']))
   return corr
+
+
+class WhiteNoiseModel(object):
+  """Structured EFAC/EQUAD/ECORR covariance with cheap inverse application."""
+
+  def __init__(self, diag_var, ecorr_blocks):
+    self.diag_var = np.asarray(diag_var, dtype=float)
+    self.inv_diag = 1.0 / self.diag_var
+    self.ecorr_blocks = [(np.asarray(idx, dtype=int), float(var))
+                         for idx, var in ecorr_blocks if float(var) > 0.0]
+
+  def apply_inverse(self, values):
+    values = np.asarray(values)
+    was_1d = values.ndim == 1
+    if was_1d:
+      values = values[:, None]
+    result = self.inv_diag[:, None] * values
+    for idx, ecorr_var in self.ecorr_blocks:
+      block_inv_diag = self.inv_diag[idx]
+      denom = 1.0 / ecorr_var + np.sum(block_inv_diag)
+      weighted_sum = np.sum(result[idx, :], axis=0)
+      result[idx, :] -= (block_inv_diag[:, None] * weighted_sum[None, :] /
+                         denom)
+    return result[:, 0] if was_1d else result
+
+
+def build_white_noise_model(psr, noise, hsen=None, log=None):
+  """Build a structured white-noise model matching build_white_noise_covariance."""
+  toaerrs = np.asarray(psr.toaerrs, dtype=float)
+  flags = getattr(psr, 'flags', {})
+  backend_flags = np.asarray(flags['f']).astype(str) if 'f' in flags \
+                  else np.repeat('all', toaerrs.size)
+  if 'f' not in flags and log is not None:
+    log.write('No psr.flags["f"] found; using a single white-noise backend.')
+
+  sigma_sqr = np.zeros(toaerrs.size, dtype=float)
+  for backend in np.unique(backend_flags):
+    mask = backend_flags == backend
+    efac, efac_key = _noise_lookup(noise, psr.name, backend, 'efac', 1.0)
+    equad_log10, equad_key = _noise_lookup(
+        noise, psr.name, backend,
+        ['log10_t2equad', 'log10_equad', 'log10_tnequad'])
+    equad = 0.0 if equad_log10 is None else 10.0**float(equad_log10)
+    sigma_sqr[mask] = float(efac)**2 * toaerrs[mask]**2 + equad**2
+    if log is not None:
+      log.write('white {}: efac={} ({}) equad={} ({})'.format(
+          backend, efac, efac_key, equad, equad_key))
+
+  if hsen is None:
+    return WhiteNoiseModel(sigma_sqr, [])
+
+  ecorr_blocks = []
+  _, _, _, _, buckets = hsen.quantize_fast(np.asarray(psr.toas, dtype=float),
+                                           toaerrs, flags=backend_flags, dt=1)
+  ecorr_counts = {}
+  for bucket in buckets:
+    bucket = np.asarray(bucket, dtype=int)
+    for backend in np.unique(backend_flags[bucket]):
+      local = bucket[backend_flags[bucket] == backend]
+      ecorr_log10, ecorr_key = _noise_lookup(noise, psr.name, backend,
+                                             'log10_ecorr')
+      if ecorr_log10 is None:
+        continue
+      ecorr_var = 10.0**(2.0 * float(ecorr_log10))
+      ecorr_blocks.append((local, ecorr_var))
+      ecorr_counts.setdefault(backend, {'key': ecorr_key,
+                                        'value': 10.0**float(ecorr_log10),
+                                        'epochs': 0, 'toas': 0})
+      ecorr_counts[backend]['epochs'] += 1
+      ecorr_counts[backend]['toas'] += local.size
+
+  if log is not None:
+    for backend, summary in sorted(ecorr_counts.items()):
+      log.write('ecorr {}: {} ({}) across {} epochs and {} TOAs'.format(
+          backend, summary['value'], summary['key'],
+          summary['epochs'], summary['toas']))
+  return WhiteNoiseModel(sigma_sqr, ecorr_blocks)
+
+
+class TimingMarginalizedWhiteOperator(object):
+  """Apply timing-marginalized inverse white covariance in bilinear form."""
+
+  def __init__(self, white_model, designmatrix):
+    self.white_model = white_model
+    designmatrix = np.asarray(designmatrix, dtype=float)
+    nrows, ncols = designmatrix.shape
+    if ncols >= nrows:
+      raise ValueError('Projected RRF requires fewer timing columns than TOAs.')
+    self.timing_basis = np.linalg.svd(
+        designmatrix, full_matrices=False)[0][:, :ncols]
+    self.cinv_timing_basis = self.white_model.apply_inverse(self.timing_basis)
+    gram = np.matmul(self.timing_basis.T, self.cinv_timing_basis)
+    self.gram_inv = np.linalg.pinv(gram, hermitian=True)
+
+  def inner(self, left, right):
+    left = np.asarray(left)
+    right = np.asarray(right)
+    cinv_right = self.white_model.apply_inverse(right)
+    first = np.matmul(np.conjugate(left).T, cinv_right)
+    left_cinv_basis = np.matmul(np.conjugate(left).T, self.cinv_timing_basis)
+    basis_cinv_right = np.matmul(self.timing_basis.T, cinv_right)
+    return first - np.matmul(left_cinv_basis,
+                             np.matmul(self.gram_inv, basis_cinv_right))
+
+
+class ProjectedRRFSpectrum(object):
+  """hasasia-like spectrum using projected Woodbury algebra without dense G."""
+
+  def __init__(self, name, toas, toaerrs, freqs, ncalinv, hsen):
+    self.name = name
+    self.toas = np.asarray(toas, dtype=float)
+    self.toaerrs = np.asarray(toaerrs, dtype=float)
+    self.freqs = np.asarray(freqs, dtype=float)
+    self.NcalInv = np.asarray(ncalinv, dtype=float)
+    self.S_R = 1.0 / self.NcalInv
+    self.S_I = 1.0 / hsen.resid_response(self.freqs) / self.NcalInv
+    self.h_c = np.sqrt(self.freqs * self.S_I)
+
+
+def _fourier_design(toas, nfreq, tspan):
+  freqs = np.arange(1, int(nfreq) + 1, dtype=float) / float(tspan)
+  design = np.empty((toas.size, 2 * int(nfreq)), dtype=float)
+  phase = 2.0 * np.pi * toas[:, None] * freqs[None, :]
+  design[:, ::2] = np.sin(phase)
+  design[:, 1::2] = np.cos(phase)
+  return design
+
+
+def _duplicated_power(power, nfreq):
+  vals = np.zeros(2 * int(nfreq), dtype=float)
+  vals[::2] = power
+  vals[1::2] = power
+  return vals
+
+
+def projected_rrf_ncalinv(toas, designmatrix, white_model, curve_freqs,
+                          tspan_common, common_nfreq, amp_gw, gamma_gw,
+                          red_nfreq, amp_irn, gamma_irn, hsen):
+  """Compute Spectrum_RRF NcalInv without explicit G or dense TOA covariance."""
+  toas = np.asarray(toas, dtype=float)
+  common_nfreq = int(common_nfreq)
+  red_nfreq = int(red_nfreq or 0)
+  nfreq_irn = max(red_nfreq, common_nfreq)
+  if nfreq_irn <= 0:
+    raise ValueError('Projected RRF requires at least one Fourier component.')
+
+  operator = TimingMarginalizedWhiteOperator(white_model, designmatrix)
+  fourier = _fourier_design(toas, nfreq_irn, tspan_common)
+  phi_diag = np.zeros(2 * nfreq_irn, dtype=float)
+
+  freqs_irn = np.arange(1, nfreq_irn + 1, dtype=float) / float(tspan_common)
+  if amp_irn is None or gamma_irn is None:
+    irn_power = hsen.red_noise_powerlaw(A=1e-40, gamma=0.0, freqs=freqs_irn)
+  else:
+    irn_power = hsen.red_noise_powerlaw(
+        A=float(amp_irn), gamma=float(gamma_irn), freqs=freqs_irn)
+  phi_diag += _duplicated_power(irn_power, nfreq_irn) / float(tspan_common)
+
+  freqs_gw = freqs_irn[:common_nfreq]
+  gw_power = hsen.red_noise_powerlaw(
+      A=float(amp_gw), gamma=float(gamma_gw), freqs=freqs_gw)
+  phi_diag[:2 * common_nfreq] += (
+      _duplicated_power(gw_power, common_nfreq) / float(tspan_common))
+
+  ff = np.asarray(curve_freqs, dtype=float)
+  exp_design = np.exp(1j * 2.0 * np.pi * toas[:, None] * ff[None, :])
+  s_ff = operator.inner(fourier, fourier)
+  s_fe = operator.inner(fourier, exp_design)
+  s_ee = operator.inner(exp_design, exp_design)
+  sigma = s_ff + np.diag(1.0 / phi_diag)
+  sigma_inv_s_fe = np.linalg.solve(sigma, s_fe)
+  correction = np.sum(np.conjugate(s_fe) * sigma_inv_s_fe, axis=0)
+  ncalinv = np.real(np.diag(s_ee) - correction) / (2.0 * (toas.max() - toas.min()))
+  return ncalinv
 
 
 class HasasiaWarpMixin(object):
@@ -403,8 +577,17 @@ class HasasiaWarpMixin(object):
       raise NotImplementedError('--hasasia_average_toas is accepted but not '
                                 'implemented in this step.')
     toaerrs = np.asarray(psr.toaerrs, dtype=float)
-    total_n = build_white_noise_covariance(work_psr, noise, hsen=hsen,
-                                           log=self.log)
+    projected_rrf = spectrum_kind in ['rrf_projected', 'rrf_nodense',
+                                      'rrf_no_dense']
+    if projected_rrf:
+      white_model = build_white_noise_model(work_psr, noise, hsen=hsen,
+                                            log=self.log)
+      total_n = None
+      self.log.write('Using structured white-noise model for projected RRF.')
+    else:
+      white_model = None
+      total_n = build_white_noise_covariance(work_psr, noise, hsen=hsen,
+                                             log=self.log)
     self.log.write('TOA averaging disabled; passing original TOAs to hasasia.')
     red_tspan = float(toas.max() - toas.min())
     self.log.write('TOA rows passed to hasasia: {}'.format(toas.size))
@@ -421,7 +604,7 @@ class HasasiaWarpMixin(object):
       red_freqs = np.arange(1, int(red_nfreq) + 1, dtype=float) / red_tspan
       red_psd = hsen.red_noise_powerlaw(
           A=10.0**float(red_amp_log10), gamma=float(red_gamma), freqs=red_freqs)
-      if spectrum_kind == 'rrf':
+      if spectrum_kind == 'rrf' or projected_rrf:
         self.log.write('Using red noise in Spectrum_RRF: source={} log10_A={} '
                        'gamma={} nfreq={}'.format(
                            red_source, red_amp_log10, red_gamma, red_nfreq))
@@ -434,7 +617,7 @@ class HasasiaWarpMixin(object):
 
     common_powerlaw = None
     common_powerlaw_source = None
-    if spectrum_kind == 'rrf':
+    if spectrum_kind == 'rrf' or projected_rrf:
       common_powerlaw = self._common_powerlaw_modes()
       if common_powerlaw is not None:
         common_powerlaw_source = 'explicit log10_A/gamma'
@@ -479,17 +662,20 @@ class HasasiaWarpMixin(object):
         else:
           self.log.write('No common GWB/CRN covariance added.')
 
-    hpsr = hsen.Pulsar(toas=toas, toaerrs=toaerrs,
-                       phi=psr.phi, theta=psr.theta, name=psr.name,
-                       N=total_n, designmatrix=designmatrix)
     curve_freqs = self._curve_freqs(common_tspan)
 
     if spectrum_kind == 'spectrum':
+      hpsr = hsen.Pulsar(toas=toas, toaerrs=toaerrs,
+                         phi=psr.phi, theta=psr.theta, name=psr.name,
+                         N=total_n, designmatrix=designmatrix)
       spectrum = hsen.Spectrum(hpsr, freqs=curve_freqs)
     elif spectrum_kind == 'rrf':
       if common_powerlaw is None:
         raise ValueError('Spectrum_RRF requires common-process log10_A/gamma.')
       _, amp_log10, gamma = common_powerlaw
+      hpsr = hsen.Pulsar(toas=toas, toaerrs=toaerrs,
+                         phi=psr.phi, theta=psr.theta, name=psr.name,
+                         N=total_n, designmatrix=designmatrix)
       spectrum = hsen.Spectrum_RRF(
           hpsr, Tspan=common_tspan, freqs_gw_comp=int(common_nfreq),
           amp_gw=10.0**float(amp_log10), gamma_gw=float(gamma),
@@ -497,6 +683,23 @@ class HasasiaWarpMixin(object):
           amp_irn=None if red_amp_log10 is None else 10.0**float(red_amp_log10),
           gamma_irn=None if red_gamma is None else float(red_gamma),
           freqs=curve_freqs)
+    elif projected_rrf:
+      if common_powerlaw is None:
+        raise ValueError('Projected RRF requires common-process log10_A/gamma.')
+      _, amp_log10, gamma = common_powerlaw
+      ncalinv = projected_rrf_ncalinv(
+          toas=toas, designmatrix=designmatrix, white_model=white_model,
+          curve_freqs=curve_freqs, tspan_common=common_tspan,
+          common_nfreq=int(common_nfreq), amp_gw=10.0**float(amp_log10),
+          gamma_gw=float(gamma), red_nfreq=red_nfreq,
+          amp_irn=None if red_amp_log10 is None else 10.0**float(red_amp_log10),
+          gamma_irn=None if red_gamma is None else float(red_gamma),
+          hsen=hsen)
+      hpsr = SimpleNamespace(toas=toas, toaerrs=toaerrs, phi=psr.phi,
+                             theta=psr.theta, name=psr.name,
+                             designmatrix=designmatrix)
+      spectrum = ProjectedRRFSpectrum(psr.name, toas, toaerrs, curve_freqs,
+                                      ncalinv, hsen)
     else:
       raise ValueError('Unknown --hasasia_spectrum {}'.format(spectrum_kind))
     _ = spectrum.NcalInv
