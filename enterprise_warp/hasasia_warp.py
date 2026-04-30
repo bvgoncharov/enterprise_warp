@@ -281,6 +281,15 @@ def _duplicated_power(power, nfreq):
   return vals
 
 
+def _rrf_component_nfreq(tspan, curve_freqs, minimum_nfreq):
+  """Return a Fourier-component count that reaches the plotted frequency range."""
+  minimum_nfreq = int(minimum_nfreq or 0)
+  if curve_freqs is None or len(curve_freqs) == 0:
+    return minimum_nfreq
+  required_nfreq = int(np.ceil(float(np.max(curve_freqs)) * float(tspan)))
+  return max(minimum_nfreq, required_nfreq)
+
+
 def projected_rrf_ncalinv(toas, designmatrix, white_model, curve_freqs,
                           tspan_common, common_nfreq, amp_gw, gamma_gw,
                           red_nfreq, amp_irn, gamma_irn, hsen):
@@ -663,6 +672,17 @@ class HasasiaWarpMixin(object):
           self.log.write('No common GWB/CRN covariance added.')
 
     curve_freqs = self._curve_freqs(common_tspan)
+    rrf_common_nfreq = common_nfreq
+    rrf_red_nfreq = red_nfreq
+    if spectrum_kind == 'rrf' or projected_rrf:
+      rrf_common_nfreq = _rrf_component_nfreq(
+          common_tspan, curve_freqs, common_nfreq)
+      rrf_red_nfreq = _rrf_component_nfreq(
+          common_tspan, curve_freqs, max(int(red_nfreq or 0), int(common_nfreq or 0)))
+      self.log.write('Expanded RRF Fourier components to reach plotted fmax: '
+                     'common {} -> {}, red {} -> {}'.format(
+                         common_nfreq, rrf_common_nfreq,
+                         red_nfreq, rrf_red_nfreq))
 
     if spectrum_kind == 'spectrum':
       hpsr = hsen.Pulsar(toas=toas, toaerrs=toaerrs,
@@ -677,9 +697,9 @@ class HasasiaWarpMixin(object):
                          phi=psr.phi, theta=psr.theta, name=psr.name,
                          N=total_n, designmatrix=designmatrix)
       spectrum = hsen.Spectrum_RRF(
-          hpsr, Tspan=common_tspan, freqs_gw_comp=int(common_nfreq),
+          hpsr, Tspan=common_tspan, freqs_gw_comp=int(rrf_common_nfreq),
           amp_gw=10.0**float(amp_log10), gamma_gw=float(gamma),
-          freqs_irn_comp=max(int(red_nfreq or 0), int(common_nfreq)),
+          freqs_irn_comp=int(rrf_red_nfreq),
           amp_irn=None if red_amp_log10 is None else 10.0**float(red_amp_log10),
           gamma_irn=None if red_gamma is None else float(red_gamma),
           freqs=curve_freqs)
@@ -690,8 +710,8 @@ class HasasiaWarpMixin(object):
       ncalinv = projected_rrf_ncalinv(
           toas=toas, designmatrix=designmatrix, white_model=white_model,
           curve_freqs=curve_freqs, tspan_common=common_tspan,
-          common_nfreq=int(common_nfreq), amp_gw=10.0**float(amp_log10),
-          gamma_gw=float(gamma), red_nfreq=red_nfreq,
+          common_nfreq=int(rrf_common_nfreq), amp_gw=10.0**float(amp_log10),
+          gamma_gw=float(gamma), red_nfreq=int(rrf_red_nfreq),
           amp_irn=None if red_amp_log10 is None else 10.0**float(red_amp_log10),
           gamma_irn=None if red_gamma is None else float(red_gamma),
           hsen=hsen)
@@ -721,6 +741,10 @@ class HasasiaWarpMixin(object):
                                  else float(common_powerlaw[2]),
         'common_powerlaw_source': common_powerlaw_source,
         'red_noise_nfreq': red_nfreq,
+        'rrf_common_nfreq': None if spectrum_kind == 'spectrum'
+                            else int(rrf_common_nfreq),
+        'rrf_red_noise_nfreq': None if spectrum_kind == 'spectrum'
+                               else int(rrf_red_nfreq),
         'curve_nf': int(getattr(self.opts, 'hasasia_nf', 600)),
         'curve_fmin': float(curve_freqs[0]),
         'curve_fmax': float(curve_freqs[-1]),
