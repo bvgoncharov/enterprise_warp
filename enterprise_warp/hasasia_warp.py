@@ -24,6 +24,10 @@ class HasasiaParser(ResultsParser):
   """Standalone parser for hasasia sensitivity runs."""
   def __init__(self):
     super(HasasiaParser, self).__init__()
+    self.parser.add_option("--pta", default="psr", type=str,
+                           help="Sensitivity mode: psr, gwb, cw, or directional.")
+    self.parser.add_option("--snr", default=1.0, type=float,
+                           help="Target SNR level for PTA sensitivity outputs.")
     self.parser.add_option("--hasasia", default=1, type=int,
                            help="Run hasasia sensitivity construction (1/0).")
     self.parser.add_option("--num", default=0, type=int,
@@ -45,6 +49,17 @@ class HasasiaParser(ResultsParser):
     self.parser.add_option("--hasasia_average_toas", default=0, type=int,
                            help="Accepted for future use; TOA averaging is "
                                 "not implemented in this step.")
+    self.parser.add_option("--hasasia_skymap_nside", default=32, type=int,
+                           help="HEALPix NSIDE for --pta directional.")
+    self.parser.add_option("--hasasia_directional_theta", default=0.0, type=float,
+                           help="Sky colatitude theta [rad] for --pta directional "
+                                "frequency curve.")
+    self.parser.add_option("--hasasia_directional_phi", default=0.0, type=float,
+                           help="Sky longitude phi [rad] for --pta directional "
+                                "frequency curve.")
+    self.parser.add_option("--hasasia_directional_freq", default=None, type=float,
+                           help="Frequency [Hz] for --pta directional sky map. "
+                                "Defaults to the most sensitive frequency.")
 
   def parse_args(self):
     opts = super(HasasiaParser, self).parse_args()
@@ -83,6 +98,30 @@ def log10rho_psd(log10_rho, tspan):
 
 def _safe_name(name):
   return re.sub(r'[^A-Za-z0-9._+-]+', '_', str(name))
+
+
+def _freq_match(left, right, rtol=1e-10, atol=0.0):
+  left = np.asarray(left, dtype=float)
+  right = np.asarray(right, dtype=float)
+  return left.shape == right.shape and np.allclose(left, right, rtol=rtol,
+                                                   atol=atol)
+
+
+def _pta_snr_scaled_curves(pta_mode, sensitivity, snr):
+  """Return SNR-scaled effective noise and characteristic strain curves."""
+  snr = float(snr)
+  if snr <= 0.0:
+    raise ValueError('--snr must be positive.')
+
+  if pta_mode == 'gwb':
+    scaled_seff = snr * np.asarray(sensitivity.S_eff, dtype=float)
+    scaled_hc = np.sqrt(snr) * np.asarray(sensitivity.h_c, dtype=float)
+  elif pta_mode in ['cw', 'directional']:
+    scaled_seff = snr**2 * np.asarray(sensitivity.S_eff, dtype=float)
+    scaled_hc = snr * np.asarray(sensitivity.h_c, dtype=float)
+  else:
+    raise ValueError('Unknown --pta {}'.format(pta_mode))
+  return scaled_seff, scaled_hc
 
 
 def _noise_lookup(noise, psr_name, backend, suffixes, default=None):
@@ -254,11 +293,15 @@ class TimingMarginalizedWhiteOperator(object):
 class ProjectedRRFSpectrum(object):
   """hasasia-like spectrum using projected Woodbury algebra without dense G."""
 
-  def __init__(self, name, toas, toaerrs, freqs, ncalinv, hsen):
+  def __init__(self, name, toas, toaerrs, freqs, ncalinv, hsen,
+               phi=None, theta=None, pdist=None):
     self.name = name
     self.toas = np.asarray(toas, dtype=float)
     self.toaerrs = np.asarray(toaerrs, dtype=float)
     self.freqs = np.asarray(freqs, dtype=float)
+    self.phi = None if phi is None else float(phi)
+    self.theta = None if theta is None else float(theta)
+    self.pdist = pdist
     self.NcalInv = np.asarray(ncalinv, dtype=float)
     self.S_R = 1.0 / self.NcalInv
     self.S_I = 1.0 / hsen.resid_response(self.freqs) / self.NcalInv
@@ -339,27 +382,13 @@ class HasasiaWarpMixin(object):
       raise ValueError('hasasia_warp requires --result to be a parameter file.')
 
     self._init_hasasia_pulsars()
-    psr, psr_index = self._select_psr(getattr(self.opts, 'hasasia_psr', '0'))
-    self.hasasia_psr = psr
-    self.hasasia_psr_index = psr_index
-    self.hasasia_result_dir = self._get_hasasia_result_dir(psr)
+    self.hasasia_result_dir = self._get_hasasia_result_dir()
+    pta_mode = self._pta_mode()
 
-    if getattr(self.opts, 'hasasia_load_latest', 0):
-      self._load_latest_checkpoint(psr)
+    if pta_mode == 'psr':
+      self._run_single_pulsar_pipeline()
       return
-
-    self.run_dir = os.path.join(
-        self.hasasia_result_dir, 'hasasia',
-        '{}_{}'.format(datetime.now().strftime('%Y%m%d_%H%M%S'),
-                       _safe_name(psr.name)))
-    os.makedirs(self.run_dir, exist_ok=True)
-    self.log = RunLog(os.path.join(self.run_dir, 'run.log'))
-    self.log.write('Result directory: {}'.format(self.hasasia_result_dir))
-    self.log.write('Selected pulsar {} at loaded index {}'.format(psr.name, psr_index))
-
-    self._load_result_chain()
-    hpsr, spectrum = self._build_hasasia_objects(psr)
-    self._write_outputs(hpsr, spectrum)
+    self._run_full_pta_pipeline(pta_mode)
 
   def _init_hasasia_pulsars(self):
     if self.params.opts is None:
@@ -390,10 +419,64 @@ class HasasiaWarpMixin(object):
           selector, [self.params.psrs[ii].name for ii in matches]))
     return self.params.psrs[matches[0]], matches[0]
 
-  def _get_hasasia_result_dir(self, psr):
+  def _pta_mode(self):
+    pta_mode = str(getattr(self.opts, 'pta', 'psr')).lower()
+    allowed = ['psr', 'gwb', 'cw', 'directional']
+    if pta_mode not in allowed:
+      raise ValueError('Unknown --pta {} (allowed: {})'.format(
+          pta_mode, ', '.join(allowed)))
+    return pta_mode
+
+  def _run_single_pulsar_pipeline(self):
+    psr, psr_index = self._select_psr(getattr(self.opts, 'hasasia_psr', '0'))
+    self.hasasia_psr = psr
+    self.hasasia_psr_index = psr_index
+
+    if getattr(self.opts, 'hasasia_load_latest', 0):
+      self._load_latest_checkpoint(psr)
+      return
+
+    self.run_dir = self._new_single_pulsar_run_dir(psr.name)
+    self.log = RunLog(os.path.join(self.run_dir, 'run.log'))
+    self.log.write('Result directory: {}'.format(self.hasasia_result_dir))
+    self.log.write('Selected pulsar {} at loaded index {}'.format(psr.name, psr_index))
+
+    self._load_result_chain()
+    hpsr, spectrum = self._build_hasasia_objects(psr)
+    self._write_outputs(hpsr, spectrum)
+
+  def _run_full_pta_pipeline(self, pta_mode):
+    self.run_dir = os.path.join(
+        self.hasasia_result_dir, 'hasasia',
+        '{}_pta_{}'.format(datetime.now().strftime('%Y%m%d_%H%M%S'),
+                           _safe_name(pta_mode)))
+    os.makedirs(self.run_dir, exist_ok=True)
+    self.log = RunLog(os.path.join(self.run_dir, 'run.log'))
+    self.log.write('Result directory: {}'.format(self.hasasia_result_dir))
+    self.log.write('PTA sensitivity mode: {}'.format(pta_mode))
+    if getattr(self.opts, 'hasasia_load_latest', 0):
+      self.log.write('--hasasia_load_latest is only used for --pta psr; '
+                     'full PTA modes always collect latest compatible '
+                     'single-pulsar checkpoints.')
+
+    self._load_result_chain()
+    spectra, checkpoint_paths = self._load_or_build_pta_spectra()
+    sensitivity, extra_settings = self._build_full_pta_object(pta_mode, spectra)
+    self._write_full_pta_outputs(pta_mode, sensitivity, checkpoint_paths,
+                                 extra_settings)
+
+  def _get_hasasia_result_dir(self, psr=None):
     if self.params.array_analysis:
       return os.path.abspath(self.outdir_all)
     return os.path.abspath(getattr(self.params, 'output_dir', self.outdir_all))
+
+  def _new_single_pulsar_run_dir(self, psr_name):
+    run_dir = os.path.join(
+        self.hasasia_result_dir, 'hasasia',
+        '{}_{}'.format(datetime.now().strftime('%Y%m%d_%H%M%S'),
+                       _safe_name(psr_name)))
+    os.makedirs(run_dir, exist_ok=True)
+    return run_dir
 
   def _load_result_chain(self):
     self.psr_dir = ''
@@ -548,10 +631,173 @@ class HasasiaWarpMixin(object):
     return np.logspace(np.log10(fmin), np.log10(fmax),
                        int(getattr(self.opts, 'hasasia_nf', 600)))
 
-  def _build_hasasia_objects(self, psr):
+  def _ensure_hasasia_path(self):
     has_path = os.environ.get('HAS')
     if has_path is not None and has_path not in sys.path:
       sys.path.insert(0, has_path)
+
+  def _full_pta_tspan(self):
+    all_toas = [self._toas_seconds(pp)[0] for pp in self.params.psrs]
+    return float(max(tt.max() for tt in all_toas) -
+                 min(tt.min() for tt in all_toas))
+
+  def _compatible_spectrum_settings(self, settings, psr_name, curve_freqs):
+    if settings.get('selected_pulsar') != psr_name:
+      return False
+    if settings.get('spectrum') != str(
+        getattr(self.opts, 'hasasia_spectrum', 'spectrum')).lower():
+      return False
+    if int(settings.get('curve_nf', -1)) != int(len(curve_freqs)):
+      return False
+    if not np.isclose(float(settings.get('curve_fmin', np.nan)),
+                      float(curve_freqs[0])):
+      return False
+    if not np.isclose(float(settings.get('curve_fmax', np.nan)),
+                      float(curve_freqs[-1])):
+      return False
+    if int(settings.get('average_toas', -1)) != int(
+        getattr(self.opts, 'hasasia_average_toas', 0)):
+      return False
+    return True
+
+  def _load_checkpoint_settings(self, path):
+    settings_path = os.path.join(path, 'settings.json')
+    if not os.path.isfile(settings_path):
+      return None
+    with open(settings_path, 'r') as fin:
+      return json.load(fin)
+
+  def _find_latest_compatible_checkpoint(self, psr_name, curve_freqs):
+    pattern = os.path.join(self.hasasia_result_dir, 'hasasia',
+                           '*_{}'.format(_safe_name(psr_name)))
+    candidates = sorted(glob.glob(pattern), reverse=True)
+    for path in candidates:
+      if not os.path.isfile(os.path.join(path, 'spectrum.pkl')) or \
+         not os.path.isfile(os.path.join(path, 'pulsar.pkl')):
+        continue
+      settings = self._load_checkpoint_settings(path)
+      if settings is not None and self._compatible_spectrum_settings(
+          settings, psr_name, curve_freqs):
+        return path
+
+    self._ensure_hasasia_path()
+    for path in candidates:
+      spectrum_path = os.path.join(path, 'spectrum.pkl')
+      if not os.path.isfile(spectrum_path):
+        continue
+      with open(spectrum_path, 'rb') as fin:
+        spectrum = pickle.load(fin)
+      if _freq_match(getattr(spectrum, 'freqs', None), curve_freqs):
+        return path
+    return None
+
+  def _load_spectrum_checkpoint(self, path):
+    self._ensure_hasasia_path()
+    with open(os.path.join(path, 'pulsar.pkl'), 'rb') as fin:
+      hpsr = pickle.load(fin)
+    with open(os.path.join(path, 'spectrum.pkl'), 'rb') as fin:
+      spectrum = pickle.load(fin)
+    _ = spectrum.NcalInv
+    return hpsr, spectrum
+
+  def _build_single_pulsar_checkpoint(self, psr, psr_index):
+    previous_log = getattr(self, 'log', None)
+    previous_run_dir = getattr(self, 'run_dir', None)
+    previous_psr = getattr(self, 'hasasia_psr', None)
+    previous_psr_index = getattr(self, 'hasasia_psr_index', None)
+    run_dir = self._new_single_pulsar_run_dir(psr.name)
+    self.run_dir = run_dir
+    self.log = RunLog(os.path.join(run_dir, 'run.log'))
+    self.log.write('Result directory: {}'.format(self.hasasia_result_dir))
+    self.log.write('Selected pulsar {} at loaded index {}'.format(
+        psr.name, psr_index))
+    self.hasasia_psr = psr
+    self.hasasia_psr_index = psr_index
+    try:
+      hpsr, spectrum = self._build_hasasia_objects(psr)
+      self._write_outputs(hpsr, spectrum, run_dir=run_dir)
+    finally:
+      self.log = previous_log
+      self.run_dir = previous_run_dir
+      self.hasasia_psr = previous_psr
+      self.hasasia_psr_index = previous_psr_index
+    return hpsr, spectrum, run_dir
+
+  def _load_or_build_pta_spectra(self):
+    curve_freqs = self._curve_freqs(self._full_pta_tspan())
+    spectra = {}
+    checkpoint_paths = {}
+    missing = []
+    for psr_index, psr in enumerate(self.params.psrs):
+      checkpoint = self._find_latest_compatible_checkpoint(psr.name, curve_freqs)
+      if checkpoint is None:
+        missing.append((psr_index, psr))
+        continue
+      _, spectrum = self._load_spectrum_checkpoint(checkpoint)
+      spectra[psr.name] = spectrum
+      checkpoint_paths[psr.name] = checkpoint
+      self.log.write('Loaded spectrum checkpoint for {}: {}'.format(
+          psr.name, checkpoint))
+
+    if missing:
+      from tqdm import tqdm
+      self.log.write('Building {} missing single-pulsar spectra.'.format(
+          len(missing)))
+      for psr_index, psr in tqdm(missing, desc='hasasia spectra', unit='psr'):
+        _, spectrum, checkpoint = self._build_single_pulsar_checkpoint(
+            psr, psr_index)
+        spectra[psr.name] = spectrum
+        checkpoint_paths[psr.name] = checkpoint
+        self.log.write('Built spectrum checkpoint for {}: {}'.format(
+            psr.name, checkpoint))
+    return [spectra[psr.name] for psr in self.params.psrs], checkpoint_paths
+
+  def _build_full_pta_object(self, pta_mode, spectra):
+    self._ensure_hasasia_path()
+    import hasasia.sensitivity as hsen
+
+    extra_settings = {}
+    if pta_mode == 'gwb':
+      sensitivity = hsen.GWBSensitivityCurve(spectra)
+      extra_settings['pta_class'] = 'hasasia.sensitivity.GWBSensitivityCurve'
+    elif pta_mode == 'cw':
+      sensitivity = hsen.DeterSensitivityCurve(spectra)
+      extra_settings['pta_class'] = 'hasasia.sensitivity.DeterSensitivityCurve'
+    elif pta_mode == 'directional':
+      import healpy as hp
+      import hasasia.skymap as hsky
+
+      nside = int(getattr(self.opts, 'hasasia_skymap_nside', 32))
+      npix = hp.nside2npix(nside)
+      ipix = np.arange(npix)
+      theta_gw, phi_gw = hp.pix2ang(nside=nside, ipix=ipix)
+      sensitivity = hsky.SkySensitivity(spectra, theta_gw, phi_gw)
+      extra_settings.update({
+          'pta_class': 'hasasia.skymap.SkySensitivity',
+          'skymap_nside': nside,
+          'skymap_npix': int(npix),
+      })
+    else:
+      raise ValueError('Unknown --pta {}'.format(pta_mode))
+    return sensitivity, extra_settings
+
+  def _directional_selection(self, sensitivity):
+    theta = float(getattr(self.opts, 'hasasia_directional_theta', 0.0))
+    phi = float(getattr(self.opts, 'hasasia_directional_phi', 0.0))
+    dphi = np.asarray(sensitivity.phi_gw, dtype=float) - phi
+    cos_sep = (np.cos(np.asarray(sensitivity.theta_gw, dtype=float)) * np.cos(theta)
+               + np.sin(np.asarray(sensitivity.theta_gw, dtype=float)) * np.sin(theta)
+               * np.cos(dphi))
+    sky_idx = int(np.argmax(cos_sep))
+    sky_freq = getattr(self.opts, 'hasasia_directional_freq', None)
+    if sky_freq is None:
+      freq_idx = int(np.argmin(sensitivity.S_eff_mean))
+    else:
+      freq_idx = int(sensitivity.fidx(float(sky_freq))[0])
+    return sky_idx, freq_idx
+
+  def _build_hasasia_objects(self, psr):
+    self._ensure_hasasia_path()
     import hasasia.sensitivity as hsen
 
     model_params, model_id = self._get_model_params()
@@ -719,7 +965,9 @@ class HasasiaWarpMixin(object):
                              theta=psr.theta, name=psr.name,
                              designmatrix=designmatrix)
       spectrum = ProjectedRRFSpectrum(psr.name, toas, toaerrs, curve_freqs,
-                                      ncalinv, hsen)
+                                      ncalinv, hsen, phi=psr.phi,
+                                      theta=psr.theta,
+                                      pdist=getattr(psr, 'pdist', None))
     else:
       raise ValueError('Unknown --hasasia_spectrum {}'.format(spectrum_kind))
     _ = spectrum.NcalInv
@@ -753,18 +1001,20 @@ class HasasiaWarpMixin(object):
     }
     return hpsr, spectrum
 
-  def _write_outputs(self, psr, spectrum):
-    with open(os.path.join(self.run_dir, 'settings.json'), 'w') as fout:
-      json.dump(self.hasasia_settings, fout, indent=2, sort_keys=True)
+  def _write_outputs(self, psr, spectrum, run_dir=None, settings=None):
+    run_dir = self.run_dir if run_dir is None else run_dir
+    settings = self.hasasia_settings if settings is None else settings
+    with open(os.path.join(run_dir, 'settings.json'), 'w') as fout:
+      json.dump(settings, fout, indent=2, sort_keys=True)
       fout.write('\n')
-    with open(os.path.join(self.run_dir, 'pulsar.pkl'), 'wb') as fout:
+    with open(os.path.join(run_dir, 'pulsar.pkl'), 'wb') as fout:
       pickle.dump(psr, fout, protocol=pickle.HIGHEST_PROTOCOL)
-    with open(os.path.join(self.run_dir, 'spectrum.pkl'), 'wb') as fout:
+    with open(os.path.join(run_dir, 'spectrum.pkl'), 'wb') as fout:
       pickle.dump(spectrum, fout, protocol=pickle.HIGHEST_PROTOCOL)
 
     table = np.column_stack([spectrum.freqs, spectrum.h_c,
                              spectrum.S_I, spectrum.S_R, spectrum.NcalInv])
-    txt_path = os.path.join(self.run_dir,
+    txt_path = os.path.join(run_dir,
                             'sensitivity_{}.txt'.format(_safe_name(psr.name)))
     np.savetxt(txt_path, table, header='freq_Hz h_c S_I S_R NcalInv')
 
@@ -778,17 +1028,184 @@ class HasasiaWarpMixin(object):
     plt.title(psr.name)
     plt.grid(which='both', alpha=0.3)
     plt.tight_layout()
-    plot_path = os.path.join(self.run_dir,
+    plot_path = os.path.join(run_dir,
                              'sensitivity_{}.png'.format(_safe_name(psr.name)))
     plt.savefig(plot_path, dpi=150)
     plt.close()
     self.log.write('Saved sensitivity table {}'.format(txt_path))
     self.log.write('Saved sensitivity plot {}'.format(plot_path))
 
+  def _write_full_pta_outputs(self, pta_mode, sensitivity, checkpoint_paths,
+                              extra_settings):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    snr = float(getattr(self.opts, 'snr', 1.0))
+    scaled_seff, scaled_hc = _pta_snr_scaled_curves(
+        pta_mode, sensitivity, snr)
+    self.hasasia_settings = {
+        'result': str(self.opts.result),
+        'result_dir': self.hasasia_result_dir,
+        'pta': pta_mode,
+        'snr': snr,
+        'npsr': len(self.params.psrs),
+        'curve_nf': int(len(sensitivity.freqs)),
+        'curve_fmin': float(sensitivity.freqs[0]),
+        'curve_fmax': float(sensitivity.freqs[-1]),
+        'spectrum': str(getattr(self.opts, 'hasasia_spectrum', 'spectrum')).lower(),
+        'average_toas': int(getattr(self.opts, 'hasasia_average_toas', 0)),
+        'single_pulsar_checkpoints': checkpoint_paths,
+    }
+    self.hasasia_settings.update(extra_settings)
+    with open(os.path.join(self.run_dir, 'settings.json'), 'w') as fout:
+      json.dump(self.hasasia_settings, fout, indent=2, sort_keys=True)
+      fout.write('\n')
+
+    if pta_mode == 'gwb':
+      table = np.column_stack([sensitivity.freqs, scaled_hc,
+                               scaled_seff])
+      txt_path = os.path.join(self.run_dir, 'pta_gwb_sensitivity.txt')
+      np.savetxt(txt_path, table, header='freq_Hz h_c_snr S_eff_snr')
+      plt.figure(figsize=(6.4, 4.8))
+      plt.loglog(sensitivity.freqs, scaled_hc, color='C0')
+      plt.xlabel('Frequency [Hz]')
+      plt.ylabel('Characteristic Strain, h_c')
+      plt.title('PTA GWB Sensitivity (SNR={})'.format(snr))
+      plt.grid(which='both', alpha=0.3)
+      plt.tight_layout()
+      plot_path = os.path.join(self.run_dir, 'pta_gwb_sensitivity.png')
+      plt.savefig(plot_path, dpi=150)
+      plt.close()
+      self.log.write('Saved PTA sensitivity table {}'.format(txt_path))
+      self.log.write('Saved PTA sensitivity plot {}'.format(plot_path))
+      return
+
+    if pta_mode == 'cw':
+      h0_snr = snr * np.sqrt(np.asarray(sensitivity.S_eff, dtype=float) /
+                             float(sensitivity.Tspan))
+      table = np.column_stack([sensitivity.freqs, scaled_hc,
+                               scaled_seff, h0_snr])
+      txt_path = os.path.join(self.run_dir, 'pta_cw_sensitivity.txt')
+      np.savetxt(txt_path, table, header='freq_Hz h_c_snr S_eff_snr h0_snr')
+
+      plt.figure(figsize=(6.4, 4.8))
+      plt.loglog(sensitivity.freqs, scaled_hc, color='C0')
+      plt.xlabel('Frequency [Hz]')
+      plt.ylabel('Characteristic Strain, h_c')
+      plt.title('PTA CW Sensitivity (SNR={})'.format(snr))
+      plt.grid(which='both', alpha=0.3)
+      plt.tight_layout()
+      hc_plot_path = os.path.join(self.run_dir, 'pta_cw_sensitivity.png')
+      plt.savefig(hc_plot_path, dpi=150)
+      plt.close()
+
+      plt.figure(figsize=(6.4, 4.8))
+      plt.loglog(sensitivity.freqs, h0_snr, color='C1')
+      plt.xlabel('Frequency [Hz]')
+      plt.ylabel(r'$h_0$ for target SNR')
+      plt.title('PTA CW Sensitivity (SNR={})'.format(snr))
+      plt.grid(which='both', alpha=0.3)
+      plt.tight_layout()
+      h0_plot_path = os.path.join(self.run_dir, 'pta_cw_h0_snr.png')
+      plt.savefig(h0_plot_path, dpi=150)
+      plt.close()
+      self.log.write('Saved PTA sensitivity table {}'.format(txt_path))
+      self.log.write('Saved PTA sensitivity plots {}, {}'.format(
+          hc_plot_path, h0_plot_path))
+      return
+
+    if pta_mode == 'directional':
+      import healpy as hp
+
+      sky_idx, freq_idx = self._directional_selection(sensitivity)
+      h0_snr = snr * np.sqrt(np.asarray(sensitivity.S_eff, dtype=float) /
+                             float(sensitivity.Tspan))
+      curve_table = np.column_stack([
+          sensitivity.freqs,
+          scaled_hc[:, sky_idx],
+          scaled_seff[:, sky_idx],
+          h0_snr[:, sky_idx],
+      ])
+      curve_txt_path = os.path.join(
+          self.run_dir, 'pta_directional_curve.txt')
+      np.savetxt(curve_txt_path, curve_table,
+                 header='freq_Hz h_c_snr S_eff_snr h0_snr')
+
+      skymap_table = np.column_stack([
+          np.arange(len(sensitivity.theta_gw), dtype=int),
+          np.asarray(sensitivity.theta_gw, dtype=float),
+          np.asarray(sensitivity.phi_gw, dtype=float),
+          scaled_hc[freq_idx, :],
+          scaled_seff[freq_idx, :],
+          h0_snr[freq_idx, :],
+      ])
+      skymap_txt_path = os.path.join(
+          self.run_dir, 'pta_directional_skymap.txt')
+      np.savetxt(skymap_txt_path, skymap_table,
+                 header='ipix theta_gw_rad phi_gw_rad h_c_snr S_eff_snr h0_snr')
+
+      self.hasasia_settings.update({
+          'directional_curve_theta_rad': float(getattr(
+              self.opts, 'hasasia_directional_theta', 0.0)),
+          'directional_curve_phi_rad': float(getattr(
+              self.opts, 'hasasia_directional_phi', 0.0)),
+          'directional_curve_selected_pixel': sky_idx,
+          'directional_curve_selected_theta_rad': float(
+              np.asarray(sensitivity.theta_gw, dtype=float)[sky_idx]),
+          'directional_curve_selected_phi_rad': float(
+              np.asarray(sensitivity.phi_gw, dtype=float)[sky_idx]),
+          'directional_skymap_selected_freq_hz': float(
+              sensitivity.freqs[freq_idx]),
+          'directional_skymap_selected_freq_index': freq_idx,
+      })
+      with open(os.path.join(self.run_dir, 'settings.json'), 'w') as fout:
+        json.dump(self.hasasia_settings, fout, indent=2, sort_keys=True)
+        fout.write('\n')
+
+      plt.figure(figsize=(6.4, 4.8))
+      plt.loglog(sensitivity.freqs, scaled_hc[:, sky_idx], color='C0')
+      plt.xlabel('Frequency [Hz]')
+      plt.ylabel('Characteristic Strain, h_c')
+      plt.title('Directional PTA Sensitivity (SNR={})'.format(snr))
+      plt.grid(which='both', alpha=0.3)
+      plt.tight_layout()
+      hc_plot_path = os.path.join(self.run_dir, 'pta_directional_curve.png')
+      plt.savefig(hc_plot_path, dpi=150)
+      plt.close()
+
+      plt.figure(figsize=(6.4, 4.8))
+      plt.loglog(sensitivity.freqs, h0_snr[:, sky_idx], color='C1')
+      plt.xlabel('Frequency [Hz]')
+      plt.ylabel(r'$h_0$ for target SNR')
+      plt.title('Directional PTA Sensitivity (SNR={})'.format(snr))
+      plt.grid(which='both', alpha=0.3)
+      plt.tight_layout()
+      h0_plot_path = os.path.join(self.run_dir, 'pta_directional_h0_snr.png')
+      plt.savefig(h0_plot_path, dpi=150)
+      plt.close()
+
+      hp.mollview(h0_snr[freq_idx, :], rot=(180, 0, 0),
+                  title='Directional PTA h0 at {:.3e} Hz'.format(
+                      sensitivity.freqs[freq_idx]),
+                  cmap='viridis_r')
+      hp.visufunc.projscatter(sensitivity.thetas, sensitivity.phis, marker='*',
+                              color='white', edgecolors='k', s=60)
+      hp.graticule()
+      plt.tight_layout()
+      sky_plot_path = os.path.join(self.run_dir, 'pta_directional_skymap.png')
+      plt.savefig(sky_plot_path, dpi=150)
+      plt.close()
+      self.log.write('Saved PTA directional tables {}, {}'.format(
+          curve_txt_path, skymap_txt_path))
+      self.log.write('Saved PTA directional plots {}, {}, {}'.format(
+          hc_plot_path, h0_plot_path, sky_plot_path))
+      return
+
+    raise ValueError('Unknown --pta {}'.format(pta_mode))
+
   def _load_latest_checkpoint(self, psr):
-    has_path = os.environ.get('HAS')
-    if has_path is not None and has_path not in sys.path:
-      sys.path.insert(0, has_path)
+    self._ensure_hasasia_path()
     pattern = os.path.join(self.hasasia_result_dir, 'hasasia',
                            '*_{}'.format(_safe_name(psr.name)))
     candidates = [path for path in glob.glob(pattern)
