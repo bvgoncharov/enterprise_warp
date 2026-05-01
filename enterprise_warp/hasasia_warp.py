@@ -808,6 +808,55 @@ class HasasiaWarpMixin(object):
       freq_idx = int(sensitivity.fidx(float(sky_freq))[0])
     return sky_idx, freq_idx
 
+  def _directional_coords(self, theta, phi):
+    import astropy.units as u
+    from astropy.coordinates import Angle
+
+    theta_angle = Angle(float(theta), unit=u.rad)
+    phi_angle = Angle(float(phi), unit=u.rad).wrap_at(360.0 * u.deg)
+    phi_rad = np.mod(phi_angle.to_value(u.rad), 2.0 * np.pi)
+    return {
+        'theta_rad': theta_angle.to_value(u.rad),
+        'phi_rad': phi_rad,
+        'lat_deg': (90.0 * u.deg - theta_angle).to_value(u.deg),
+        'phi_hour': Angle(phi_rad, unit=u.rad).to_value(u.hourangle),
+    }
+
+  def _directional_coord_label(self, theta, phi):
+    coords = self._directional_coords(theta, phi)
+    return (r'$\theta={:.2f}$, $\phi={:.2f}$ rad; lat={:+.1f}$^\circ$, '
+            r'$\phi={:.1f}$ h').format(
+                coords['theta_rad'], coords['phi_rad'],
+                coords['lat_deg'], coords['phi_hour'])
+
+  def _annotate_directional_skymap(self):
+    import healpy as hp
+
+    text_kwargs = {
+        'fontsize': 8,
+        'color': 'k',
+        'bbox': dict(facecolor='white', alpha=0.7,
+                     edgecolor='none', pad=0.2),
+    }
+    theta_ticks = np.linspace(0.0, np.pi, 5)
+    for theta in theta_ticks:
+      theta_plot = np.clip(theta, 1e-3, np.pi - 1e-3)
+      hp.projtext(theta_plot, 2.0 * np.pi - 1e-3, '{:.2f}'.format(theta),
+                  **text_kwargs)
+      hp.projtext(theta_plot, 1e-3, '{:+.0f}°'.format(
+          self._directional_coords(theta, 0.0)['lat_deg']), **text_kwargs)
+
+    for phi, phi_label, hour_label in [
+        (2.0 * np.pi, '{:.2f}'.format(2.0 * np.pi), '24h'),
+        (1.5 * np.pi, '{:.2f}'.format(1.5 * np.pi), '18h'),
+        (np.pi, '{:.2f}'.format(np.pi), '12h'),
+        (0.5 * np.pi, '{:.2f}'.format(0.5 * np.pi), '6h'),
+        (0.0, '{:.2f}'.format(0.0), '0h'),
+    ]:
+      phi_plot = np.clip(phi, 1e-3, 2.0 * np.pi - 1e-3)
+      hp.projtext(np.pi / 2.0 - 0.08, phi_plot, phi_label, **text_kwargs)
+      hp.projtext(np.pi / 2.0 + 0.08, phi_plot, hour_label, **text_kwargs)
+
   def _build_hasasia_objects(self, psr):
     self._ensure_hasasia_path()
     import hasasia.sensitivity as hsen
@@ -1131,6 +1180,12 @@ class HasasiaWarpMixin(object):
       import healpy as hp
 
       sky_idx, freq_idx = self._directional_selection(sensitivity)
+      selected_theta = float(np.asarray(sensitivity.theta_gw, dtype=float)[sky_idx])
+      selected_phi = float(np.asarray(sensitivity.phi_gw, dtype=float)[sky_idx])
+      selected_label = self._directional_coord_label(selected_theta, selected_phi)
+      requested_label = self._directional_coord_label(
+          getattr(self.opts, 'hasasia_directional_theta', 0.0),
+          getattr(self.opts, 'hasasia_directional_phi', 0.0))
       h0_snr = snr * np.sqrt(np.asarray(sensitivity.S_eff, dtype=float) /
                              float(sensitivity.Tspan))
       curve_table = np.column_stack([
@@ -1163,10 +1218,8 @@ class HasasiaWarpMixin(object):
           'directional_curve_phi_rad': float(getattr(
               self.opts, 'hasasia_directional_phi', 0.0)),
           'directional_curve_selected_pixel': sky_idx,
-          'directional_curve_selected_theta_rad': float(
-              np.asarray(sensitivity.theta_gw, dtype=float)[sky_idx]),
-          'directional_curve_selected_phi_rad': float(
-              np.asarray(sensitivity.phi_gw, dtype=float)[sky_idx]),
+          'directional_curve_selected_theta_rad': selected_theta,
+          'directional_curve_selected_phi_rad': selected_phi,
           'directional_skymap_selected_freq_hz': float(
               sensitivity.freqs[freq_idx]),
           'directional_skymap_selected_freq_index': freq_idx,
@@ -1174,12 +1227,34 @@ class HasasiaWarpMixin(object):
       with open(os.path.join(self.run_dir, 'settings.json'), 'w') as fout:
         json.dump(self.hasasia_settings, fout, indent=2, sort_keys=True)
         fout.write('\n')
+      self.log.write('Directional curve requested coordinates: {}'.format(
+          requested_label))
+      self.log.write('Directional curve selected HEALPix pixel {}: {}'.format(
+          sky_idx, selected_label))
+
+      min_idx = int(np.argmin(h0_snr[freq_idx, :]))
+      max_idx = int(np.argmax(h0_snr[freq_idx, :]))
+      self.log.write(
+          'Directional skymap minimum h0/SNR (maximum sensitivity) at {:.3e} Hz: '
+          'pixel {}: {}'.format(
+              sensitivity.freqs[freq_idx], min_idx,
+              self._directional_coord_label(
+                  np.asarray(sensitivity.theta_gw, dtype=float)[min_idx],
+                  np.asarray(sensitivity.phi_gw, dtype=float)[min_idx])))
+      self.log.write(
+          'Directional skymap maximum h0/SNR (minimum sensitivity) at {:.3e} Hz: '
+          'pixel {}: {}'.format(
+              sensitivity.freqs[freq_idx], max_idx,
+              self._directional_coord_label(
+                  np.asarray(sensitivity.theta_gw, dtype=float)[max_idx],
+                  np.asarray(sensitivity.phi_gw, dtype=float)[max_idx])))
 
       plt.figure(figsize=(6.4, 4.8))
       plt.loglog(sensitivity.freqs, scaled_hc[:, sky_idx], color='C0')
       plt.xlabel('Frequency [Hz]')
       plt.ylabel('Characteristic Strain, h_c')
-      plt.title('Directional PTA Sensitivity (SNR={})'.format(snr))
+      plt.title('Directional PTA Sensitivity (SNR={})\n{}'.format(
+          snr, selected_label))
       plt.grid(which='both', alpha=0.3)
       plt.tight_layout()
       hc_plot_path = os.path.join(self.run_dir, 'pta_directional_curve.png')
@@ -1190,7 +1265,8 @@ class HasasiaWarpMixin(object):
       plt.loglog(sensitivity.freqs, h0_snr[:, sky_idx], color='C1')
       plt.xlabel('Frequency [Hz]')
       plt.ylabel(r'$h_0$ for target SNR')
-      plt.title('Directional PTA Sensitivity (SNR={})'.format(snr))
+      plt.title('Directional PTA Sensitivity (SNR={})\n{}'.format(
+          snr, selected_label))
       plt.grid(which='both', alpha=0.3)
       plt.tight_layout()
       h0_plot_path = os.path.join(self.run_dir, 'pta_directional_h0_snr.png')
@@ -1204,7 +1280,7 @@ class HasasiaWarpMixin(object):
       hp.visufunc.projscatter(sensitivity.thetas, sensitivity.phis, marker='*',
                               color='white', edgecolors='k', s=60)
       hp.graticule()
-      plt.tight_layout()
+      self._annotate_directional_skymap()
       sky_plot_path = os.path.join(self.run_dir, 'pta_directional_skymap.png')
       plt.savefig(sky_plot_path, dpi=150)
       plt.close()
