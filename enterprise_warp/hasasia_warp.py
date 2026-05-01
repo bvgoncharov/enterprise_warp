@@ -51,6 +51,10 @@ class HasasiaParser(ResultsParser):
                                 "not implemented in this step.")
     self.parser.add_option("--hasasia_skymap_nside", default=32, type=int,
                            help="HEALPix NSIDE for --pta directional.")
+    self.parser.add_option("--hasasia_pulsar_term", action="store_true",
+                           default=False,
+                           help="Set pulsar_term=True for PTA CW/directional "
+                                "hasasia sensitivity.")
     self.parser.add_option("--hasasia_directional_theta", default=0.0, type=float,
                            help="Sky colatitude theta [rad] for --pta directional "
                                 "frequency curve.")
@@ -761,8 +765,12 @@ class HasasiaWarpMixin(object):
       sensitivity = hsen.GWBSensitivityCurve(spectra)
       extra_settings['pta_class'] = 'hasasia.sensitivity.GWBSensitivityCurve'
     elif pta_mode == 'cw':
-      sensitivity = hsen.DeterSensitivityCurve(spectra)
+      kwargs = {}
+      if getattr(self.opts, 'hasasia_pulsar_term', False):
+        kwargs['pulsar_term'] = True
+      sensitivity = hsen.DeterSensitivityCurve(spectra, **kwargs)
       extra_settings['pta_class'] = 'hasasia.sensitivity.DeterSensitivityCurve'
+      extra_settings['pulsar_term'] = sensitivity.pulsar_term
     elif pta_mode == 'directional':
       import healpy as hp
       import hasasia.skymap as hsky
@@ -771,9 +779,13 @@ class HasasiaWarpMixin(object):
       npix = hp.nside2npix(nside)
       ipix = np.arange(npix)
       theta_gw, phi_gw = hp.pix2ang(nside=nside, ipix=ipix)
-      sensitivity = hsky.SkySensitivity(spectra, theta_gw, phi_gw)
+      kwargs = {}
+      if getattr(self.opts, 'hasasia_pulsar_term', False):
+        kwargs['pulsar_term'] = True
+      sensitivity = hsky.SkySensitivity(spectra, theta_gw, phi_gw, **kwargs)
       extra_settings.update({
           'pta_class': 'hasasia.skymap.SkySensitivity',
+          'pulsar_term': sensitivity.pulsar_term,
           'skymap_nside': nside,
           'skymap_npix': int(npix),
       })
@@ -1096,7 +1108,7 @@ class HasasiaWarpMixin(object):
       plt.title('PTA CW Sensitivity (SNR={})'.format(snr))
       plt.grid(which='both', alpha=0.3)
       plt.tight_layout()
-      hc_plot_path = os.path.join(self.run_dir, 'pta_cw_sensitivity.png')
+      hc_plot_path = os.path.join(self.run_dir, 'pta_cw_hc.png')
       plt.savefig(hc_plot_path, dpi=150)
       plt.close()
 
@@ -1107,7 +1119,7 @@ class HasasiaWarpMixin(object):
       plt.title('PTA CW Sensitivity (SNR={})'.format(snr))
       plt.grid(which='both', alpha=0.3)
       plt.tight_layout()
-      h0_plot_path = os.path.join(self.run_dir, 'pta_cw_h0_snr.png')
+      h0_plot_path = os.path.join(self.run_dir, 'pta_cw_h0.png')
       plt.savefig(h0_plot_path, dpi=150)
       plt.close()
       self.log.write('Saved PTA sensitivity table {}'.format(txt_path))
