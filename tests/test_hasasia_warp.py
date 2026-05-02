@@ -121,6 +121,87 @@ class HasasiaWarpTestCase(unittest.TestCase):
     self.assertEqual(corr[1, 0], 1.0)
     self.assertEqual(corr[0, 2], 0.0)
 
+  def test_white_noise_diagnostics_from_quantized_epochs(self):
+    psr = SimpleNamespace(
+        name='J0000+0000',
+        toas=np.asarray([0.0, 10.0, 2 * 86400.0, 2 * 86400.0 + 10.0]),
+        toaerrs=np.asarray([1.0, 1.0, 1.0, 1.0]),
+        residuals=np.asarray([1.0, 3.0, 5.0, 7.0]),
+        flags={'f': np.asarray(['be1', 'be1', 'be1', 'be1'])},
+    )
+    noise = {
+        'J0000+0000_be1_efac': 1.0,
+        'J0000+0000_be1_log10_ecorr': 0.0,
+    }
+
+    class HsenStub(object):
+      @staticmethod
+      def quantize_fast(toas, toaerrs, flags=None, dt=1):
+        return None, None, None, None, [[0, 1], [2, 3]]
+
+    diagnostics = hasasia_warp.build_white_noise_diagnostics(
+        psr, noise, freqs=np.asarray([1.0e-8, 2.0e-8]), hsen=HsenStub())
+    self.assertAlmostEqual(diagnostics['delta_t_eff'], 2.0 * 86400.0)
+    self.assertAlmostEqual(diagnostics['tspan'], 2.0 * 86400.0)
+    self.assertAlmostEqual(diagnostics['mean_sigma_epoch_sqr'], 1.5)
+    self.assertAlmostEqual(diagnostics['white_psd'], 259200.0)
+    self.assertAlmostEqual(diagnostics['white_arith_psd'], 518400.0)
+    self.assertAlmostEqual(diagnostics['wrms_s'], 2.0)
+    self.assertAlmostEqual(diagnostics['wrms_psd'], 1382400.0)
+
+  def test_white_noise_diagnostics_without_residuals_omit_wrms_curve(self):
+    psr = SimpleNamespace(
+        name='J0000+0000',
+        toas=np.asarray([0.0, 10.0, 2 * 86400.0, 2 * 86400.0 + 10.0]),
+        toaerrs=np.asarray([1.0, 1.0, 1.0, 1.0]),
+        flags={'f': np.asarray(['be1', 'be1', 'be1', 'be1'])},
+    )
+
+    class HsenStub(object):
+      @staticmethod
+      def quantize_fast(toas, toaerrs, flags=None, dt=1):
+        return None, None, None, None, [[0, 1], [2, 3]]
+
+    diagnostics = hasasia_warp.build_white_noise_diagnostics(
+        psr, {}, freqs=np.asarray([1.0e-8, 2.0e-8]), hsen=HsenStub())
+    self.assertIsNotNone(diagnostics['white_hc'])
+    self.assertIsNone(diagnostics['wrms_s'])
+    self.assertIsNone(diagnostics['wrms_hc'])
+
+  def test_residual_psd_to_hc_conversion(self):
+    freqs = np.asarray([1.0e-8, 2.0e-8])
+    psd = np.asarray([3.0, 4.0])
+    hc = hasasia_warp._residual_psd_to_hc(freqs, psd)
+    expected = np.sqrt(12.0 * np.pi**2 * freqs**3 * psd)
+    self.assertTrue(np.allclose(hc, expected))
+
+  def test_transmission_function_from_tm_basis_matches_full_g_basis(self):
+    toas = np.asarray([0.0, 1.0, 3.0, 6.0])
+    designmatrix = np.column_stack([
+        np.ones_like(toas),
+        toas,
+    ])
+    freqs = np.asarray([0.1, 0.25])
+    tf_fast = hasasia_warp._transmission_function_from_tm_basis(
+        designmatrix, toas, freqs, chunk_size=1)
+    u_full = np.linalg.svd(designmatrix, full_matrices=True)[0]
+    g_basis = u_full[:, designmatrix.shape[1]:]
+    phases = np.exp(1j * 2.0 * np.pi * freqs[:, None] * toas[None, :])
+    tf_direct = np.real(np.sum(
+        np.abs(np.matmul(phases, g_basis))**2, axis=1) / float(toas.size))
+    self.assertTrue(np.allclose(tf_fast, tf_direct))
+
+  def test_astro_common_powerlaw_modes_derive_log10A_from_h2c(self):
+    obj = hasasia_warp.HasasiaEnterpriseWarp.__new__(
+        hasasia_warp.HasasiaEnterpriseWarp)
+    obj.pars = np.asarray(['crn_log10_h2c'])
+    obj.chain_burn = np.asarray([[-30.0], [-30.0], [-29.5], [-31.0]])
+    prefix, amp, gamma, source = obj._astro_common_powerlaw_modes()
+    self.assertEqual(prefix, 'crn')
+    self.assertAlmostEqual(amp, -15.0, places=2)
+    self.assertAlmostEqual(gamma, 13.0 / 3.0)
+    self.assertIn('log10_h2c', source)
+
   def test_projected_rrf_spectrum_keeps_geometry_metadata(self):
     class HsenStub(object):
       @staticmethod

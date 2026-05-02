@@ -268,6 +268,147 @@ def build_white_noise_model(psr, noise, hsen=None, log=None):
   return WhiteNoiseModel(sigma_sqr, ecorr_blocks)
 
 
+def _residual_psd_to_hc(freqs, psd):
+  freqs = np.asarray(freqs, dtype=float)
+  psd = np.asarray(psd, dtype=float)
+  return np.sqrt(12.0 * np.pi**2 * freqs**3 * psd)
+
+
+def _powerlaw_residual_psd(hsen, freqs, log10_amp, gamma):
+  return np.asarray(hsen.red_noise_powerlaw(
+      A=10.0**float(log10_amp), gamma=float(gamma), freqs=freqs),
+                    dtype=float)
+
+
+def _transmission_function_from_tm_basis(designmatrix, toas, freqs,
+                                         chunk_size=64):
+  """Compute hasasia's from_G transmission function without dense TOA meshes.
+
+  If ``U_tm`` spans the timing-model column space, and ``G`` spans the
+  orthogonal complement, then
+
+    ||e^T G||^2 = ||e||^2 - ||e^T U_tm||^2
+
+  for ``e_k = exp(2 pi i f t_k)``.  hasasia's from_G transmission function is
+  ``||e^T G||^2 / N_toa``.
+  """
+  designmatrix = np.asarray(designmatrix, dtype=float)
+  toas = np.asarray(toas, dtype=float)
+  freqs = np.asarray(freqs, dtype=float)
+  nt = toas.size
+  u_tm = np.linalg.svd(designmatrix, full_matrices=False)[0]
+  tf = np.empty(freqs.size, dtype=float)
+  for start in range(0, freqs.size, int(chunk_size)):
+    stop = min(start + int(chunk_size), freqs.size)
+    phases = np.exp(1j * 2.0 * np.pi * freqs[start:stop, None] *
+                    toas[None, :])
+    proj_tm = np.matmul(phases, u_tm)
+    tf[start:stop] = np.real(
+        (float(nt) - np.sum(np.abs(proj_tm)**2, axis=1)) / float(nt))
+  return np.clip(tf, 0.0, None)
+
+
+def build_white_noise_diagnostics(psr, noise, freqs, hsen=None, log=None):
+  """Build white-noise diagnostic curves from quantized epochs.
+
+  Returns a dict with plot-ready values or ``None`` if the cadence cannot be
+  estimated robustly from the available epochs.
+  """
+  if hsen is None:
+    return None
+
+  freqs = np.asarray(freqs, dtype=float)
+  toas = np.asarray(psr.toas, dtype=float)
+  toaerrs = np.asarray(psr.toaerrs, dtype=float)
+  residuals = getattr(psr, 'residuals', None)
+  flags = getattr(psr, 'flags', {})
+  backend_flags = np.asarray(flags['f']).astype(str) if 'f' in flags \
+                  else np.repeat('all', toaerrs.size)
+
+  _, _, _, _, buckets = hsen.quantize_fast(toas, toaerrs, flags=backend_flags,
+                                           dt=1)
+  epoch_toas = []
+  sigma_epoch_sqr = []
+  epoch_residuals = []
+
+  for bucket in buckets:
+    bucket = np.asarray(bucket, dtype=int)
+    for backend in np.unique(backend_flags[bucket]):
+      local = bucket[backend_flags[bucket] == backend]
+      efac, _ = _noise_lookup(noise, psr.name, backend, 'efac', 1.0)
+      equad_log10, _ = _noise_lookup(
+          noise, psr.name, backend,
+          ['log10_t2equad', 'log10_equad', 'log10_tnequad'])
+      ecorr_log10, _ = _noise_lookup(noise, psr.name, backend, 'log10_ecorr')
+      equad = 0.0 if equad_log10 is None else 10.0**float(equad_log10)
+      ecorr_var = 0.0 if ecorr_log10 is None else 10.0**(2.0 * float(ecorr_log10))
+      sigma_i_sqr = float(efac)**2 * toaerrs[local]**2 + equad**2
+      inv_sigma_sum = np.sum(1.0 / sigma_i_sqr)
+      if not np.isfinite(inv_sigma_sum) or inv_sigma_sum <= 0.0:
+        continue
+      sigma_epoch = 1.0 / inv_sigma_sum + ecorr_var
+      epoch_toas.append(float(np.mean(toas[local])))
+      sigma_epoch_sqr.append(float(sigma_epoch))
+      if residuals is not None:
+        residuals_local = np.asarray(residuals, dtype=float)[local]
+        epoch_residuals.append(float(np.sum(
+            residuals_local / sigma_i_sqr) / inv_sigma_sum))
+
+  if len(epoch_toas) < 2:
+    if log is not None:
+      log.write('White-noise diagnostics omitted: need at least two backend '
+                'split epochs, found {}.'.format(len(epoch_toas)))
+    return None
+
+  order = np.argsort(epoch_toas)
+  epoch_toas = np.asarray(epoch_toas, dtype=float)[order]
+  sigma_epoch_sqr = np.asarray(sigma_epoch_sqr, dtype=float)[order]
+  dt_eff = float(np.mean(np.diff(epoch_toas)))
+  if not np.isfinite(dt_eff) or dt_eff <= 0.0:
+    if log is not None:
+      log.write('White-noise diagnostics omitted: invalid epoch spacing {}.'
+                .format(dt_eff))
+    return None
+
+  tspan = float(epoch_toas[-1] - epoch_toas[0])
+  white_psd = 2.0 * tspan / np.sum(1.0 / sigma_epoch_sqr)
+  mean_sigma_epoch_sqr = float(np.mean(sigma_epoch_sqr))
+  white_arith_psd = 2.0 * mean_sigma_epoch_sqr * dt_eff
+  diagnostics = {
+      'delta_t_eff': dt_eff,
+      'tspan': tspan,
+      'mean_sigma_epoch_sqr': mean_sigma_epoch_sqr,
+      'white_psd': white_psd,
+      'white_hc': _residual_psd_to_hc(freqs, white_psd),
+      'white_arith_psd': white_arith_psd,
+      'white_arith_hc': _residual_psd_to_hc(freqs, white_arith_psd),
+      'white_tf': None,
+      'white_tf_psd': None,
+      'white_tf_hc': None,
+      'wrms_s': None,
+      'wrms_psd': None,
+      'wrms_hc': None,
+  }
+
+  if residuals is None:
+    if log is not None:
+      log.write('RMS residual diagnostics omitted: pulsar residuals missing.')
+    return diagnostics
+
+  epoch_residuals = np.asarray(epoch_residuals, dtype=float)[order]
+  weights = 1.0 / sigma_epoch_sqr
+  residual_mean = float(np.sum(weights * epoch_residuals) / np.sum(weights))
+  wrms_sqr = float(np.sum(weights * (epoch_residuals - residual_mean)**2) /
+                   np.sum(weights))
+  wrms_psd = 2.0 * wrms_sqr * dt_eff
+  diagnostics.update({
+      'wrms_s': float(np.sqrt(wrms_sqr)),
+      'wrms_psd': wrms_psd,
+      'wrms_hc': _residual_psd_to_hc(freqs, wrms_psd),
+  })
+  return diagnostics
+
+
 class TimingMarginalizedWhiteOperator(object):
   """Apply timing-marginalized inverse white covariance in bilinear form."""
 
@@ -446,8 +587,8 @@ class HasasiaWarpMixin(object):
     self.log.write('Selected pulsar {} at loaded index {}'.format(psr.name, psr_index))
 
     self._load_result_chain()
-    hpsr, spectrum = self._build_hasasia_objects(psr)
-    self._write_outputs(hpsr, spectrum)
+    hpsr, spectrum, plot_diagnostics = self._build_hasasia_objects(psr)
+    self._write_outputs(hpsr, spectrum, plot_diagnostics=plot_diagnostics)
 
   def _run_full_pta_pipeline(self, pta_mode):
     self.run_dir = os.path.join(
@@ -718,14 +859,56 @@ class HasasiaWarpMixin(object):
     self.hasasia_psr = psr
     self.hasasia_psr_index = psr_index
     try:
-      hpsr, spectrum = self._build_hasasia_objects(psr)
-      self._write_outputs(hpsr, spectrum, run_dir=run_dir)
+      hpsr, spectrum, plot_diagnostics = self._build_hasasia_objects(psr)
+      self._write_outputs(hpsr, spectrum, run_dir=run_dir,
+                          plot_diagnostics=plot_diagnostics)
     finally:
       self.log = previous_log
       self.run_dir = previous_run_dir
       self.hasasia_psr = previous_psr
       self.hasasia_psr_index = previous_psr_index
     return hpsr, spectrum, run_dir
+
+  def _harmonize_pta_spectrum_freqs(self, spectra, psr_names=None):
+    """Align negligible checkpoint roundoff before PTA sensitivity assembly.
+
+    Mixed single-pulsar checkpoints may come from slightly different NumPy
+    versions. In practice that can shift a few `np.logspace` bins by one ULP,
+    which is harmless scientifically but still trips hasasia's strict
+    array-equality check for PTA sensitivity objects.
+    """
+    if not spectra:
+      return spectra
+    if psr_names is None:
+      psr_names = ['unknown'] * len(spectra)
+
+    ref = np.asarray(getattr(spectra[0], 'freqs', None), dtype=float)
+    ref_name = psr_names[0]
+    normalized = []
+    mismatched = []
+    for psr_name, spectrum in zip(psr_names[1:], spectra[1:]):
+      freqs = np.asarray(getattr(spectrum, 'freqs', None), dtype=float)
+      if freqs.shape == ref.shape and np.array_equal(freqs, ref):
+        continue
+      if _freq_match(freqs, ref):
+        spectrum.freqs = ref.copy()
+        normalized.append(psr_name)
+        continue
+      mismatched.append((psr_name, freqs))
+
+    if mismatched:
+      details = ['{} vs {}: shape={} first={} last={}'.format(
+          psr_name, ref_name, freqs.shape,
+          float(freqs[0]) if freqs.size else None,
+          float(freqs[-1]) if freqs.size else None)
+                 for psr_name, freqs in mismatched]
+      raise ValueError('PTA hasasia spectra use incompatible frequency grids: '
+                       + '; '.join(details))
+
+    if normalized:
+      self.log.write('Normalized near-identical hasasia frequency grids for: '
+                     + ', '.join(normalized))
+    return spectra
 
   def _load_or_build_pta_spectra(self):
     curve_freqs = self._curve_freqs(self._full_pta_tspan())
@@ -754,7 +937,10 @@ class HasasiaWarpMixin(object):
         checkpoint_paths[psr.name] = checkpoint
         self.log.write('Built spectrum checkpoint for {}: {}'.format(
             psr.name, checkpoint))
-    return [spectra[psr.name] for psr in self.params.psrs], checkpoint_paths
+    ordered_psrs = list(self.params.psrs)
+    ordered = [spectra[psr.name] for psr in ordered_psrs]
+    return self._harmonize_pta_spectrum_freqs(
+        ordered, psr_names=[psr.name for psr in ordered_psrs]), checkpoint_paths
 
   def _build_full_pta_object(self, pta_mode, spectra):
     self._ensure_hasasia_path()
@@ -879,6 +1065,7 @@ class HasasiaWarpMixin(object):
     noise = {key: val for key, val in getattr(self.params, 'noisedict', {}).items()
              if key.startswith(psr.name)}
     self.log.write('Loaded {} noise parameters for {}'.format(len(noise), psr.name))
+    plot_diagnostics = []
 
     spectrum_kind = str(getattr(self.opts, 'hasasia_spectrum', 'spectrum')).lower()
     designmatrix = getattr(psr, 'Mmat', getattr(psr, 'designmatrix', None))
@@ -978,7 +1165,81 @@ class HasasiaWarpMixin(object):
         else:
           self.log.write('No common GWB/CRN covariance added.')
 
+    if common_powerlaw is None:
+      astro_powerlaw = self._astro_common_powerlaw_modes()
+      if astro_powerlaw is not None:
+        prefix, amp_log10, gamma, source = astro_powerlaw
+        common_powerlaw = (prefix, amp_log10, gamma)
+        common_powerlaw_source = source
+
     curve_freqs = self._curve_freqs(common_tspan)
+    diagnostic_psr = work_psr
+    if hasattr(psr, 'residuals'):
+      diagnostic_psr = SimpleNamespace(
+          name=work_psr.name, toas=work_psr.toas, toaerrs=work_psr.toaerrs,
+          flags=work_psr.flags,
+          residuals=np.asarray(getattr(psr, 'residuals'), dtype=float))
+    white_diagnostics = build_white_noise_diagnostics(
+        psr=diagnostic_psr, noise=noise, freqs=curve_freqs, hsen=hsen,
+        log=self.log)
+    if white_diagnostics is not None:
+      white_tf = _transmission_function_from_tm_basis(
+          designmatrix=designmatrix, toas=toas, freqs=curve_freqs)
+      with np.errstate(divide='ignore', invalid='ignore'):
+        white_tf_psd = np.where(white_tf > 0.0,
+                                white_diagnostics['white_psd'] / white_tf,
+                                np.nan)
+      white_diagnostics['white_tf'] = white_tf
+      white_diagnostics['white_tf_psd'] = white_tf_psd
+      white_diagnostics['white_tf_hc'] = _residual_psd_to_hc(
+          curve_freqs, white_tf_psd)
+      self.log.write('White-noise diagnostic cadence [days]: {:.3f}'.format(
+          white_diagnostics['delta_t_eff'] / 86400.0))
+      self.log.write('White-noise diagnostic mean sigma_epoch^2 [s^2]: {:.6e}'
+                     .format(white_diagnostics['mean_sigma_epoch_sqr']))
+      self.log.write('White-noise diagnostic harmonic P(f) [s^3]: {:.6e}'.format(
+          white_diagnostics['white_psd']))
+      self.log.write('White-noise diagnostic arithmetic P(f) [s^3]: {:.6e}'
+                     .format(white_diagnostics['white_arith_psd']))
+      finite_tf = white_tf[np.isfinite(white_tf) & (white_tf > 0.0)]
+      if finite_tf.size > 0:
+        self.log.write('White-noise diagnostic transmission range: '
+                       'min={:.6e} max={:.6e}'.format(
+                           float(np.min(finite_tf)), float(np.max(finite_tf))))
+      plot_diagnostics.append({
+          'curve': np.asarray(white_diagnostics['white_hc'], dtype=float),
+          'color': '0.6',
+          'linestyle': '-',
+          'linewidth': 0.4,
+          'label': 'White noise',
+      })
+      plot_diagnostics.append({
+          'curve': np.asarray(white_diagnostics['white_arith_hc'], dtype=float),
+          'color': '0.6',
+          'linestyle': '--',
+          'linewidth': 0.4,
+          'label': 'White noise avg',
+      })
+      plot_diagnostics.append({
+          'curve': np.asarray(white_diagnostics['white_tf_hc'], dtype=float),
+          'color': 'k',
+          'linestyle': '--',
+          'linewidth': 0.4,
+          'label': 'White noise + Tf',
+      })
+      if white_diagnostics['wrms_hc'] is not None:
+        self.log.write('Residual WRMS diagnostic [us]: {:.2f}'.format(
+            white_diagnostics['wrms_s'] * 1.0e6))
+        self.log.write('Residual WRMS diagnostic P(f) [s^3]: {:.6e}'.format(
+            white_diagnostics['wrms_psd']))
+        plot_diagnostics.append({
+            'curve': np.asarray(white_diagnostics['wrms_hc'], dtype=float),
+            'color': '0.6',
+            'linestyle': ':',
+            'linewidth': 0.4,
+            'label': 'RMS = {:.2f} us'.format(
+                white_diagnostics['wrms_s'] * 1.0e6),
+        })
     rrf_common_nfreq = common_nfreq
     rrf_red_nfreq = red_nfreq
     if spectrum_kind == 'rrf' or projected_rrf:
@@ -1033,6 +1294,45 @@ class HasasiaWarpMixin(object):
       raise ValueError('Unknown --hasasia_spectrum {}'.format(spectrum_kind))
     _ = spectrum.NcalInv
 
+    if red_amp_log10 is not None and red_gamma is not None:
+      plot_diagnostics.append({
+          'curve': _residual_psd_to_hc(
+              curve_freqs,
+              _powerlaw_residual_psd(hsen, curve_freqs,
+                                     red_amp_log10, red_gamma)),
+          'color': '0.6',
+          'linestyle': '-.',
+          'linewidth': 0.4,
+          'label': 'RN: log10A={:.2f}, gamma={:.2f}'.format(
+              float(red_amp_log10), float(red_gamma)),
+      })
+      self.log.write('Red-noise diagnostic overlay: log10_A={:.6f}, '
+                     'gamma={:.6f}'.format(
+                         float(red_amp_log10), float(red_gamma)))
+    else:
+      self.log.write('Red-noise diagnostic overlay omitted: parameters missing.')
+
+    if common_powerlaw is not None:
+      prefix, amp_log10, gamma = common_powerlaw
+      label_prefix = 'GWB' if prefix == 'gw' else str(prefix).upper()
+      plot_diagnostics.append({
+          'curve': _residual_psd_to_hc(
+              curve_freqs,
+              _powerlaw_residual_psd(hsen, curve_freqs, amp_log10, gamma)),
+          'color': 'k',
+          'linestyle': '-',
+          'linewidth': 0.4,
+          'label': '{}: log10A={:.2f}, gamma={:.2f}'.format(
+              label_prefix, float(amp_log10), float(gamma)),
+      })
+      self.log.write('Common-process diagnostic overlay: prefix={}, '
+                     'log10_A={:.6f}, gamma={:.6f} ({})'.format(
+                         prefix, float(amp_log10), float(gamma),
+                         common_powerlaw_source))
+    else:
+      self.log.write('Common-process diagnostic overlay omitted: no power-law '
+                     'representation available.')
+
     self.hasasia_settings = {
         'result': str(self.opts.result),
         'result_dir': self.hasasia_result_dir,
@@ -1060,9 +1360,10 @@ class HasasiaWarpMixin(object):
         'spectrum': spectrum_kind,
         'average_toas': int(getattr(self.opts, 'hasasia_average_toas', 0)),
     }
-    return hpsr, spectrum
+    return hpsr, spectrum, plot_diagnostics
 
-  def _write_outputs(self, psr, spectrum, run_dir=None, settings=None):
+  def _write_outputs(self, psr, spectrum, run_dir=None, settings=None,
+                     plot_diagnostics=None):
     run_dir = self.run_dir if run_dir is None else run_dir
     settings = self.hasasia_settings if settings is None else settings
     with open(os.path.join(run_dir, 'settings.json'), 'w') as fout:
@@ -1083,11 +1384,17 @@ class HasasiaWarpMixin(object):
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     plt.figure(figsize=(6.4, 4.8))
-    plt.loglog(spectrum.freqs, spectrum.h_c, color='C0')
+    plt.loglog(spectrum.freqs, spectrum.h_c, color='C0', label='Sensitivity')
+    for overlay in plot_diagnostics or []:
+      plt.loglog(spectrum.freqs, overlay['curve'], color=overlay['color'],
+                 linestyle=overlay['linestyle'],
+                 linewidth=overlay['linewidth'], label=overlay['label'])
     plt.xlabel('Frequency [Hz]')
     plt.ylabel('Characteristic Strain, h_c')
     plt.title(psr.name)
     plt.grid(which='both', alpha=0.3)
+    if plot_diagnostics:
+      plt.legend(loc='best', fontsize=8)
     plt.tight_layout()
     plot_path = os.path.join(run_dir,
                              'sensitivity_{}.png'.format(_safe_name(psr.name)))
