@@ -321,6 +321,37 @@ def build_constant_white_noise_model(psr, white_rms_s, log=None):
   return WhiteNoiseModel(diag_var, [])
 
 
+def constant_white_rms_from_psd(psr, white_psd):
+  """Return the per-TOA RMS whose constant PSD matches ``white_psd``."""
+  white_psd = float(white_psd)
+  if not np.isfinite(white_psd) or white_psd <= 0.0:
+    raise ValueError('Constant white-noise PSD must be finite and positive, '
+                     'got {}.'.format(white_psd))
+  toas = np.asarray(psr.toas, dtype=float)
+  if toas.size < 2:
+    raise ValueError('Need at least two TOAs to derive constant white-noise '
+                     'RMS from PSD, got {}.'.format(toas.size))
+  tspan = float(np.max(toas) - np.min(toas))
+  if not np.isfinite(tspan) or tspan <= 0.0:
+    raise ValueError('Need a positive TOA span to derive constant white-noise '
+                     'RMS from PSD, got {}.'.format(tspan))
+  return float(np.sqrt(white_psd * toas.size / (2.0 * tspan)))
+
+
+def _weighted_rms(values, sigma):
+  """Weighted RMS with the same mean-removal convention as gp_reconstruction."""
+  values = np.asarray(values, dtype=float)
+  sigma = np.asarray(sigma, dtype=float)
+  weights = np.where(sigma > 0.0, 1.0 / sigma**2, 0.0)
+  if values.shape != sigma.shape:
+    raise ValueError('values and sigma must have the same shape, got {} and {}.'
+                     .format(values.shape, sigma.shape))
+  if not np.any(weights > 0.0):
+    return np.nan
+  mean = np.sum(weights * values) / np.sum(weights)
+  return float(np.sqrt(np.sum(weights * (values - mean)**2) / np.sum(weights)))
+
+
 def _residual_psd_to_hc(freqs, psd):
   freqs = np.asarray(freqs, dtype=float)
   psd = np.asarray(psd, dtype=float)
@@ -359,6 +390,50 @@ def _transmission_function_from_tm_basis(designmatrix, toas, freqs,
     tf[start:stop] = np.real(
         (float(nt) - np.sum(np.abs(proj_tm)**2, axis=1)) / float(nt))
   return np.clip(tf, 0.0, None)
+
+
+def build_toa_white_noise_diagnostics(psr, residuals, freqs, log=None):
+  """Build a TOA-level constant-white-noise diagnostic from residuals."""
+  toas = np.asarray(psr.toas, dtype=float)
+  toaerrs = np.asarray(psr.toaerrs, dtype=float)
+  residuals = np.asarray(residuals, dtype=float)
+  freqs = np.asarray(freqs, dtype=float)
+  if residuals.shape != toaerrs.shape:
+    raise ValueError('TOA-level residual diagnostics require matching '
+                     'residual and toaerr shapes, got {} and {}.'
+                     .format(residuals.shape, toaerrs.shape))
+  if residuals.shape != toas.shape:
+    raise ValueError('TOA-level residual diagnostics require matching '
+                     'residual and TOA shapes, got {} and {}.'
+                     .format(residuals.shape, toas.shape))
+  if toas.size < 2:
+    raise ValueError('TOA-level residual diagnostics require at least two '
+                     'TOAs, got {}.'.format(toas.size))
+
+  wrms_s = _weighted_rms(residuals, toaerrs)
+  if not np.isfinite(wrms_s) or wrms_s <= 0.0:
+    raise ValueError('TOA-level residual diagnostics require a finite '
+                     'positive weighted RMS, got {}.'.format(wrms_s))
+
+  tspan = float(toas.max() - toas.min())
+  if not np.isfinite(tspan) or tspan <= 0.0:
+    raise ValueError('TOA-level residual diagnostics require a positive TOA '
+                     'span, got {}.'.format(tspan))
+
+  sigma_const = np.full(toas.size, wrms_s, dtype=float)
+  white_psd = 2.0 * tspan / np.sum(1.0 / sigma_const**2)
+  diagnostics = {
+      'tspan': tspan,
+      'wrms_s': wrms_s,
+      'wrms_psd': white_psd,
+      'wrms_hc': _residual_psd_to_hc(freqs, white_psd),
+  }
+  if log is not None:
+    log.write('Built TOA-level white-noise diagnostics from GP-whitened '
+              'residuals: WRMS {:.6e} s, PSD {:.6e} s^3, N_toa {}, '
+              'Tspan {:.6e} s.'.format(
+                  wrms_s, white_psd, int(toas.size), tspan))
+  return diagnostics
 
 
 def build_white_noise_diagnostics(psr, noise, freqs, hsen=None, log=None):
@@ -1260,7 +1335,8 @@ class HasasiaWarpMixin(object):
          ww_diagnostics['wrms_s'] <= 0.0:
         raise ValueError('Model-independent --wn_model requires a finite '
                          'GP-whitened weighted RMS for {}.'.format(psr.name))
-      ww_rms_s = float(ww_diagnostics['wrms_s'])
+      ww_rms_s = constant_white_rms_from_psd(
+          work_psr, float(ww_diagnostics['wrms_psd']))
       if projected_rrf:
         white_model = build_constant_white_noise_model(
             work_psr, ww_rms_s, log=self.log)
@@ -1270,8 +1346,10 @@ class HasasiaWarpMixin(object):
         total_n = build_constant_white_noise_covariance(
             work_psr, ww_rms_s, log=self.log)
       self.log.write('Using model-independent white noise for {} from '
-                     'GP-whitened WRMS {:.6e} s ({}).'.format(
-                         psr.name, ww_rms_s, gp_whitened['path']))
+                     'GP-whitened WRMS PSD {:.6e} s^3, equivalent constant '
+                     'TOA RMS {:.6e} s ({}).'.format(
+                         psr.name, float(ww_diagnostics['wrms_psd']),
+                         ww_rms_s, gp_whitened['path']))
     elif projected_rrf:
       white_model = build_white_noise_model(work_psr, noise, hsen=hsen,
                                             log=self.log)
@@ -1563,6 +1641,9 @@ class HasasiaWarpMixin(object):
         'average_toas': int(getattr(self.opts, 'hasasia_average_toas', 0)),
         'wn_model': wn_model,
         'wwrms_s': None if ww_diagnostics is None else float(ww_diagnostics['wrms_s']),
+        'wwrms_psd': None if ww_diagnostics is None else float(ww_diagnostics['wrms_psd']),
+        'wn_cov_rms_s': None if ww_diagnostics is None or wn_model != 'model-independent'
+                        else float(ww_rms_s),
         'gp_reconstruction_path': None if gp_whitened is None else gp_whitened['path'],
         'gp_reconstruction_terms': None if gp_whitened is None else gp_whitened['terms'],
     }
