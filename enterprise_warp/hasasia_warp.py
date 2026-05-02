@@ -40,6 +40,9 @@ class HasasiaParser(ResultsParser):
                            help="spectrum, rrf, or rrf_projected.")
     self.parser.add_option("--hasasia_load_latest", default=0, type=int,
                            help="Load latest checkpoint (1/0).")
+    self.parser.add_option("--wn_model", default="model-based", type=str,
+                           help="Single-pulsar white-noise model: "
+                                "model-based or model-independent.")
     self.parser.add_option("--hasasia_nf", default=600, type=int,
                            help="Sensitivity-curve frequency count.")
     self.parser.add_option("--hasasia_fmin", default=None, type=float,
@@ -109,6 +112,28 @@ def _freq_match(left, right, rtol=1e-10, atol=0.0):
   right = np.asarray(right, dtype=float)
   return left.shape == right.shape and np.allclose(left, right, rtol=rtol,
                                                    atol=atol)
+
+
+def normalize_wn_model(value):
+  """Normalize supported white-noise model selectors."""
+  norm = str(value).strip().lower().replace('_', '-')
+  aliases = {
+      'model-based': 'model-based',
+      'modelbased': 'model-based',
+      'model-independent': 'model-independent',
+      'modelindependent': 'model-independent',
+  }
+  if norm not in aliases:
+    raise ValueError('Unknown --wn_model {} (allowed: model-based, '
+                     'model-independent)'.format(value))
+  return aliases[norm]
+
+
+def _toas_for_saved_gp_output(toas):
+  toas = np.asarray(toas, dtype=float)
+  if np.nanmedian(np.abs(toas)) > 1.0e6:
+    return toas / 86400.0
+  return toas
 
 
 def _pta_snr_scaled_curves(pta_mode, sensitivity, snr):
@@ -266,6 +291,34 @@ def build_white_noise_model(psr, noise, hsen=None, log=None):
           backend, summary['value'], summary['key'],
           summary['epochs'], summary['toas']))
   return WhiteNoiseModel(sigma_sqr, ecorr_blocks)
+
+
+def build_constant_white_noise_covariance(psr, white_rms_s, log=None):
+  """Build a diagonal white-noise covariance from one RMS level."""
+  white_rms_s = float(white_rms_s)
+  if not np.isfinite(white_rms_s) or white_rms_s <= 0.0:
+    raise ValueError('Constant white-noise RMS must be finite and positive, '
+                     'got {}.'.format(white_rms_s))
+  diag_var = np.full(len(np.asarray(psr.toas, dtype=float)),
+                     white_rms_s**2, dtype=float)
+  if log is not None:
+    log.write('Using constant white-noise covariance with RMS {:.6e} s.'
+              .format(white_rms_s))
+  return np.diag(diag_var)
+
+
+def build_constant_white_noise_model(psr, white_rms_s, log=None):
+  """Build a diagonal-only WhiteNoiseModel from one RMS level."""
+  white_rms_s = float(white_rms_s)
+  if not np.isfinite(white_rms_s) or white_rms_s <= 0.0:
+    raise ValueError('Constant white-noise RMS must be finite and positive, '
+                     'got {}.'.format(white_rms_s))
+  diag_var = np.full(len(np.asarray(psr.toas, dtype=float)),
+                     white_rms_s**2, dtype=float)
+  if log is not None:
+    log.write('Using constant white-noise model with RMS {:.6e} s.'
+              .format(white_rms_s))
+  return WhiteNoiseModel(diag_var, [])
 
 
 def _residual_psd_to_hc(freqs, psd):
@@ -572,6 +625,9 @@ class HasasiaWarpMixin(object):
           pta_mode, ', '.join(allowed)))
     return pta_mode
 
+  def _wn_model(self):
+    return normalize_wn_model(getattr(self.opts, 'wn_model', 'model-based'))
+
   def _run_single_pulsar_pipeline(self):
     psr, psr_index = self._select_psr(getattr(self.opts, 'hasasia_psr', '0'))
     self.hasasia_psr = psr
@@ -585,6 +641,7 @@ class HasasiaWarpMixin(object):
     self.log = RunLog(os.path.join(self.run_dir, 'run.log'))
     self.log.write('Result directory: {}'.format(self.hasasia_result_dir))
     self.log.write('Selected pulsar {} at loaded index {}'.format(psr.name, psr_index))
+    self.log.write('White-noise model: {}'.format(self._wn_model()))
 
     self._load_result_chain()
     hpsr, spectrum, plot_diagnostics = self._build_hasasia_objects(psr)
@@ -599,6 +656,7 @@ class HasasiaWarpMixin(object):
     self.log = RunLog(os.path.join(self.run_dir, 'run.log'))
     self.log.write('Result directory: {}'.format(self.hasasia_result_dir))
     self.log.write('PTA sensitivity mode: {}'.format(pta_mode))
+    self.log.write('White-noise model: {}'.format(self._wn_model()))
     if getattr(self.opts, 'hasasia_load_latest', 0):
       self.log.write('--hasasia_load_latest is only used for --pta psr; '
                      'full PTA modes always collect latest compatible '
@@ -803,6 +861,9 @@ class HasasiaWarpMixin(object):
     if int(settings.get('average_toas', -1)) != int(
         getattr(self.opts, 'hasasia_average_toas', 0)):
       return False
+    if normalize_wn_model(settings.get('wn_model', 'model-based')) != \
+       self._wn_model():
+      return False
     return True
 
   def _load_checkpoint_settings(self, path):
@@ -825,6 +886,9 @@ class HasasiaWarpMixin(object):
           settings, psr_name, curve_freqs):
         return path
 
+    if self._wn_model() != 'model-based':
+      return None
+
     self._ensure_hasasia_path()
     for path in candidates:
       spectrum_path = os.path.join(path, 'spectrum.pkl')
@@ -845,6 +909,102 @@ class HasasiaWarpMixin(object):
     _ = spectrum.NcalInv
     return hpsr, spectrum
 
+  def _gp_reconstruction_root(self):
+    return os.path.join(self.hasasia_result_dir, 'gp_reconstruction')
+
+  def _latest_gp_whitened_residuals(self, psr, model_id):
+    """Load the best available GP-whitened residual series for one pulsar."""
+    root = self._gp_reconstruction_root()
+    if not os.path.isdir(root):
+      raise ValueError('Model-independent --wn_model requires saved '
+                       'gp_reconstruction outputs under {}.'.format(root))
+
+    safe_psr = _safe_name(psr.name)
+    current_toas = _toas_for_saved_gp_output(np.asarray(psr.toas, dtype=float))
+    current_toaerrs = np.asarray(psr.toaerrs, dtype=float)
+    candidates = []
+    target_terms = ['red_noise', 'crn', 'gw']
+
+    for path in sorted(glob.glob(os.path.join(root, '*')), reverse=True):
+      settings = self._load_checkpoint_settings(path)
+      if settings is None:
+        continue
+      if settings.get('result') != str(self.opts.result):
+        continue
+      if int(settings.get('selected_model', -1)) != int(model_id):
+        continue
+      if psr.name not in settings.get('selected_pulsars', []):
+        continue
+
+      tables = {}
+      for term in target_terms:
+        term_path = os.path.join(
+            path, '{}_{}_toas.txt'.format(safe_psr, _safe_name(term)))
+        if os.path.isfile(term_path):
+          data = np.loadtxt(term_path)
+          data = np.atleast_2d(np.asarray(data, dtype=float))
+          if data.shape[1] < 6:
+            raise ValueError('Unexpected GP reconstruction table shape {} in '
+                             '{}.'.format(data.shape, term_path))
+          tables[term] = {'path': term_path, 'table': data}
+
+      if not tables:
+        continue
+
+      reference = next(iter(tables.values()))['table']
+      if not _freq_match(reference[:, 0], current_toas, rtol=1.0e-10,
+                         atol=1.0e-12):
+        continue
+      if not np.allclose(reference[:, 2], current_toaerrs, rtol=1.0e-10,
+                         atol=1.0e-16):
+        continue
+
+      consistent = True
+      for entry in tables.values():
+        table = entry['table']
+        if not np.allclose(table[:, 0], reference[:, 0], rtol=1.0e-10,
+                           atol=1.0e-12):
+          consistent = False
+          break
+        if not np.allclose(table[:, 1], reference[:, 1], rtol=1.0e-10,
+                           atol=1.0e-16):
+          consistent = False
+          break
+        if not np.allclose(table[:, 2], reference[:, 2], rtol=1.0e-10,
+                           atol=1.0e-16):
+          consistent = False
+          break
+      if not consistent:
+        continue
+
+      gp_sum = np.zeros(reference.shape[0], dtype=float)
+      used_terms = []
+      for term in target_terms:
+        if term not in tables:
+          continue
+        gp_sum += np.asarray(tables[term]['table'][:, 3], dtype=float)
+        used_terms.append(term)
+      candidates.append({
+          'path': path,
+          'terms': used_terms,
+          'residuals': np.asarray(reference[:, 1], dtype=float),
+          'toaerrs': np.asarray(reference[:, 2], dtype=float),
+          'whitened_residuals': np.asarray(reference[:, 1], dtype=float) - gp_sum,
+      })
+
+    if not candidates:
+      raise ValueError('Model-independent --wn_model requires saved GP '
+                       'reconstruction time series for {} under {}. Run '
+                       'enterprise_warp.gp_reconstruction first.'
+                       .format(psr.name, root))
+
+    best = sorted(candidates,
+                  key=lambda item: (len(item['terms']), item['path']),
+                  reverse=True)[0]
+    self.log.write('Loaded GP reconstruction for {} from {} using terms: {}'
+                   .format(psr.name, best['path'], ', '.join(best['terms'])))
+    return best
+
   def _build_single_pulsar_checkpoint(self, psr, psr_index):
     previous_log = getattr(self, 'log', None)
     previous_run_dir = getattr(self, 'run_dir', None)
@@ -856,6 +1016,7 @@ class HasasiaWarpMixin(object):
     self.log.write('Result directory: {}'.format(self.hasasia_result_dir))
     self.log.write('Selected pulsar {} at loaded index {}'.format(
         psr.name, psr_index))
+    self.log.write('White-noise model: {}'.format(self._wn_model()))
     self.hasasia_psr = psr
     self.hasasia_psr_index = psr_index
     try:
@@ -1048,6 +1209,7 @@ class HasasiaWarpMixin(object):
     import hasasia.sensitivity as hsen
 
     model_params, model_id = self._get_model_params()
+    wn_model = self._wn_model()
     common_nfreq = self._common_nfreq(model_params)
     red_nfreq = self._red_nfreq(model_params, psr)
     self.log.write('Selected model id: {}'.format(model_id))
@@ -1067,6 +1229,7 @@ class HasasiaWarpMixin(object):
     self.log.write('Loaded {} noise parameters for {}'.format(len(noise), psr.name))
     plot_diagnostics = []
 
+    curve_freqs = self._curve_freqs(common_tspan)
     spectrum_kind = str(getattr(self.opts, 'hasasia_spectrum', 'spectrum')).lower()
     designmatrix = getattr(psr, 'Mmat', getattr(psr, 'designmatrix', None))
     if designmatrix is None:
@@ -1082,7 +1245,34 @@ class HasasiaWarpMixin(object):
     toaerrs = np.asarray(psr.toaerrs, dtype=float)
     projected_rrf = spectrum_kind in ['rrf_projected', 'rrf_nodense',
                                       'rrf_no_dense']
-    if projected_rrf:
+    gp_whitened = None
+    ww_diagnostics = None
+    if wn_model == 'model-independent':
+      gp_whitened = self._latest_gp_whitened_residuals(psr, model_id)
+      ww_psr = SimpleNamespace(
+          name=work_psr.name, toas=work_psr.toas, toaerrs=work_psr.toaerrs,
+          flags=work_psr.flags,
+          residuals=np.asarray(gp_whitened['whitened_residuals'], dtype=float))
+      ww_diagnostics = build_white_noise_diagnostics(
+          psr=ww_psr, noise=noise, freqs=curve_freqs, hsen=hsen, log=self.log)
+      if ww_diagnostics is None or ww_diagnostics['wrms_s'] is None or \
+         not np.isfinite(ww_diagnostics['wrms_s']) or \
+         ww_diagnostics['wrms_s'] <= 0.0:
+        raise ValueError('Model-independent --wn_model requires a finite '
+                         'GP-whitened weighted RMS for {}.'.format(psr.name))
+      ww_rms_s = float(ww_diagnostics['wrms_s'])
+      if projected_rrf:
+        white_model = build_constant_white_noise_model(
+            work_psr, ww_rms_s, log=self.log)
+        total_n = None
+      else:
+        white_model = None
+        total_n = build_constant_white_noise_covariance(
+            work_psr, ww_rms_s, log=self.log)
+      self.log.write('Using model-independent white noise for {} from '
+                     'GP-whitened WRMS {:.6e} s ({}).'.format(
+                         psr.name, ww_rms_s, gp_whitened['path']))
+    elif projected_rrf:
       white_model = build_white_noise_model(work_psr, noise, hsen=hsen,
                                             log=self.log)
       total_n = None
@@ -1172,7 +1362,6 @@ class HasasiaWarpMixin(object):
         common_powerlaw = (prefix, amp_log10, gamma)
         common_powerlaw_source = source
 
-    curve_freqs = self._curve_freqs(common_tspan)
     diagnostic_psr = work_psr
     if hasattr(psr, 'residuals'):
       diagnostic_psr = SimpleNamespace(
@@ -1240,6 +1429,19 @@ class HasasiaWarpMixin(object):
             'label': 'RMS = {:.2f} us'.format(
                 white_diagnostics['wrms_s'] * 1.0e6),
         })
+    if ww_diagnostics is not None and ww_diagnostics['wrms_hc'] is not None:
+      self.log.write('Whitened residual WRMS diagnostic [us]: {:.2f}'.format(
+          ww_diagnostics['wrms_s'] * 1.0e6))
+      self.log.write('Whitened residual WRMS diagnostic P(f) [s^3]: {:.6e}'
+                     .format(ww_diagnostics['wrms_psd']))
+      plot_diagnostics.append({
+          'curve': np.asarray(ww_diagnostics['wrms_hc'], dtype=float),
+          'color': 'k',
+          'linestyle': ':',
+          'linewidth': 0.4,
+          'label': 'wwRMS = {:.2f} us'.format(
+              ww_diagnostics['wrms_s'] * 1.0e6),
+      })
     rrf_common_nfreq = common_nfreq
     rrf_red_nfreq = red_nfreq
     if spectrum_kind == 'rrf' or projected_rrf:
@@ -1359,6 +1561,10 @@ class HasasiaWarpMixin(object):
         'curve_fmax': float(curve_freqs[-1]),
         'spectrum': spectrum_kind,
         'average_toas': int(getattr(self.opts, 'hasasia_average_toas', 0)),
+        'wn_model': wn_model,
+        'wwrms_s': None if ww_diagnostics is None else float(ww_diagnostics['wrms_s']),
+        'gp_reconstruction_path': None if gp_whitened is None else gp_whitened['path'],
+        'gp_reconstruction_terms': None if gp_whitened is None else gp_whitened['terms'],
     }
     return hpsr, spectrum, plot_diagnostics
 
@@ -1423,6 +1629,7 @@ class HasasiaWarpMixin(object):
         'curve_fmax': float(sensitivity.freqs[-1]),
         'spectrum': str(getattr(self.opts, 'hasasia_spectrum', 'spectrum')).lower(),
         'average_toas': int(getattr(self.opts, 'hasasia_average_toas', 0)),
+        'wn_model': self._wn_model(),
         'single_pulsar_checkpoints': checkpoint_paths,
     }
     self.hasasia_settings.update(extra_settings)
@@ -1600,15 +1807,18 @@ class HasasiaWarpMixin(object):
     raise ValueError('Unknown --pta {}'.format(pta_mode))
 
   def _load_latest_checkpoint(self, psr):
+    curve_freqs = self._curve_freqs(self._full_pta_tspan())
+    latest = self._find_latest_compatible_checkpoint(psr.name, curve_freqs)
+    if latest is None:
+      raise ValueError('No compatible hasasia checkpoint found for {} with '
+                       '--hasasia_spectrum {} and --wn_model {} under {}.'
+                       .format(
+                           psr.name,
+                           str(getattr(self.opts, 'hasasia_spectrum',
+                                       'spectrum')).lower(),
+                           self._wn_model(),
+                           os.path.join(self.hasasia_result_dir, 'hasasia')))
     self._ensure_hasasia_path()
-    pattern = os.path.join(self.hasasia_result_dir, 'hasasia',
-                           '*_{}'.format(_safe_name(psr.name)))
-    candidates = [path for path in glob.glob(pattern)
-                  if os.path.isfile(os.path.join(path, 'pulsar.pkl'))
-                  and os.path.isfile(os.path.join(path, 'spectrum.pkl'))]
-    if not candidates:
-      raise ValueError('No hasasia checkpoint found under {}'.format(pattern))
-    latest = sorted(candidates)[-1]
     log = RunLog(os.path.join(latest, 'run.log'), append=True)
     log.write('Loading latest checkpoint {}'.format(latest))
     with open(os.path.join(latest, 'pulsar.pkl'), 'rb') as fin:
