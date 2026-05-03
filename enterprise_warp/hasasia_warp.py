@@ -338,6 +338,32 @@ def constant_white_rms_from_psd(psr, white_psd):
   return float(np.sqrt(white_psd * toas.size / (2.0 * tspan)))
 
 
+def scale_white_noise_covariance(covariance, scale, log=None):
+  """Scale a white-noise covariance by one positive factor."""
+  scale = float(scale)
+  if not np.isfinite(scale) or scale <= 0.0:
+    raise ValueError('White-noise covariance scale must be finite and '
+                     'positive, got {}.'.format(scale))
+  covariance = np.asarray(covariance, dtype=float)
+  if log is not None:
+    log.write('Scaling white-noise covariance by {:.6e}.'.format(scale))
+  return scale * covariance
+
+
+def scale_white_noise_model(white_model, scale, log=None):
+  """Scale both diagonal and ECORR variances in a WhiteNoiseModel."""
+  scale = float(scale)
+  if not np.isfinite(scale) or scale <= 0.0:
+    raise ValueError('White-noise model scale must be finite and positive, '
+                     'got {}.'.format(scale))
+  if log is not None:
+    log.write('Scaling white-noise model by {:.6e}.'.format(scale))
+  return WhiteNoiseModel(
+      np.asarray(white_model.diag_var, dtype=float) * scale,
+      [(np.asarray(idx, dtype=int), float(var) * scale)
+       for idx, var in white_model.ecorr_blocks])
+
+
 def _weighted_rms(values, sigma):
   """Weighted RMS with the same mean-removal convention as gp_reconstruction."""
   values = np.asarray(values, dtype=float)
@@ -1335,21 +1361,31 @@ class HasasiaWarpMixin(object):
          ww_diagnostics['wrms_s'] <= 0.0:
         raise ValueError('Model-independent --wn_model requires a finite '
                          'GP-whitened weighted RMS for {}.'.format(psr.name))
-      ww_rms_s = constant_white_rms_from_psd(
-          work_psr, float(ww_diagnostics['wrms_psd']))
+      white_psd = float(ww_diagnostics['white_psd'])
+      if not np.isfinite(white_psd) or white_psd <= 0.0:
+        raise ValueError('Model-independent --wn_model requires a finite '
+                         'reference white-noise PSD for {}.'.format(psr.name))
+      ww_scale = float(ww_diagnostics['wrms_psd']) / white_psd
+      if not np.isfinite(ww_scale) or ww_scale <= 0.0:
+        raise ValueError('Model-independent --wn_model requires a finite '
+                         'positive covariance scale for {}.'.format(psr.name))
       if projected_rrf:
-        white_model = build_constant_white_noise_model(
-            work_psr, ww_rms_s, log=self.log)
+        white_model = scale_white_noise_model(
+            build_white_noise_model(work_psr, noise, hsen=hsen, log=self.log),
+            ww_scale, log=self.log)
         total_n = None
       else:
         white_model = None
-        total_n = build_constant_white_noise_covariance(
-            work_psr, ww_rms_s, log=self.log)
+        total_n = scale_white_noise_covariance(
+            build_white_noise_covariance(work_psr, noise, hsen=hsen,
+                                         log=self.log),
+            ww_scale, log=self.log)
       self.log.write('Using model-independent white noise for {} from '
-                     'GP-whitened WRMS PSD {:.6e} s^3, equivalent constant '
-                     'TOA RMS {:.6e} s ({}).'.format(
+                     'GP-whitened WRMS PSD {:.6e} s^3 with covariance scale '
+                     '{:.6e} relative to model-based white PSD {:.6e} s^3 '
+                     '({}).'.format(
                          psr.name, float(ww_diagnostics['wrms_psd']),
-                         ww_rms_s, gp_whitened['path']))
+                         ww_scale, white_psd, gp_whitened['path']))
     elif projected_rrf:
       white_model = build_white_noise_model(work_psr, noise, hsen=hsen,
                                             log=self.log)
@@ -1642,8 +1678,11 @@ class HasasiaWarpMixin(object):
         'wn_model': wn_model,
         'wwrms_s': None if ww_diagnostics is None else float(ww_diagnostics['wrms_s']),
         'wwrms_psd': None if ww_diagnostics is None else float(ww_diagnostics['wrms_psd']),
-        'wn_cov_rms_s': None if ww_diagnostics is None or wn_model != 'model-independent'
-                        else float(ww_rms_s),
+        'wn_cov_rms_s': None,
+        'wn_cov_scale': None if ww_diagnostics is None or wn_model != 'model-independent'
+                        else float(ww_scale),
+        'white_psd_reference': None if ww_diagnostics is None or wn_model != 'model-independent'
+                               else float(white_psd),
         'gp_reconstruction_path': None if gp_whitened is None else gp_whitened['path'],
         'gp_reconstruction_terms': None if gp_whitened is None else gp_whitened['terms'],
     }

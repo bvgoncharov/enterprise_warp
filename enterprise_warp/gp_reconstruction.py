@@ -365,6 +365,7 @@ class GPReconstructionMixin(object):
     self.log = RunLog(os.path.join(self.run_dir, 'run.log'))
     self.log.write('GP reconstruction run')
     self.log.write('Result directory: {}'.format(self.gp_result_dir))
+    self.log.write('Output directory: {}'.format(self.run_dir))
 
     self._load_result_chain()
     model_params, model_id = self._get_model_params()
