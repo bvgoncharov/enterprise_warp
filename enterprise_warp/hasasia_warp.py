@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from . import hasasia_future
 from .results import (EnterpriseWarpResult, DiscoveryWarpResult,
                       ResultsParser, normalize_result_args)
 
@@ -67,6 +68,9 @@ class HasasiaParser(ResultsParser):
     self.parser.add_option("--hasasia_directional_freq", default=None, type=float,
                            help="Frequency [Hz] for --pta directional sky map. "
                                 "Defaults to the most sensitive frequency.")
+    self.parser.add_option("--future", default=0.0, type=float,
+                           help="Forecast horizon in years for future PTA "
+                                "sensitivity construction.")
 
   def parse_args(self):
     opts = super(HasasiaParser, self).parse_args()
@@ -167,11 +171,7 @@ def build_white_noise_covariance(psr, noise, hsen=None, log=None):
   """Build EFAC/EQUAD/ECORR covariance following hasasia's tutorial."""
   toaerrs = np.asarray(psr.toaerrs, dtype=float)
   corr = np.zeros((toaerrs.size, toaerrs.size), dtype=float)
-  flags = getattr(psr, 'flags', {})
-  backend_flags = np.asarray(flags['f']).astype(str) if 'f' in flags \
-                  else np.repeat('all', toaerrs.size)
-  if 'f' not in flags and log is not None:
-    log.write('No psr.flags["f"] found; using a single white-noise backend.')
+  backend_flags = hasasia_future.backend_flags(psr, size=toaerrs.size)
 
   sigma_sqr = np.zeros(toaerrs.size, dtype=float)
   for backend in np.unique(backend_flags):
@@ -243,11 +243,7 @@ class WhiteNoiseModel(object):
 def build_white_noise_model(psr, noise, hsen=None, log=None):
   """Build a structured white-noise model matching build_white_noise_covariance."""
   toaerrs = np.asarray(psr.toaerrs, dtype=float)
-  flags = getattr(psr, 'flags', {})
-  backend_flags = np.asarray(flags['f']).astype(str) if 'f' in flags \
-                  else np.repeat('all', toaerrs.size)
-  if 'f' not in flags and log is not None:
-    log.write('No psr.flags["f"] found; using a single white-noise backend.')
+  backend_flags = hasasia_future.backend_flags(psr, size=toaerrs.size)
 
   sigma_sqr = np.zeros(toaerrs.size, dtype=float)
   for backend in np.unique(backend_flags):
@@ -475,9 +471,7 @@ def build_white_noise_diagnostics(psr, noise, freqs, hsen=None, log=None):
   toas = np.asarray(psr.toas, dtype=float)
   toaerrs = np.asarray(psr.toaerrs, dtype=float)
   residuals = getattr(psr, 'residuals', None)
-  flags = getattr(psr, 'flags', {})
-  backend_flags = np.asarray(flags['f']).astype(str) if 'f' in flags \
-                  else np.repeat('all', toaerrs.size)
+  backend_flags = hasasia_future.backend_flags(psr, size=toaerrs.size)
 
   _, _, _, _, buckets = hsen.quantize_fast(toas, toaerrs, flags=backend_flags,
                                            dt=1)
@@ -729,6 +723,23 @@ class HasasiaWarpMixin(object):
   def _wn_model(self):
     return normalize_wn_model(getattr(self.opts, 'wn_model', 'model-based'))
 
+  def _future_years(self):
+    return float(getattr(self.opts, 'future', 0.0) or 0.0)
+
+  def _future_enabled(self):
+    return self._future_years() > 0.0
+
+  def _future_settings(self):
+    return {
+        'future_years': float(self._future_years()),
+        'future_cadence_window_years':
+            float(hasasia_future.FUTURE_CADENCE_WINDOW_YEARS),
+        'future_residual_model': hasasia_future.FUTURE_RESIDUAL_MODEL,
+        'future_designmatrix_policy':
+            hasasia_future.FUTURE_DESIGNMATRIX_POLICY,
+        'future_designmatrix_note': hasasia_future.FUTURE_DESIGNMATRIX_NOTE,
+    }
+
   def _run_single_pulsar_pipeline(self):
     psr, psr_index = self._select_psr(getattr(self.opts, 'hasasia_psr', '0'))
     self.hasasia_psr = psr
@@ -743,10 +754,13 @@ class HasasiaWarpMixin(object):
     self.log.write('Result directory: {}'.format(self.hasasia_result_dir))
     self.log.write('Selected pulsar {} at loaded index {}'.format(psr.name, psr_index))
     self.log.write('White-noise model: {}'.format(self._wn_model()))
+    self.log.write('Future horizon [yr]: {}'.format(self._future_years()))
 
     self._load_result_chain()
-    hpsr, spectrum, plot_diagnostics = self._build_hasasia_objects(psr)
-    self._write_outputs(hpsr, spectrum, plot_diagnostics=plot_diagnostics)
+    hpsr, spectrum, plot_diagnostics, residual_plot = \
+        self._build_hasasia_objects(psr)
+    self._write_outputs(hpsr, spectrum, plot_diagnostics=plot_diagnostics,
+                        residual_plot=residual_plot)
 
   def _run_full_pta_pipeline(self, pta_mode):
     self.run_dir = os.path.join(
@@ -758,6 +772,7 @@ class HasasiaWarpMixin(object):
     self.log.write('Result directory: {}'.format(self.hasasia_result_dir))
     self.log.write('PTA sensitivity mode: {}'.format(pta_mode))
     self.log.write('White-noise model: {}'.format(self._wn_model()))
+    self.log.write('Future horizon [yr]: {}'.format(self._future_years()))
     if getattr(self.opts, 'hasasia_load_latest', 0):
       self.log.write('--hasasia_load_latest is only used for --pta psr; '
                      'full PTA modes always collect latest compatible '
@@ -942,8 +957,28 @@ class HasasiaWarpMixin(object):
 
   def _full_pta_tspan(self):
     all_toas = [self._toas_seconds(pp)[0] for pp in self.params.psrs]
-    return float(max(tt.max() for tt in all_toas) -
-                 min(tt.min() for tt in all_toas))
+    tspan = float(max(tt.max() for tt in all_toas) -
+                  min(tt.min() for tt in all_toas))
+    return tspan + self._future_years() * YR_SEC
+
+  def _compatible_future_settings(self, settings):
+    requested = self._future_settings()
+    stored_years = float(settings.get('future_years', 0.0) or 0.0)
+    if not np.isclose(stored_years, requested['future_years']):
+      return False
+    if requested['future_years'] <= 0.0:
+      return True
+    stored_window = float(settings.get('future_cadence_window_years', np.nan))
+    if not np.isclose(stored_window,
+                      requested['future_cadence_window_years']):
+      return False
+    if settings.get('future_residual_model') != \
+       requested['future_residual_model']:
+      return False
+    if settings.get('future_designmatrix_policy') != \
+       requested['future_designmatrix_policy']:
+      return False
+    return True
 
   def _compatible_spectrum_settings(self, settings, psr_name, curve_freqs):
     if settings.get('selected_pulsar') != psr_name:
@@ -965,7 +1000,7 @@ class HasasiaWarpMixin(object):
     if normalize_wn_model(settings.get('wn_model', 'model-based')) != \
        self._wn_model():
       return False
-    return True
+    return self._compatible_future_settings(settings)
 
   def _load_checkpoint_settings(self, path):
     settings_path = os.path.join(path, 'settings.json')
@@ -988,6 +1023,8 @@ class HasasiaWarpMixin(object):
         return path
 
     if self._wn_model() != 'model-based':
+      return None
+    if self._future_enabled():
       return None
 
     self._ensure_hasasia_path()
@@ -1118,12 +1155,15 @@ class HasasiaWarpMixin(object):
     self.log.write('Selected pulsar {} at loaded index {}'.format(
         psr.name, psr_index))
     self.log.write('White-noise model: {}'.format(self._wn_model()))
+    self.log.write('Future horizon [yr]: {}'.format(self._future_years()))
     self.hasasia_psr = psr
     self.hasasia_psr_index = psr_index
     try:
-      hpsr, spectrum, plot_diagnostics = self._build_hasasia_objects(psr)
+      hpsr, spectrum, plot_diagnostics, residual_plot = \
+          self._build_hasasia_objects(psr)
       self._write_outputs(hpsr, spectrum, run_dir=run_dir,
-                          plot_diagnostics=plot_diagnostics)
+                          plot_diagnostics=plot_diagnostics,
+                          residual_plot=residual_plot)
     finally:
       self.log = previous_log
       self.run_dir = previous_run_dir
@@ -1320,40 +1360,105 @@ class HasasiaWarpMixin(object):
     self.log.write('Model red-noise n_freqs for {}: {}'.format(psr.name, red_nfreq))
 
     toas, unit_note = self._toas_seconds(psr)
-    all_toas = [self._toas_seconds(pp)[0] for pp in self.params.psrs]
-    common_tspan = float(max(tt.max() for tt in all_toas) -
-                         min(tt.min() for tt in all_toas))
+    common_tspan = self._full_pta_tspan()
     self.log.write('TOA unit handling: {}'.format(unit_note))
 
     noise = {key: val for key, val in getattr(self.params, 'noisedict', {}).items()
              if key.startswith(psr.name)}
     self.log.write('Loaded {} noise parameters for {}'.format(len(noise), psr.name))
     plot_diagnostics = []
+    residual_plot = None
 
     curve_freqs = self._curve_freqs(common_tspan)
     spectrum_kind = str(getattr(self.opts, 'hasasia_spectrum', 'spectrum')).lower()
+    projected_rrf = spectrum_kind in ['rrf_projected', 'rrf_nodense',
+                                      'rrf_no_dense']
+    if self._future_enabled() and not projected_rrf:
+      raise ValueError('--future > 0 is currently supported only for '
+                       '--hasasia_spectrum rrf_projected.')
     designmatrix = getattr(psr, 'Mmat', getattr(psr, 'designmatrix', None))
     if designmatrix is None:
       raise ValueError('Selected pulsar has neither Mmat nor designmatrix.')
     designmatrix = np.asarray(designmatrix, dtype=float)
-    work_psr = SimpleNamespace(name=psr.name, toas=toas,
-                               toaerrs=np.asarray(psr.toaerrs, dtype=float),
-                               flags=getattr(psr, 'flags', {}),
-                               phi=psr.phi, theta=psr.theta)
     if getattr(self.opts, 'hasasia_average_toas', 0):
       raise NotImplementedError('--hasasia_average_toas is accepted but not '
                                 'implemented in this step.')
+
     toaerrs = np.asarray(psr.toaerrs, dtype=float)
-    projected_rrf = spectrum_kind in ['rrf_projected', 'rrf_nodense',
-                                      'rrf_no_dense']
+    base_work_psr = SimpleNamespace(
+        name=psr.name,
+        toas=np.asarray(toas, dtype=float),
+        toaerrs=np.asarray(toaerrs, dtype=float),
+        flags=getattr(psr, 'flags', {}),
+        backend_flags=hasasia_future.backend_flags(psr, size=toaerrs.size),
+        phi=psr.phi,
+        theta=psr.theta,
+        pdist=getattr(psr, 'pdist', None),
+    )
+    if hasattr(psr, 'residuals'):
+      base_work_psr.residuals = np.asarray(getattr(psr, 'residuals'),
+                                           dtype=float)
+
     gp_whitened = None
     ww_diagnostics = None
     if wn_model == 'model-independent':
       gp_whitened = self._latest_gp_whitened_residuals(psr, model_id)
+    if self._future_enabled():
+      def resolve_white_noise(backend):
+        efac, _ = _noise_lookup(noise, psr.name, backend, 'efac', 1.0)
+        equad_log10, _ = _noise_lookup(
+            noise, psr.name, backend,
+            ['log10_t2equad', 'log10_equad', 'log10_tnequad'])
+        ecorr_log10, _ = _noise_lookup(
+            noise, psr.name, backend, 'log10_ecorr')
+        equad = 0.0 if equad_log10 is None else 10.0**float(equad_log10)
+        ecorr = 0.0 if ecorr_log10 is None else 10.0**float(ecorr_log10)
+        return float(efac), float(equad), float(ecorr)
+
+      work_psr, future_info = hasasia_future.extend_psr_for_future(
+          base_work_psr, designmatrix, self._future_years(),
+          resolve_white_noise,
+          '{}|{}|{}|{}|{:.6f}'.format(
+              self.opts.result, model_id, psr.name, spectrum_kind,
+              self._future_years()),
+          historical_whitened_residuals=(
+              None if gp_whitened is None
+              else np.asarray(gp_whitened['whitened_residuals'], dtype=float)))
+      toas = np.asarray(work_psr.toas, dtype=float)
+      toaerrs = np.asarray(work_psr.toaerrs, dtype=float)
+      designmatrix = np.asarray(work_psr.designmatrix, dtype=float)
+      residual_plot = {
+          'toas': np.asarray(work_psr.toas, dtype=float),
+          'toaerrs': np.asarray(work_psr.toaerrs, dtype=float),
+          'future_mask': np.asarray(future_info['future_mask'], dtype=bool),
+          'residuals': np.asarray(work_psr.residuals, dtype=float),
+          'whitened_residuals': None if not hasattr(work_psr, 'whitened_residuals')
+                               else np.asarray(work_psr.whitened_residuals,
+                                               dtype=float),
+      }
+      self.log.write('Added {:.3f} future years for {} using {}'.format(
+          self._future_years(), psr.name,
+          future_info['future_residual_model']))
+      self.log.write(future_info['future_designmatrix_note'])
+      for record in future_info['future_records']:
+        self.log.write(
+            'Future backend {}: template={} cadence={} {:.3f} d, '
+            '{} epochs, {} sub-band TOAs per epoch'.format(
+                record['backend'], record['template_source'],
+                record['cadence_source'], record['cadence_days'],
+                record['future_epochs'], record['template_size']))
+    else:
+      work_psr = base_work_psr
+      future_info = None
+
+    if wn_model == 'model-independent':
+      ww_residuals = getattr(work_psr, 'whitened_residuals',
+                             np.asarray(gp_whitened['whitened_residuals'],
+                                        dtype=float))
       ww_psr = SimpleNamespace(
           name=work_psr.name, toas=work_psr.toas, toaerrs=work_psr.toaerrs,
-          flags=work_psr.flags,
-          residuals=np.asarray(gp_whitened['whitened_residuals'], dtype=float))
+          flags=work_psr.flags, backend_flags=work_psr.backend_flags,
+          residuals=np.asarray(ww_residuals, dtype=float))
       ww_diagnostics = build_white_noise_diagnostics(
           psr=ww_psr, noise=noise, freqs=curve_freqs, hsen=hsen, log=self.log)
       if ww_diagnostics is None or ww_diagnostics['wrms_s'] is None or \
@@ -1477,11 +1582,11 @@ class HasasiaWarpMixin(object):
         common_powerlaw_source = source
 
     diagnostic_psr = work_psr
-    if hasattr(psr, 'residuals'):
+    if hasattr(work_psr, 'residuals'):
       diagnostic_psr = SimpleNamespace(
           name=work_psr.name, toas=work_psr.toas, toaerrs=work_psr.toaerrs,
-          flags=work_psr.flags,
-          residuals=np.asarray(getattr(psr, 'residuals'), dtype=float))
+          flags=work_psr.flags, backend_flags=work_psr.backend_flags,
+          residuals=np.asarray(getattr(work_psr, 'residuals'), dtype=float))
     white_diagnostics = build_white_noise_diagnostics(
         psr=diagnostic_psr, noise=noise, freqs=curve_freqs, hsen=hsen,
         log=self.log)
@@ -1686,10 +1791,11 @@ class HasasiaWarpMixin(object):
         'gp_reconstruction_path': None if gp_whitened is None else gp_whitened['path'],
         'gp_reconstruction_terms': None if gp_whitened is None else gp_whitened['terms'],
     }
-    return hpsr, spectrum, plot_diagnostics
+    self.hasasia_settings.update(self._future_settings())
+    return hpsr, spectrum, plot_diagnostics, residual_plot
 
   def _write_outputs(self, psr, spectrum, run_dir=None, settings=None,
-                     plot_diagnostics=None):
+                     plot_diagnostics=None, residual_plot=None):
     run_dir = self.run_dir if run_dir is None else run_dir
     settings = self.hasasia_settings if settings is None else settings
     with open(os.path.join(run_dir, 'settings.json'), 'w') as fout:
@@ -1726,6 +1832,41 @@ class HasasiaWarpMixin(object):
                              'sensitivity_{}.png'.format(_safe_name(psr.name)))
     plt.savefig(plot_path, dpi=150)
     plt.close()
+    if residual_plot is not None:
+      toas_mjd = np.asarray(residual_plot['toas'], dtype=float) / 86400.0
+      future_mask = np.asarray(residual_plot['future_mask'], dtype=bool)
+      histories = [{
+          'values': np.asarray(residual_plot['residuals'], dtype=float),
+          'ylabel': 'Residual [s]',
+          'title': '{} residuals'.format(psr.name),
+      }]
+      whitened = residual_plot.get('whitened_residuals')
+      if whitened is not None:
+        histories.append({
+            'values': np.asarray(whitened, dtype=float),
+            'ylabel': 'Whitened residual [s]',
+            'title': '{} whitened residuals'.format(psr.name),
+        })
+      fig, axes = plt.subplots(len(histories), 1, figsize=(8.0, 3.0 * len(histories)),
+                               sharex=True)
+      axes = np.atleast_1d(axes)
+      for ax, panel in zip(axes, histories):
+        values = np.asarray(panel['values'], dtype=float)
+        ax.scatter(toas_mjd[~future_mask], values[~future_mask], s=8,
+                   color='k', label='Present')
+        ax.scatter(toas_mjd[future_mask], values[future_mask], s=8,
+                   color='r', label='Future')
+        ax.set_ylabel(panel['ylabel'])
+        ax.set_title(panel['title'])
+        ax.grid(alpha=0.3)
+        ax.legend(loc='best', fontsize=8)
+      axes[-1].set_xlabel('TOA [MJD]')
+      fig.tight_layout()
+      residual_path = os.path.join(
+          run_dir, 'residuals_{}.png'.format(_safe_name(psr.name)))
+      fig.savefig(residual_path, dpi=150)
+      plt.close(fig)
+      self.log.write('Saved residual plot {}'.format(residual_path))
     self.log.write('Saved sensitivity table {}'.format(txt_path))
     self.log.write('Saved sensitivity plot {}'.format(plot_path))
 
@@ -1752,6 +1893,7 @@ class HasasiaWarpMixin(object):
         'wn_model': self._wn_model(),
         'single_pulsar_checkpoints': checkpoint_paths,
     }
+    self.hasasia_settings.update(self._future_settings())
     self.hasasia_settings.update(extra_settings)
     with open(os.path.join(self.run_dir, 'settings.json'), 'w') as fout:
       json.dump(self.hasasia_settings, fout, indent=2, sort_keys=True)

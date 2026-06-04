@@ -8,6 +8,7 @@ import tempfile
 
 import numpy as np
 
+from enterprise_warp import hasasia_future
 from enterprise_warp import hasasia_warp
 
 
@@ -16,7 +17,7 @@ class HasasiaWarpTestCase(unittest.TestCase):
   def test_hasasia_parser_inherits_result_options(self):
     argv = ['ew_hasasia.py', '--result', 'run.dat', '--info', '1',
             '--discovery', '1', '--hasasia', '1', '--hasasia_psr', '9',
-            '--snr', '3.0',
+            '--snr', '3.0', '--future', '4.5',
             '--pta', 'cw', '--hasasia_directional_theta', '1.2',
             '--hasasia_directional_phi', '2.3',
             '--hasasia_directional_freq', '4e-8']
@@ -28,11 +29,18 @@ class HasasiaWarpTestCase(unittest.TestCase):
     self.assertEqual(opts.hasasia, 1)
     self.assertEqual(opts.hasasia_psr, '9')
     self.assertEqual(opts.snr, 3.0)
+    self.assertEqual(opts.future, 4.5)
     self.assertEqual(opts.pta, 'cw')
     self.assertEqual(opts.hasasia_average_toas, 0)
     self.assertAlmostEqual(opts.hasasia_directional_theta, 1.2)
     self.assertAlmostEqual(opts.hasasia_directional_phi, 2.3)
     self.assertAlmostEqual(opts.hasasia_directional_freq, 4e-8)
+
+  def test_hasasia_parser_defaults_future_to_zero(self):
+    argv = ['ew_hasasia.py', '--result', 'run.dat']
+    with mock.patch.object(sys, 'argv', argv):
+      opts = hasasia_warp.HasasiaParser().parse_args()
+    self.assertEqual(opts.future, 0.0)
 
   def test_extract_model_nfreqs(self):
     class FakeNoiseModel(object):
@@ -120,6 +128,75 @@ class HasasiaWarpTestCase(unittest.TestCase):
     self.assertEqual(corr[0, 1], 1.0)
     self.assertEqual(corr[1, 0], 1.0)
     self.assertEqual(corr[0, 2], 0.0)
+
+  def test_backend_flags_support_discovery_and_enterprise_pulsars(self):
+    discovery_psr = SimpleNamespace(
+        toas=np.asarray([1.0, 2.0]),
+        backend_flags=np.asarray(['d1', 'd2']),
+    )
+    enterprise_psr = SimpleNamespace(
+        toas=np.asarray([1.0, 2.0]),
+        flags={'f': np.asarray(['e1', 'e2'])},
+    )
+    self.assertTrue(np.array_equal(
+        hasasia_future.backend_flags(discovery_psr),
+        np.asarray(['d1', 'd2'])))
+    self.assertTrue(np.array_equal(
+        hasasia_future.backend_flags(enterprise_psr),
+        np.asarray(['e1', 'e2'])))
+
+  def test_extend_psr_for_future_preserves_offsets_and_zero_pads_designmatrix(self):
+    psr = SimpleNamespace(
+        name='J0000+0000',
+        toas=np.asarray([0.0, 10.0, 50.0 * 86400.0, 50.0 * 86400.0 + 10.0]),
+        toaerrs=np.zeros(4),
+        backend_flags=np.asarray(['be1', 'be1', 'be1', 'be1']),
+        residuals=np.asarray([1.0, 2.0, 3.0, 4.0]),
+        phi=1.0,
+        theta=2.0,
+    )
+    designmatrix = np.column_stack([
+        np.ones(4),
+        np.arange(4, dtype=float),
+    ])
+
+    def resolver(_backend):
+      return 1.0, 0.0, 2.0
+
+    extended, metadata = hasasia_future.extend_psr_for_future(
+        psr, designmatrix, 0.2, resolver, 'signature')
+    extended_again, _ = hasasia_future.extend_psr_for_future(
+        psr, designmatrix, 0.2, resolver, 'signature')
+    future_toas = extended.toas[extended.future_mask]
+    future_residuals = extended.residuals[extended.future_mask]
+
+    self.assertGreater(np.min(future_toas), np.max(psr.toas))
+    self.assertAlmostEqual(future_toas[1] - future_toas[0], 10.0)
+    self.assertTrue(np.allclose(
+        extended.designmatrix[-future_toas.size:, :], 0.0))
+    self.assertTrue(np.allclose(extended.residuals, extended_again.residuals))
+    self.assertAlmostEqual(future_residuals[0], future_residuals[1])
+    self.assertEqual(metadata['future_designmatrix_policy'],
+                     hasasia_future.FUTURE_DESIGNMATRIX_POLICY)
+
+  def test_extend_psr_for_future_uses_pta_recent_cadence_fallback(self):
+    psr = SimpleNamespace(
+        name='J0000+0000',
+        toas=np.asarray([10.0 * 86400.0, 0.0, 20.0 * 86400.0]),
+        toaerrs=np.ones(3),
+        backend_flags=np.asarray(['be1', 'be2', 'be2']),
+        phi=0.0,
+        theta=0.0,
+    )
+    designmatrix = np.ones((3, 1), dtype=float)
+
+    def resolver(_backend):
+      return 1.0, 0.0, 0.0
+
+    _, metadata = hasasia_future.extend_psr_for_future(
+        psr, designmatrix, 0.2, resolver, 'fallback')
+    records = {record['backend']: record for record in metadata['future_records']}
+    self.assertEqual(records['be1']['cadence_source'], 'pta_recent_mean')
 
   def test_white_noise_diagnostics_from_quantized_epochs(self):
     psr = SimpleNamespace(
@@ -241,7 +318,9 @@ class HasasiaWarpTestCase(unittest.TestCase):
     obj = hasasia_warp.HasasiaEnterpriseWarp.__new__(
         hasasia_warp.HasasiaEnterpriseWarp)
     obj.opts = SimpleNamespace(hasasia_spectrum='rrf_projected',
-                               hasasia_average_toas=0)
+                               hasasia_average_toas=0,
+                               wn_model='model-based',
+                               future=0.0)
     with tempfile.TemporaryDirectory() as tmpdir:
       obj.hasasia_result_dir = tmpdir
       hasasia_dir = os.path.join(tmpdir, 'hasasia')
@@ -273,6 +352,76 @@ class HasasiaWarpTestCase(unittest.TestCase):
       checkpoint = obj._find_latest_compatible_checkpoint(
           'J0000+0000', np.asarray([1.0, 2.0]))
     self.assertEqual(checkpoint, older)
+
+  def test_compatible_spectrum_settings_treats_missing_future_as_zero(self):
+    obj = hasasia_warp.HasasiaEnterpriseWarp.__new__(
+        hasasia_warp.HasasiaEnterpriseWarp)
+    obj.opts = SimpleNamespace(hasasia_spectrum='rrf_projected',
+                               hasasia_average_toas=0,
+                               wn_model='model-based',
+                               future=0.0)
+    settings = {
+        'selected_pulsar': 'J0000+0000',
+        'spectrum': 'rrf_projected',
+        'curve_nf': 2,
+        'curve_fmin': 1.0,
+        'curve_fmax': 2.0,
+        'average_toas': 0,
+        'wn_model': 'model-based',
+    }
+    self.assertTrue(obj._compatible_spectrum_settings(
+        settings, 'J0000+0000', np.asarray([1.0, 2.0])))
+    obj.opts.future = 5.0
+    self.assertFalse(obj._compatible_spectrum_settings(
+        settings, 'J0000+0000', np.asarray([1.0, 2.0])))
+
+  def test_find_latest_compatible_checkpoint_requires_matching_future(self):
+    obj = hasasia_warp.HasasiaEnterpriseWarp.__new__(
+        hasasia_warp.HasasiaEnterpriseWarp)
+    obj.opts = SimpleNamespace(hasasia_spectrum='rrf_projected',
+                               hasasia_average_toas=0,
+                               wn_model='model-based',
+                               future=5.0)
+    with tempfile.TemporaryDirectory() as tmpdir:
+      obj.hasasia_result_dir = tmpdir
+      hasasia_dir = os.path.join(tmpdir, 'hasasia')
+      older = os.path.join(hasasia_dir, '20260101_000000_J0000+0000')
+      newer = os.path.join(hasasia_dir, '20260102_000000_J0000+0000')
+      os.makedirs(older)
+      os.makedirs(newer)
+      for path in [older, newer]:
+        open(os.path.join(path, 'pulsar.pkl'), 'wb').close()
+        open(os.path.join(path, 'spectrum.pkl'), 'wb').close()
+      with open(os.path.join(older, 'settings.json'), 'w') as fout:
+        json.dump({
+            'selected_pulsar': 'J0000+0000',
+            'spectrum': 'rrf_projected',
+            'curve_nf': 2,
+            'curve_fmin': 1.0,
+            'curve_fmax': 2.0,
+            'average_toas': 0,
+            'wn_model': 'model-based',
+            'future_years': 0.0,
+        }, fout)
+      with open(os.path.join(newer, 'settings.json'), 'w') as fout:
+        json.dump({
+            'selected_pulsar': 'J0000+0000',
+            'spectrum': 'rrf_projected',
+            'curve_nf': 2,
+            'curve_fmin': 1.0,
+            'curve_fmax': 2.0,
+            'average_toas': 0,
+            'wn_model': 'model-based',
+            'future_years': 5.0,
+            'future_cadence_window_years': 1.0,
+            'future_residual_model':
+                hasasia_future.FUTURE_RESIDUAL_MODEL,
+            'future_designmatrix_policy':
+                hasasia_future.FUTURE_DESIGNMATRIX_POLICY,
+        }, fout)
+      checkpoint = obj._find_latest_compatible_checkpoint(
+          'J0000+0000', np.asarray([1.0, 2.0]))
+    self.assertEqual(checkpoint, newer)
 
   def test_directional_selection_uses_nearest_pixel_and_requested_frequency(self):
     obj = hasasia_warp.HasasiaEnterpriseWarp.__new__(
