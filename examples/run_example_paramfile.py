@@ -16,6 +16,8 @@ from enterprise_extensions import hypermodel
 
 import custom_models
 
+import discovery as ds
+
 opts = enterprise_warp.parse_commandline()
 
 # Adding custom models is optional:
@@ -28,7 +30,16 @@ pta = enterprise_warp.init_pta(params)
 if params.pta_package == "discovery":
     import discovery.models.nanograv as ds_nanograv
     import discovery.samplers.numpyro as ds_numpyro
+
     pta[0].logL # does not work when common_signal is added, might need recent discovery PRs
+
+    ds.prior.priordict_standard = {}
+    priordict_standard = {
+        "(.*_)?log10_A": [-20, -11],
+        "(.*_)?gamma": [1, 7],
+    }
+    p0 = ds.sample_uniform(pta[0].logL.params,priordict_standard)
+    import ipdb; ipdb.set_trace()
     npmodel = ds_numpyro.makemodel_transformed(pta[0].logL) # for this to work, I need to implement Wang-Wei's selection hack for white noise
     npsampler = ds_numpyro.makesampler_nuts(npmodel)
     npsampler.run()
