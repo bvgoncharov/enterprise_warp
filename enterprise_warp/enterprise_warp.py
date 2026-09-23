@@ -9,6 +9,7 @@ import json
 import glob
 import os
 import optparse
+import shutil
 import warnings
 import hashlib
 import pickle
@@ -51,6 +52,18 @@ try:
   from bilby import sampler as bimpler
 except:
   warnings.warn("Warning: failed to import bilby.sampler")
+
+
+def _truthy(val):
+  """Interpret parameter-file flags like True/1/yes as boolean True."""
+  if val is None:
+    return False
+  if isinstance(val, bool):
+    return val
+  if isinstance(val, (int, float)):
+    return val != 0
+  return str(val).strip().lower() in {"1", "true", "yes", "y", "on"}
+
 
 class EWParser(object):
   def __init__(self):
@@ -163,7 +176,9 @@ class Params(object):
       "SCAMweight:": ["SCAMweight", int],
       "tm:": ["tm", str], # default / fast / ridge_regression
       "tm_svd:": ["tm_svd", int],
-      "fref:": ["fref", str]
+      "fref:": ["fref", str],
+      # discovery: "array" → ArrayLikelihood; "global" → GlobalLikelihood
+      "discovery_likelihood:": ["discovery_likelihood", str],
     }
     self.pta_package = get_pta_package(input_file_name)
     if self.pta_package=="enterprise":
@@ -171,9 +186,11 @@ class Params(object):
     elif self.pta_package=="discovery":
       self.noise_model_obj = DiscoveryModels
     if custom_models_obj is not None:
-      if self.pta_package=='discovery' and not custom_models_obj.__bases__[0] == DiscoveryModels:
+      # Accept subclasses (e.g. CustomNANOGRAVModels -> NANOGRAVModels -> EnterpriseModels),
+      # not only classes whose immediate __bases__[0] is the package base.
+      if self.pta_package=='discovery' and not issubclass(custom_models_obj, DiscoveryModels):
         warnings.warn('Parameter pta_package is \'discovery\', but the custom model object is not based on discovery_models.DiscoveryModels. Using discovery_models.DiscoveryModels instead.')
-      elif self.pta_package=='enterprise' and not custom_models_obj.__bases__[0] == EnterpriseModels:
+      elif self.pta_package=='enterprise' and not issubclass(custom_models_obj, EnterpriseModels):
         warnings.warn('Parameter pta_package is \'enterprise\', but the custom model object is not based on enterprise_models.EnterpriseModels. Using enterprise_models.EnterpriseModels instead.')
       else:
         self.noise_model_obj = custom_models_obj
@@ -219,16 +236,16 @@ class Params(object):
         datatypes = self.label_attr_map[label][1:]
         if len(datatypes)==1 and len(data)>1:
           datatypes = [datatypes[0] for dd in data]
-        try:
-          values = [(datatypes[i](data[i])) if not datatypes[i] is type(None) \
-                    else int(data[i]) for i in range(len(data))]
-        except:
-          import ipdb; ipdb.set_trace()
+
+        values = [cast_param_value(datatypes[i], data[i]) for i in range(len(data))]
 
         # Adding sampler kwargs to self.label_attr_map
         if attr == 'sampler' and 'bimpler' in globals():
           if data[0] in bimpler.IMPLEMENTED_SAMPLERS.keys():
-            self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].load().default_kwargs # for python 3.11, [data[0]].load().default_kawrgs
+            try:
+              self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].load().default_kwargs
+            except:
+              self.sampler_kwargs = bimpler.IMPLEMENTED_SAMPLERS[data[0]].default_kwargs
             if type(self.sampler_kwargs) is dict:
               self.label_attr_map.update( dict_to_label_attr_map(\
                                           self.sampler_kwargs) )
@@ -317,7 +334,7 @@ class Params(object):
       self.__dict__['clock'] = None
       print('Setting a default Enterprise clock convention (check the code)')
     if 'psrlist' in self.__dict__:
-      self.psrlist = np.loadtxt(self.psrlist, dtype=np.unicode_)
+      self.psrlist = np.loadtxt(self.psrlist, dtype=np.str_)
       print('Only using pulsars from psrlist:', self.psrlist)
     else:
       self.__dict__['psrlist'] = np.array([])
@@ -346,6 +363,7 @@ class Params(object):
     # Priors are chosen not to be model-specific because HyperModel
     # (which is the only reason to have multiple models) does not support
     # different priors for different models
+    # (This is actually enabled in clone_all_params_to_models)
     for prior_key, prior_default in self.noise_model_obj().priors.items():
       if prior_key not in self.__dict__.keys():
         self.__dict__[prior_key] = prior_default
@@ -407,17 +425,16 @@ class Params(object):
       """
       psr_strings: list of pulsar names or paths with pulsar names
       """
-      if self.opts is not None:
-        psr_strings = sorted(psr_strings)
-        if not self.array_analysis and len(psr_strings)>0:
-          psr_strings = [psr_strings[self.opts.num]]
-        else:
-          # Skip pulsars with index self.opts.num (--num)
-          if self.opts.drop:
-            psr_strings = [pstr for ii, pstr in enumerate(psr_strings) if ii!=self.opts.num]
-          # Skip pulsars which are not in the pulsar list
-          if len(self.psrlist) > 0:
-            psr_strings = [pstr for pstr in psr_strings if psrname_from_filename(pstr) in self.psrlist]
+      psr_strings = sorted(psr_strings)
+      if not self.array_analysis and len(psr_strings)>0:
+        psr_strings = [psr_strings[self.opts.num]]
+      else:
+        # Skip pulsars with index self.opts.num (--num)
+        if self.opts.drop:
+          psr_strings = [pstr for ii, pstr in enumerate(psr_strings) if ii!=self.opts.num]
+        # Skip pulsars which are not in the pulsar list
+        if len(self.psrlist) > 0:
+          psr_strings = [pstr for pstr in psr_strings if psrname_from_filename(pstr) in self.psrlist]
         
       return sorted(psr_strings)
 
@@ -425,73 +442,105 @@ class Params(object):
       """
       Initiate Enterprise or Discovery pulsar objects.
       """
-      load_path = self.datadir
-      if os.path.isdir(self.datadir):
-        pkl_files = glob.glob(os.path.join(self.datadir, '*.pkl'))
-        if pkl_files:
-          load_path = pkl_files[0]
-        with open(load_path, 'rb') as pif:
-          self.psrs = pickle.load(pif)
-        sel_p = self.selection_pulsars([psr.name for psr in self.psrs])
-        self.psrs = [psr for psr in self.psrs if psr.name in sel_p]
-        print('Loaded pulsars', [psr.name for psr in self.psrs])
-        print('From', load_path)
-        print('------------------')
       # Pickled enterprise pulsars, simulation realizations
-      elif '.pkl' in self.datadir:
+      if '.pkl' in self.datadir:
         # determine if datadir points to simulation realizations
         if '{:.0f}' in self.datadir:
-          load_path = self.datadir.format(self.opts.num)
-        with open(load_path, 'rb') as pif:
+          self.datadir = self.datadir.format(self.opts.num)
+        with open(self.datadir, 'rb') as pif:
           self.psrs = pickle.load(pif)
         sel_p = self.selection_pulsars([psr.name for psr in self.psrs])
         self.psrs = [psr for psr in self.psrs if psr.name in sel_p]
         print('Loaded pulsars', [psr.name for psr in self.psrs])
-        print('From', load_path)
+        print('From', self.datadir)
         print('------------------')
       else:
-        feathers = self.selection_pulsars(glob.glob(self.datadir + '/*.feather'))
         parfiles = self.selection_pulsars(glob.glob(self.datadir + '/*.par'))
         timfiles = self.selection_pulsars(glob.glob(self.datadir + '/*.tim'))
-        if len(feathers)>0 and self.pta_package=='discovery':
-          self.psrs = [ds.Pulsar.read_feather(ff) for ff in feathers]
-        else:
-          self.psrs = []
-          print('Loading .par and .tim files from', self.datadir)
-          for pp, tt in zip(parfiles, timfiles):
-            print(pp.split('/')[-1],tt.split('/')[-1])
-            psr = Pulsar(pp, tt, ephem=self.ssephem, 
-                  clk=self.clock, 
-                  drop_t2pulsar=False, 
-                  timing_package=self.timing_package, 
-                  distance_file=self.psrdistfile)
-            psr.__dict__['parfile_name'] = pp
-            psr.__dict__['timfile_name'] = tt
-            if 'load_toa_filenames' in self.__dict__.keys() and \
-                  self.load_toa_filenames=='True':
-                  psr.__dict__['filenames'] = read_tim(tt, column=1)
-            self.psrs.append(psr)
-            if self.pta_package=='discovery':
+        if self.pta_package == 'discovery':
+          # For discovery we must ensure a consistent (par, tim) pair has a corresponding
+          # feather file before choosing which `--num` pulsar to load.
+          par_by_name = {psrname_from_filename(pp): pp for pp in parfiles}
+          tim_by_name = {psrname_from_filename(tt): tt for tt in timfiles}
+          psr_names = sorted(set(par_by_name.keys()) & set(tim_by_name.keys()))
+          expected_feathers = [par_by_name[nm].replace('par', 'feather') for nm in psr_names]
+
+          feathers_all_exist = bool(expected_feathers) and all(
+            os.path.exists(ff) for ff in expected_feathers
+          )
+
+          if not feathers_all_exist:
+            # Missing feathers: create them (on rank 0) by iterating all par/tim pairs.
+            self.psrs = []
+            print('Loading .par and .tim files from', self.datadir)
+            for nm in psr_names:
+              pp = par_by_name[nm]
+              tt = tim_by_name[nm]
+              print(pp.split('/')[-1], tt.split('/')[-1])
+              psr = Pulsar(
+                pp,
+                tt,
+                ephem=self.ssephem,
+                clk=self.clock,
+                drop_t2pulsar=False,
+                timing_package=self.timing_package,
+                distance_file=self.psrdistfile,
+              )
+              psr.__dict__['parfile_name'] = pp
+              psr.__dict__['timfile_name'] = tt
+              if 'load_toa_filenames' in self.__dict__.keys() and self.load_toa_filenames == 'True':
+                psr.__dict__['filenames'] = read_tim(tt, column=1)
+
+              feather = pp.replace('par', 'feather')
               if process_rank == 0:
-                # Saving feather file for future use
-                parent_dir = os.path.dirname(pp)  
-                feather_dir = os.path.join(parent_dir, "feather")
-                os.makedirs(feather_dir, exist_ok=True)
-                base = os.path.basename(pp)
-                feather_file = os.path.splitext(base)[0] + ".feather"
-                feather = os.path.join(feather_dir, feather_file)                  
-                #feather = pp.replace('par','feather')
+                # Saving feather file for future use.
                 if 'noisefiles' in self.__dict__.keys():
-                  noise_dict_psr = get_noise_dict_psr(psr.name, \
-                        self.noisefiles)
+                  noise_dict_psr = get_noise_dict_psr(psr.name, self.noisefiles)
                   self.validate_noisedict(noise_dict_psr)
                 else:
                   noise_dict_psr = {}
                 psr.to_feather(feather, noisedict=noise_dict_psr)
-                print('Saved:',feather)
-              feathers = self.selection_pulsars(glob.glob(self.datadir + '/feather/*.feather'))
-              self.psrs = [ds.Pulsar.read_feather(ff) for ff in feathers]
-          print('------------------')
+                print('Saved:', feather)
+
+            # After creating missing feathers, load the expected set.
+            feathers_to_load = [ff for ff in expected_feathers if os.path.exists(ff)]
+            if not feathers_to_load:
+              # Potential race in multi-process runs: fall back to whatever feathers are visible.
+              feathers_to_load = self.selection_pulsars(glob.glob(self.datadir + '/*.feather'))
+              if not feathers_to_load:
+                raise RuntimeError(
+                  f"No feather files found for expected pairs in {self.datadir} "
+                  f"(and fallback glob did not find any)."
+                )
+          else:
+            feathers_to_load = list(expected_feathers)
+
+          # Pulsar selection is already applied via selection_pulsars() on par/tim
+          # (array_analysis=1 → all / psrlist; array_analysis=0 → --num only).
+          # Do not re-slice by --num here or full-array Discovery GWB runs collapse
+          # to a single pulsar (default --num 0).
+          self.psrs = [ds.Pulsar.read_feather(ff) for ff in feathers_to_load]
+        else:
+          # Non-discovery: keep original behaviour (load from par/tim files).
+          self.psrs = []
+          print('Loading .par and .tim files from', self.datadir)
+          for pp, tt in zip(parfiles, timfiles):
+            print(pp.split('/')[-1], tt.split('/')[-1])
+            psr = Pulsar(
+              pp,
+              tt,
+              ephem=self.ssephem,
+              clk=self.clock,
+              drop_t2pulsar=False,
+              timing_package=self.timing_package,
+              distance_file=self.psrdistfile,
+            )
+            psr.__dict__['parfile_name'] = pp
+            psr.__dict__['timfile_name'] = tt
+            if 'load_toa_filenames' in self.__dict__.keys() and self.load_toa_filenames == 'True':
+              psr.__dict__['filenames'] = read_tim(tt, column=1)
+            self.psrs.append(psr)
+
       # Determining Tspan
       tmin = [p.toas.min() for p in self.psrs]
       tmax = [p.toas.max() for p in self.psrs]
@@ -507,20 +556,35 @@ class Params(object):
       else:
         self.noisedict = {}
 
+      # Setting pulsar noise parameters
+      if self.pta_package=='discovery':
+        for psr in self.psrs:
+            noisedict = {par: val for par, val in self.noisedict.items() if par.startswith(psr.name) and par.endswith(('efac', 'equad', 'ecorr'))}
+            psr.noisedict = noisedict
+
       # Creating an output directory
+      self.output_dir = self.out + self.label_models + '_' + \
+                        self.paramfile_label + '/' + \
+                        self.extra_term_label + '/' + \
+                        str(self.opts.num)
+      if self.array_analysis:
+        self.output_dir += '/'
+      else:
+        self.output_dir += '_' + self.psrs[0].name + '/'
       if self.opts is not None:
-        self.output_dir = self.out + self.label_models + '_' + \
-                          self.paramfile_label + '/' + \
-                          self.extra_term_label + '/' + \
-                          str(self.opts.num)
-        if self.array_analysis:
-          self.output_dir += '/'
-        else:
-          self.output_dir += '_' + self.psrs[0].name + '/'
-        if self.opts is not None:
-          if process_rank == 0:
-            if not os.path.exists(self.output_dir):
-              os.makedirs(self.output_dir)
+        if process_rank == 0:
+          wipe = _truthy(getattr(self, "overwrite", False)) or bool(
+              getattr(self.opts, "wipe_old_output", 0)
+          )
+          if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+          elif wipe:
+            warnings.warn(
+                "overwrite/wipe_old_output set: removing everything in "
+                + self.output_dir
+            )
+            shutil.rmtree(self.output_dir)
+            os.makedirs(self.output_dir)
 
   def validate_noisedict(self, noisedict):
     if 'noisefiles' in self.__dict__.keys():
@@ -578,7 +642,7 @@ def init_pta_enterprise(params_all):
           psr_model = pta_model + getattr(singlepsr_model, psp)(option=option)
         else:
           psr_model = tm + getattr(singlepsr_model, psp)(option=option)
-      
+
       models.append(psr_model(psr))
       del psr_model
 
@@ -593,7 +657,7 @@ def init_pta_enterprise(params_all):
     if params.opts is not None:
       if process_rank == 0:
         np.savetxt(params.output_dir + '/pars.txt', pta.param_names, fmt='%s')
-        print("Saving pars.txt file at:", params.output_dir)
+        
     ptas[ii]=pta
 
   return ptas
@@ -647,6 +711,46 @@ def load_to_dict(filename):
             (key, val) = line.split()
             dictionary[key] = val
     return dictionary
+
+def cast_param_value(dtype, raw_value):
+  """
+  Cast a parameter-file value to the expected type.
+
+  Accepts common boolean spellings for ``bool`` and also for ``int``
+  flags (``True``/``False`` → 1/0), so ``overwrite: True`` works even
+  when the parameter is registered as ``int``.
+  """
+  text = str(raw_value).strip()
+  text_l = text.lower()
+  truthy = {"1", "true", "t", "yes", "y", "on"}
+  falsy = {"0", "false", "f", "no", "n", "off"}
+
+  if dtype is bool:
+    if text_l in truthy:
+      return True
+    if text_l in falsy:
+      return False
+    raise ValueError("Unable to parse boolean parameter value: " + text)
+
+  if dtype is int:
+    if text_l in truthy:
+      return 1
+    if text_l in falsy:
+      return 0
+    return int(text)
+
+  if dtype is float:
+    if text_l in truthy:
+      return 1.0
+    if text_l in falsy:
+      return 0.0
+    return float(text)
+
+  if dtype is type(None):
+    return int(text)
+
+  return dtype(raw_value)
+
 
 def dict_to_label_attr_map(input_dict):
     """

@@ -125,7 +125,7 @@ class DiscoveryModels(EnterpriseModels):
     """
     nfreqs = self.option_nfreqs(option, sel_func_name=None)
     pl = ds.__dict__[option["psd"]]
-    return ds.makecommongp_fourier(self.params.psrs, pl, nfreqs, self.params.Tspan, name='crn', common=['crn_log10_A', 'crn_gamma'])
+    return ds.makecommongp_fourier(self.params.psrs, pl, nfreqs, self.params.Tspan, name='crn', common=['crn_log10_A', 'crn_gamma', 'crn_log10_rho'])
 
   def global_gp(self, option={}):
     """
@@ -134,6 +134,6 @@ class DiscoveryModels(EnterpriseModels):
     name = option["orf"]
     nfreqs = self.option_nfreqs(option, sel_func_name=None)
     pl = ds.__dict__[option["psd"]]
-    orf = ds.__dict__[option["orf"]]
+    orf = ds.__dict__[name]
     return ds.makeglobalgp_fourier(self.params.psrs, pl, orf, nfreqs, self.params.Tspan, name='gw')
 

@@ -2,6 +2,7 @@ paramfile_label: discovery
 datadir: data/
 out: out/
 pta_package: discovery
+four_coef: 1
 overwrite: True
 array_analysis: 1
 sampler: ptmcmcsampler

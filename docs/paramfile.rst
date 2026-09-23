@@ -23,6 +23,7 @@ Parameter file options
 - **ssephem**: Solar System ephemeris model, the default one is DE436.
 - **clock**: a clock argument for enterprise, it is passed to ``libstempo`` or ``pint`` (timing packages). At the moment, it is not supported for single-pulsar noise analysis (check the use of ``Pulsar()`` in ``enterprise_warp.py``). A default option is ``None``.
 - **fref**: reference radio frequency for "chromatic" (e.g., DM) noise, used in ``enterprise_models.py`` and it can be accessed in your own child class of ``StandardModels``.
+- **four_coef**: Discovery-only switch (0/1 or False/True). If enabled, ``enterprise_warp`` remaps ``pta.logL`` to the explicit-coefficient likelihood path (``clogL``), so Fourier coefficients are sampled together with hyper-parameters.
 
 Somewhat less useful parameters: 
 - **overwrite**: an option to overwrite an old Enterprise output. It is not maintained at the moment.

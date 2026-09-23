@@ -21,7 +21,7 @@ import warnings
 import itertools
 import numpy as np
 import scipy as sp
-
+import sys
 
 from datetime import datetime
 from dateutil.parser import parse as pdate
@@ -75,7 +75,7 @@ def parse_commandline():
   """
 
   parser = optparse.OptionParser()
-  parser.add_option("--num", help="Number of the analysis", default=0, type=int)
+
   parser.add_option("-r", "--result", help="Output directory or a parameter \
                     file. In case of individual pulsar analysis, specify a \
                     directory that contains subdirectories with individual \
@@ -128,6 +128,10 @@ def parse_commandline():
                     If --par are supplied, load only files with --par \
                     columns.", default=0, type=int)
 
+  parser.add_option("-T", "--thin", help="Save a new chain file with N times \
+                    less samples after 25% burn in, N=thin.", default=None, \
+                    type=int)
+
 
   parser.add_option("-o", "--optimal_statistic", help="Calculate optimal \
                     statistic and make key plots (1/0)", default = 0,
@@ -152,6 +156,8 @@ def parse_commandline():
 
   parser.add_option("-y", "--bilby", help="Load bilby result", \
                     default=0, type=int)
+  parser.add_option("-d", "--discovery", help="Load Discovery result", \
+                    default=0, type=int)
 
   parser.add_option("-P", "--custom_models_py", help = "Full path to a .py \
                     file with custom enterprise_warp model object, derived \
@@ -164,6 +170,10 @@ def parse_commandline():
   parser.add_option("-M", "--custom_models", help = "Name of the custom \
                     enterprise_warp model object in --custom_models_py.",
                     default = None, type = str)
+
+  parser.add_option("-R", "--realization", help = "For full-PTA run, \
+                    whether to use 0/ or other folder (--num).",
+                    default = 0, type = int)
 
   opts, args = parser.parse_args()
 
@@ -188,9 +198,11 @@ class FakeResultOpts:
     self.covm = 0
     self.separate_earliest = 0
     self.load_separated = 0
+    self.thin = None
     self.optimal_statistic = 0
     self.bilby = 0
     self.custom_models_py = None
+    self.realization = 0
 
 def get_HD_curve(zeta):
   coszeta = np.cos(zeta)
@@ -306,10 +318,14 @@ def make_noise_files(psrname, chain, pars, outdir='noisefiles/',
 def check_if_psr_dir(folder_name):
   """
   Check if the folder name (without path) is in the enterprise_warp format:
-  integer, underscore, pulsar name.
+  integer, underscore, pulsar name, or just a single integer (realization directory).
   """
-  return bool(re.match(r'^\d{1,}_[J,B]\d{2,4}[+,-]\d{2,4}[A,B]{0,1}$',
-  folder_name))
+  # Match standard format: integer_underscore_pulsar_name (e.g., "0_J1713+0747")
+  standard_format = bool(re.match(r'^\d{1,}_[J,B]\d{2,4}[+,-]\d{2,4}[A,B]{0,1}$',
+                                   folder_name))
+  # Match numeric-only format: single integer (e.g., "0", "1", "2")
+  numeric_format = bool(re.match(r'^\d+$', folder_name))
+  return standard_format or numeric_format
 
 
 
@@ -407,6 +423,10 @@ class EnterpriseWarpResult(object):
   def __init__(self, opts, custom_models_obj=None):
     self.opts = opts
     self.custom_models_obj = custom_models_obj
+    self.truth_path = None
+    self.truth_values = None
+    self._truth_cache = {}
+    self._auto_truth_paths_seen = set()
     self.interpret_opts_result()
     self.get_psr_dirs()
 
@@ -423,7 +443,7 @@ class EnterpriseWarpResult(object):
       self._get_covm()
 
       if not (self.opts.noisefiles or self.opts.logbf or self.opts.corner or \
-              self.opts.chains or self.opts.hists):
+              self.opts.chains or self.opts.hists or self.opts.thin):
         continue
 
       success = self.load_chains()
@@ -442,55 +462,98 @@ class EnterpriseWarpResult(object):
 
   def _scan_psr_output(self):
 
-    self.outdir = self.outdir_all + '/' + self.psr_dir + '/'
+    # Use os.path.join to avoid multiple slashes
+    if self.psr_dir:
+      self.outdir = os.path.join(self.outdir_all, self.psr_dir)
+    else:
+      self.outdir = self.outdir_all
     if self.opts.name != 'all' and self.opts.name not in self.psr_dir:
       return False
     print('Processing ', self.psr_dir)
 
     self.get_pars()
     self.get_chain_file_name()
+    self._detect_truth_file()
+    self._load_truth_values()
 
     return True
+
+  def _detect_truth_file(self):
+    if self.opts.truths is not None:
+      self.truth_path = self.opts.truths
+      return
+    candidates = []
+    if self.outdir:
+      candidates.append(os.path.join(self.outdir, 'truth.json'))
+    if self.outdir_all:
+      candidates.append(os.path.join(self.outdir_all, 'truth.json'))
+    self.truth_path = None
+    for candidate in candidates:
+      if os.path.isfile(candidate):
+        self.truth_path = candidate
+        if candidate not in self._auto_truth_paths_seen:
+          print('Using truth file ', candidate)
+          self._auto_truth_paths_seen.add(candidate)
+        break
+
+  def _load_truth_values(self):
+    self.truth_values = None
+    if self.truth_path is None:
+      return
+    if self.truth_path in self._truth_cache:
+      self.truth_values = self._truth_cache[self.truth_path]
+      return
+    try:
+      with open(self.truth_path, 'r') as truth_file:
+        truths = json.load(truth_file)
+    except Exception as exc:
+      warnings.warn('Could not load truths from {}: {}'.format(
+                    self.truth_path, exc))
+      return
+    if not isinstance(truths, dict):
+      warnings.warn('Truth file {} does not contain a JSON object, ignoring.'
+                    .format(self.truth_path))
+      return
+    self.truth_values = truths
+    self._truth_cache[self.truth_path] = truths
+
+  def _get_truths_for_pars(self, par_subset):
+    if self.truth_values is None:
+      return None
+    truths_list = []
+    missing_params = []
+    for par in par_subset:
+      par_str = str(par)
+      if par_str in self.truth_values:
+        truths_list.append(self.truth_values[par_str])
+      else:
+        truths_list.append(None)
+        missing_params.append(par_str)
+    # Warn about missing parameters, but still return the list (with None for missing ones)
+    if missing_params:
+      warnings.warn('Truth values not found for parameters {} in {} (will not show truth lines for these parameters)'.format(
+                    ', '.join(missing_params), self.truth_path))
+    # Return None only if no truth values were found at all
+    if all(t is None for t in truths_list):
+      return None
+    return truths_list
+
+  def _get_truth_value(self, par_name):
+    if self.truth_values is None:
+      return None
+    return self.truth_values.get(str(par_name))
 
   def interpret_opts_result(self):
     """ Determine output directory from the --results argument """
     if os.path.isdir(self.opts.result):
-      root = os.path.abspath(self.opts.result.rstrip('/'))
-      entries = os.listdir(root)
-      has_pars_here = (
-          'pars.txt' in entries
-          or any(fn.startswith('pars_') and fn.endswith('.txt')
-                 for fn in entries)
-      )
-      has_psr_dirs = any(check_if_psr_dir(e) for e in entries)
-
-      if has_pars_here or has_psr_dirs:
-        self.outdir_all = root + '/'
-        return
-      sub0 = os.path.join(root, '0')
-      if os.path.isdir(sub0):
-        entries0 = os.listdir(sub0)
-        has_pars_in_0 = (
-            'pars.txt' in entries0
-            or any(fn.startswith('pars_') and fn.endswith('.txt')
-                   for fn in entries0)
-        )
-        if has_pars_in_0:
-          self.outdir_all = sub0 + '/'
-          return
-      self.outdir_all = root + '/'
-    
+      self.outdir_all = self.opts.result
     elif os.path.isfile(self.opts.result):
       self.params = enterprise_warp.Params(self.opts.result, \
                       init_pulsars=False, \
                       custom_models_obj=self.custom_models_obj)
       if self.params.array_analysis:
-        if self.opts.num != 0:
-          self.outdir_all = self.params.out + self.params.label_models + '_' + \
-                            self.params.paramfile_label + "/{}/".format(self.opts.num)
-        else:
-          self.outdir_all = self.params.out + self.params.label_models + '_' + \
-                            self.params.paramfile_label + '/0/'
+        self.outdir_all = self.params.out + self.params.label_models + '_' + \
+                          self.params.paramfile_label + '/' + str(self.opts.realization) + '/'
       else:
         self.outdir_all = self.params.out + self.params.label_models + '_' + \
                         self.params.paramfile_label + '/'
@@ -551,9 +614,9 @@ class EnterpriseWarpResult(object):
       self.par_out_label = ''
     if self.opts.load_separated and self.par_out_label!='':
       self.pars = np.loadtxt(self.outdir + '/pars_' + self.par_out_label + \
-                             '.txt', dtype=np.unicode_)
+                             '.txt', dtype=str)
     else:
-      self.pars = np.loadtxt(self.outdir + '/pars.txt', dtype=np.unicode_)
+      self.pars = np.loadtxt(self.outdir + '/pars.txt', dtype=str)
     self._get_par_mask()
     if self.opts.info and (self.opts.name != 'all' or self.psr_dir == ''):
       print('Parameter names:')
@@ -579,8 +642,48 @@ class EnterpriseWarpResult(object):
       if len(self.chain)==0:
         print('Empty chain file in ', self.outdir)
         return False
-    burn = int(0.5*self.chain.shape[0])
-    self.chain_burn = self.chain[burn:,:-4]
+    burn = int(0.75*self.chain.shape[0]) # burn 50% of the chain
+    if self.opts.thin is not None:
+      new_chain_fname = self.chain_file.replace("chain","thin_chain")
+      np.savetxt(new_chain_fname, self.chain[burn::self.opts.thin,:])
+      print("Saved thinned chain:", new_chain_fname)
+
+    # PTMCMCSampler enterprise chains are (npars + 4): lnpost, lnlike, accept, pt.
+    # Discovery / separated chains are often already npars-wide.
+    # When --result is a directory, self.params is unset — infer from shapes.
+    npars = len(self.pars)
+    ncol = self.chain.shape[1]
+    strip_extra = None
+    if hasattr(self, "params") and self.params:
+      if getattr(self.params, "pta_package", None) == "enterprise":
+        strip_extra = True
+      elif getattr(self.params, "pta_package", None) == "discovery":
+        strip_extra = False
+    if strip_extra is None:
+      if ncol == npars + 4:
+        strip_extra = True
+      elif ncol == npars:
+        strip_extra = False
+      else:
+        raise ValueError(
+          "Chain width {} does not match pars.txt length {} or {}+4. "
+          "Check that this result directory's chain_1.txt belongs to the "
+          "same run as its pars.txt (not a different PTA / package).".format(
+            ncol, npars, npars
+          )
+        )
+
+    if strip_extra:
+      self.chain_burn = self.chain[burn:, :-4]
+    else:
+      self.chain_burn = self.chain[burn:, :]
+
+    if self.chain_burn.shape[1] != npars:
+      raise ValueError(
+        "After load, chain_burn has {} columns but pars.txt has {} names.".format(
+          self.chain_burn.shape[1], npars
+        )
+      )
 
     if 'nmodel' in self.pars:
       self.ind_model = list(self.pars).index('nmodel')
@@ -595,15 +698,12 @@ class EnterpriseWarpResult(object):
 
     return True
 
-
   def _get_par_mask(self):
     """ Get an array mask to select only parameters chosen with --par """
     if self.opts.par is not None:
       masks = list()
       for pp in self.opts.par:
         masks.append( [True if pp in label else False for label in self.pars] )
-      # for pp in self.opts.par:
-      #   masks.append([label == pp for label in self.pars])
       self.par_mask = np.sum(masks, dtype=bool, axis=0)
     else:
       self.par_mask = np.repeat(True, len(self.pars))
@@ -689,21 +789,25 @@ class EnterpriseWarpResult(object):
 
   def _print_logbf(self):
     """ Print log Bayes factors (product-space) from PTMCMC on the screen """
+    self.logbf = {}
     if self.opts.logbf:
       print('=====', self.psr_dir, ' model selection results', '=====')
       print('Samples in favor of models: ', self.dict_real_counts)
       if len(self.unique) > 1:
         count_by_pairs = list(itertools.combinations(sorted(self.unique), 2))
+        self.logbf = {}
         for combination in count_by_pairs:
           logbf = np.log(self.dict_real_counts[combination[1]] / \
                          self.dict_real_counts[combination[0]])
           print('logBF for ', int(combination[1]), 'over ', \
                 int(combination[0]),': ', logbf)
+          self.logbf[combination] = logbf
 
 
   def _make_corner_plot(self):
     """ Corner plot for a posterior distribution from the result """
     if self.opts.corner == 1:
+      truths = self._get_truths_for_pars(self.pars[self.par_mask])
       for jj in self.unique:
         if jj is not None:
           model_mask = np.round(self.chain_burn[:,self.ind_model]) == jj
@@ -711,11 +815,6 @@ class EnterpriseWarpResult(object):
           model_mask = np.repeat(True, self.chain_burn.shape[0])
         chain_plot = self.chain_burn[model_mask,:]
         chain_plot = chain_plot[:,self.par_mask]
-        if self.opts.truths is not None:
-          truths = json.load(open(self.opts.truths, 'r'))
-          truths = [truths[pp] for pp in self.pars[self.par_mask]]
-        else:
-          truths = None
         figure = corner(chain_plot, 30, labels=self.pars[self.par_mask], \
                         truths=truths)
         plt.savefig(self.outdir_all + '/' + self.psr_dir + '_corner_' + \
@@ -754,6 +853,9 @@ class EnterpriseWarpResult(object):
           plt.subplot(x_tiles, y_tiles, pp + 1)
           cut_chain = self.chain[::int(self.chain[:,pp].size/thin_factor),pp]
           plt.hist(cut_chain,label=par.replace('_','\n'),bins=50)
+          truth_val = self._get_truth_value(par)
+          if truth_val is not None:
+            plt.axvline(truth_val, color='r', linestyle='--', linewidth=1.5)
           plt.legend()
           plt.xlabel('Parameter')
           plt.ylabel('Density')
@@ -1131,6 +1233,50 @@ class OptimalStatisticWarp(EnterpriseWarpResult):
     #need to add functionalitu
     return True
 
+
+class DiscoveryWarpResult(EnterpriseWarpResult):
+  """
+  Result handler for Discovery/NumPyro runs that save CSV chains.
+  """
+
+  def get_chain_file_name(self):
+    csv_candidates = sorted(glob.glob(os.path.join(self.outdir, "*_chain.csv")))
+    if not csv_candidates:
+      csv_candidates = sorted(glob.glob(os.path.join(self.outdir, "*.csv")))
+    self.chain_file = csv_candidates[0] if csv_candidates else None
+    if self.chain_file is None:
+      print('Could not find CSV chain file in ', self.outdir)
+    elif self.opts.info:
+      size_mb = int(np.round(os.path.getsize(self.chain_file) / 1e6))
+      print('Available CSV chain file ', self.chain_file, '(', size_mb, ' Mb)')
+
+  def load_chains(self):
+    """Load NumPyro CSV chains."""
+    if self.chain_file is None:
+      print('No chain file selected for ', self.outdir)
+      return False
+    try:
+      df = pd.read_csv(self.chain_file)
+    except Exception as exc:
+      print('Could not load CSV ', self.chain_file, ':', exc)
+      return False
+    if df.empty:
+      print('Empty CSV chain file in ', self.outdir)
+      return False
+
+    # Discovery CSV headers contain the true parameter ordering (including vector entries),
+    # so replace the pars/mask derived from pars.txt to keep shapes consistent.
+    self.pars = np.asarray(df.columns, dtype=str)
+    self._get_par_mask()
+
+    self.chain = df.to_numpy()
+    burn = int(0.1 * self.chain.shape[0])
+    burn = min(self.chain.shape[0], max(burn, 0))
+    self.chain_burn = self.chain[burn:, :]
+
+    self.ind_model = 0
+    self.unique, self.counts, self.dict_real_counts = [None], None, None
+    return True
 
 
 class BilbyWarpResult(EnterpriseWarpResult):
