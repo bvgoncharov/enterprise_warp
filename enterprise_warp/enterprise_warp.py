@@ -470,48 +470,23 @@ class Params(object):
           )
 
           if not feathers_all_exist:
-            # Missing feathers: create them (on rank 0) by iterating all par/tim pairs.
-            self.psrs = []
-            print('Loading .par and .tim files from', self.datadir)
-            for nm in psr_names:
-              pp = par_by_name[nm]
-              tt = tim_by_name[nm]
-              print(pp.split('/')[-1], tt.split('/')[-1])
-              psr = Pulsar(
-                pp,
-                tt,
-                ephem=self.ssephem,
-                clk=self.clock,
-                drop_t2pulsar=False,
-                timing_package=self.timing_package,
-                distance_file=self.psrdistfile,
+            # In-process tempo2/libstempo rebuild of many pulsars segfaults
+            # (EPTA DR2full often dies around J1024-0719). Build missing
+            # feathers one-subprocess-each first (e.g. run_spline_epta.py),
+            # or drop the pulsar via psrlist.
+            missing = [
+              nm for nm, ff in zip(psr_names, expected_feathers)
+              if not os.path.exists(ff)
+            ]
+            raise RuntimeError(
+              "Missing Discovery feather file(s) for {}: {}. "
+              "Build them one pulsar per process "
+              "(python run_spline_epta.py --prfile ..., or "
+              "build_epta_feathers.py) before init_pulsars; "
+              "in-process multi-pulsar .par/.tim reload is disabled.".format(
+                self.datadir, ", ".join(missing)
               )
-              psr.__dict__['parfile_name'] = pp
-              psr.__dict__['timfile_name'] = tt
-              if 'load_toa_filenames' in self.__dict__.keys() and self.load_toa_filenames == 'True':
-                psr.__dict__['filenames'] = read_tim(tt, column=1)
-
-              feather = pp.replace('par', 'feather')
-              if process_rank == 0:
-                # Saving feather file for future use.
-                if 'noisefiles' in self.__dict__.keys():
-                  noise_dict_psr = get_noise_dict_psr(psr.name, self.noisefiles)
-                  self.validate_noisedict(noise_dict_psr)
-                else:
-                  noise_dict_psr = {}
-                psr.to_feather(feather, noisedict=noise_dict_psr)
-                print('Saved:', feather)
-
-            # After creating missing feathers, load the expected set.
-            feathers_to_load = [ff for ff in expected_feathers if os.path.exists(ff)]
-            if not feathers_to_load:
-              # Potential race in multi-process runs: fall back to whatever feathers are visible.
-              feathers_to_load = self.selection_pulsars(glob.glob(self.datadir + '/*.feather'))
-              if not feathers_to_load:
-                raise RuntimeError(
-                  f"No feather files found for expected pairs in {self.datadir} "
-                  f"(and fallback glob did not find any)."
-                )
+            )
           else:
             feathers_to_load = list(expected_feathers)
 

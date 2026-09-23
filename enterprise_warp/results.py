@@ -279,6 +279,45 @@ def sanitize_filename_component(label):
   safe_label = safe_label.strip('._')
   return safe_label if safe_label else 'result'
 
+def expand_vector_param_names(names):
+  """
+  Expand Discovery ``foo(N)`` vector names to ``foo[0]`` … ``foo[N-1]``.
+
+  Some writers leave compact ``gw_log10_rho(30)`` / ``crn_log10_rho(N)`` entries
+  in pars.txt while chain_1.txt / CSV columns are already expanded.
+  """
+  expanded = []
+  for name in np.atleast_1d(np.asarray(names, dtype=str)).tolist():
+    match = re.match(r'^(.+)\((\d+)\)$', name)
+    if match:
+      base, num = match.group(1), int(match.group(2))
+      expanded.extend(['{}[{}]'.format(base, i) for i in range(num)])
+    else:
+      expanded.append(name)
+  return np.asarray(expanded, dtype=str)
+
+# Enterprise CRN vs Discovery GWB naming — --par crn also matches gw_* params.
+_PAR_FILTER_ALIASES = {
+  'crn': ('crn', 'gw'),
+  'gw': ('gw', 'crn'),
+}
+
+def expand_par_filter_needles(par_filters):
+  """Expand --par filter tokens with CRN/GWB aliases."""
+  if par_filters is None:
+    return None
+  needles = []
+  for pp in par_filters:
+    needles.extend(_PAR_FILTER_ALIASES.get(pp, (pp,)))
+  # Preserve order, drop duplicates
+  seen = set()
+  out = []
+  for n in needles:
+    if n not in seen:
+      seen.add(n)
+      out.append(n)
+  return out
+
 def get_par_out_label(par_filters):
   return '' if par_filters is None else '_'.join(par_filters)
 
@@ -288,10 +327,11 @@ def get_plot_stride(size, target_samples):
   return max(1, int(size/target_samples))
 
 def filter_parameter_names(par_names, par_filters=None):
+  needles = expand_par_filter_needles(par_filters)
   filtered_names = list()
   for par in par_names:
     par_name = str(par)
-    if par_filters is None or any(flt in par_name for flt in par_filters):
+    if needles is None or any(flt in par_name for flt in needles):
       filtered_names.append(par_name)
   return filtered_names
 
@@ -806,10 +846,12 @@ class EnterpriseWarpResult(object):
     if not os.path.exists(self.outdir + '/pars_' + self.par_out_label + '.txt'):
       self.par_out_label = ''
     if self.opts.load_separated and self.par_out_label!='':
-      self.pars = np.loadtxt(self.outdir + '/pars_' + self.par_out_label + \
-                             '.txt', dtype=np.unicode_)
+      raw_pars = np.loadtxt(self.outdir + '/pars_' + self.par_out_label + \
+                            '.txt', dtype=str)
     else:
-      self.pars = np.loadtxt(self.outdir + '/pars.txt', dtype=np.unicode_)
+      raw_pars = np.loadtxt(self.outdir + '/pars.txt', dtype=str)
+    # NumPy 2 removed np.unicode_; also expand Discovery foo(N) vector names.
+    self.pars = expand_vector_param_names(raw_pars)
     self._get_par_mask()
     if self.opts.info and (self.opts.name != 'all' or self.psr_dir == ''):
       print('Parameter names:')
@@ -892,12 +934,23 @@ class EnterpriseWarpResult(object):
     return True
 
   def _get_par_mask(self):
-    """ Get an array mask to select only parameters chosen with --par """
+    """ Get an array mask to select only parameters chosen with --par.
+
+    ``crn`` and ``gw`` are aliases (Enterprise CRN vs Discovery GWB naming).
+    """
     if self.opts.par is not None:
+      needles = expand_par_filter_needles(self.opts.par)
       masks = list()
-      for pp in self.opts.par:
-        masks.append( [True if pp in label else False for label in self.pars] )
+      for pp in needles:
+        masks.append([True if pp in label else False for label in self.pars])
       self.par_mask = np.sum(masks, dtype=bool, axis=0)
+      if not np.any(self.par_mask):
+        raise ValueError(
+          "--par {} matched no parameters in pars.txt. Available names "
+          "include: {}.".format(
+            self.opts.par, list(np.asarray(self.pars, dtype=str)[:8])
+          )
+        )
     else:
       self.par_mask = np.repeat(True, len(self.pars))
 
@@ -999,6 +1052,13 @@ class EnterpriseWarpResult(object):
 
   def _make_corner_plot(self):
     """ Corner plot for a posterior distribution from the result """
+    if not self.opts.corner:
+      return
+    if not np.any(self.par_mask):
+      raise ValueError(
+        "Corner plot requested but --par selected 0 parameters "
+        "(pars.txt has {} names).".format(len(self.pars))
+      )
     if self.opts.corner == 1:
       truths = self._get_truths_for_pars(self.pars[self.par_mask])
       for jj in self.unique:
@@ -1008,6 +1068,11 @@ class EnterpriseWarpResult(object):
           model_mask = np.repeat(True, self.chain_burn.shape[0])
         chain_plot = self.chain_burn[model_mask,:]
         chain_plot = chain_plot[:,self.par_mask]
+        if chain_plot.ndim != 2 or chain_plot.shape[1] == 0:
+          raise ValueError(
+            "Corner plot has empty samples after masks "
+            "(shape={}). Check --par and chain burn-in.".format(chain_plot.shape)
+          )
         figure = corner(chain_plot, 30, labels=self.pars[self.par_mask], \
                         truths=truths)
         plt.savefig(self.outdir_all + '/' + self.psr_dir + '_corner_' + \
